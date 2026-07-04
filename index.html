@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shiny-binderen · Pokémon GO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --desk: #1b2430;
+  --leather: #7a1f2b;
+  --leather-dark: #5c1620;
+  --stitch: #e8b84b;
+  --page: #f6efdd;
+  --page-edge: #e3d9c0;
+  --ink: #3a3226;
+  --pocket: rgba(255,255,255,.55);
+  --gold: #d9a92f;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  min-height: 100vh;
+  font-family: 'Nunito', sans-serif;
+  color: #f0e6d0;
+  background:
+    radial-gradient(1200px 600px at 50% -100px, #2c3a4d 0%, transparent 60%),
+    var(--desk);
+  background-attachment: fixed;
+  overflow-x: hidden;
+}
+/* subtle desk grain */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  opacity: .05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+header {
+  text-align: center;
+  padding: 28px 16px 10px;
+}
+h1 {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.8rem, 4.5vw, 3rem);
+  letter-spacing: .02em;
+  color: #ffd95e;
+  text-shadow: 0 2px 0 #8a5a00, 0 5px 18px rgba(0,0,0,.5);
+}
+h1 .spark { display: inline-block; animation: twinkle 2.2s ease-in-out infinite; }
+@keyframes twinkle {
+  0%,100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  50% { transform: scale(1.25) rotate(18deg); opacity: .75; }
+}
+.subtitle { opacity: .8; font-size: .95rem; margin-top: 4px; }
+.legend {
+  margin-top: 10px;
+  font-size: .8rem;
+  opacity: .75;
+  display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: center;
+}
+
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  justify-content: center; align-items: center;
+  padding: 14px 16px 6px;
+}
+.toolbar input {
+  font: 700 .95rem 'Nunito', sans-serif;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,217,94,.4);
+  background: rgba(0,0,0,.35);
+  color: #ffe9a8;
+  width: min(280px, 70vw);
+  outline: none;
+}
+.toolbar input::placeholder { color: rgba(255,233,168,.45); }
+.toolbar input:focus { border-color: var(--stitch); box-shadow: 0 0 0 3px rgba(232,184,75,.2); }
+.gens { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
+.gens button {
+  font: 700 .8rem 'Fredoka', sans-serif;
+  padding: 6px 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.08);
+  color: #f0e6d0;
+  cursor: pointer;
+  transition: background .15s, transform .15s;
+}
+.gens button:hover { background: rgba(232,184,75,.3); transform: translateY(-1px); }
+
+/* ===== Binder ===== */
+.binder-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 8px 8px;
+  perspective: 2600px;
+}
+.navbtn {
+  font-size: 1.6rem;
+  width: 52px; height: 52px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 2px solid rgba(255,217,94,.5);
+  background: rgba(0,0,0,.4);
+  color: #ffd95e;
+  cursor: pointer;
+  transition: transform .15s, background .15s;
+  user-select: none;
+}
+.navbtn:hover { background: rgba(232,184,75,.25); transform: scale(1.08); }
+.navbtn:disabled { opacity: .25; cursor: default; transform: none; }
+
+.binder {
+  position: relative;
+  background: linear-gradient(155deg, #8d2836 0%, var(--leather) 45%, var(--leather-dark) 100%);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow:
+    0 30px 60px rgba(0,0,0,.55),
+    inset 0 2px 4px rgba(255,255,255,.15),
+    inset 0 -3px 8px rgba(0,0,0,.4);
+  border: 1px solid rgba(0,0,0,.4);
+}
+/* stitched edge */
+.binder::before {
+  content: '';
+  position: absolute; inset: 9px;
+  border: 2px dashed rgba(232,184,75,.55);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.spread {
+  position: relative;
+  display: flex;
+  transform-style: preserve-3d;
+}
+
+.page {
+  position: relative;
+  width: min(43vw, calc(var(--cols, 3) * 165px));
+  background:
+    linear-gradient(180deg, var(--page) 0%, var(--page-edge) 100%);
+  padding: 16px 14px 34px;
+  box-shadow: inset 0 0 30px rgba(120,90,40,.15);
+}
+.page.left  { border-radius: 10px 2px 2px 10px; box-shadow: inset -18px 0 24px -18px rgba(0,0,0,.35), inset 0 0 30px rgba(120,90,40,.12); }
+.page.right { border-radius: 2px 10px 10px 2px; box-shadow: inset 18px 0 24px -18px rgba(0,0,0,.35), inset 0 0 30px rgba(120,90,40,.12); }
+
+/* stacked page edges */
+.page.left::after, .page.right::after {
+  content: '';
+  position: absolute; top: 4px; bottom: 4px; width: 7px;
+  background: repeating-linear-gradient(90deg, #fffbe9 0 1.6px, #cfc3a3 1.6px 2.6px);
+  pointer-events: none;
+}
+.page.left::after  { left: -7px; border-radius: 4px 0 0 4px; }
+.page.right::after { right: -7px; border-radius: 0 4px 4px 0; }
+
+.page-num {
+  position: absolute; bottom: 9px;
+  font: 600 .75rem 'Fredoka', sans-serif;
+  color: #8a7a55;
+}
+.page.left .page-num { left: 18px; }
+.page.right .page-num { right: 18px; }
+
+/* rings */
+.rings {
+  position: absolute;
+  left: 50%; top: 0; bottom: 0;
+  width: 0;
+  z-index: 30;
+  pointer-events: none;
+}
+.ring {
+  position: absolute;
+  left: -13px;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  border: 5px solid #b9bec7;
+  background: transparent;
+  box-shadow:
+    inset 1px 1px 2px rgba(255,255,255,.8),
+    inset -1px -1px 2px rgba(0,0,0,.45),
+    2px 3px 5px rgba(0,0,0,.35);
+}
+.ring:nth-child(1) { top: 8%; }
+.ring:nth-child(2) { top: 47%; }
+.ring:nth-child(3) { top: 84%; }
+
+/* ===== Pockets & cards ===== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), 1fr);
+  gap: 9px;
+}
+.pocket {
+  position: relative;
+  aspect-ratio: 63/88;
+  border-radius: 7px;
+  background: linear-gradient(160deg, rgba(255,255,255,.32), rgba(255,255,255,.06) 55%);
+  border: 1.5px solid rgba(150,130,90,.35);
+  box-shadow: inset 0 1px 3px rgba(255,255,255,.5), 0 1px 2px rgba(0,0,0,.12);
+  overflow: hidden;
+}
+/* plastic sleeve glare */
+.pocket::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.35) 42%, transparent 55%);
+  pointer-events: none;
+  z-index: 5;
+}
+.pocket.empty {
+  background: rgba(0,0,0,.045);
+  border-style: dashed;
+}
+
+.card {
+  position: absolute; inset: 4%;
+  border-radius: 5px;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 5% 4% 4%;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.35), transparent 45%),
+    linear-gradient(120deg, #ffe9b0 0%, #ffd1e8 25%, #cfe4ff 50%, #d6ffd9 75%, #fff3c4 100%);
+  border: 1px solid rgba(190,150,60,.6);
+  box-shadow: 0 2px 5px rgba(0,0,0,.25);
+  cursor: default;
+  transition: transform .18s;
+}
+.card:hover { transform: scale(1.06) rotate(-1deg); z-index: 8; }
+.card img {
+  width: 78%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 4px rgba(0,0,0,.3));
+  margin-top: 2%;
+}
+.card .cardtop {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.card .dex {
+  font: 600 clamp(.5rem, 1vw, .65rem) 'Fredoka', sans-serif;
+  color: rgba(60,45,20,.65);
+}
+.card .rate {
+  font: 700 clamp(.5rem, 1vw, .68rem) 'Fredoka', sans-serif;
+  color: #8a5a00;
+  background: rgba(255,233,160,.75);
+  border: 1px solid rgba(168,124,20,.5);
+  border-radius: 4px;
+  padding: 0 3px;
+  white-space: nowrap;
+}
+.card .nm {
+  font: 700 clamp(.55rem, 1.15vw, .78rem) 'Fredoka', sans-serif;
+  color: var(--ink);
+  text-align: center;
+  line-height: 1.1;
+  margin-top: auto;
+}
+.card .badges {
+  display: flex; gap: 1px;
+  font-size: clamp(.5rem, .9vw, .68rem);
+  margin-top: 2px;
+  filter: saturate(.9);
+}
+/* collected / not collected */
+.card { cursor: pointer; }
+.card:not(.owned) {
+  filter: grayscale(.85) brightness(.8);
+  opacity: .45;
+  transition: filter .25s, opacity .25s, transform .18s;
+}
+body.show-all .card:not(.owned) { filter: none; opacity: 1; }
+.card.owned::after {
+  content: '✔';
+  position: absolute;
+  top: 16%; right: 4%;
+  width: 1.15em; height: 1.15em;
+  display: grid; place-items: center;
+  font-size: clamp(.55rem, 1.1vw, .75rem);
+  color: #5c3d00;
+  background: radial-gradient(circle at 35% 30%, #ffe9a0, var(--gold));
+  border: 1px solid #a87c14;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,.35);
+}
+#showall, #top50, #authbtn {
+  font: 700 .8rem 'Fredoka', sans-serif;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,217,94,.4);
+  background: rgba(0,0,0,.35);
+  color: #ffe9a8;
+  cursor: pointer;
+  transition: background .15s;
+}
+#showall[aria-pressed="true"], #top50[aria-pressed="true"] {
+  background: rgba(232,184,75,.35);
+  border-color: var(--stitch);
+}
+
+/* ===== Top 50 list ===== */
+.toppanel {
+  width: min(94vw, 620px);
+  margin: 18px auto 8px;
+  background: linear-gradient(180deg, var(--page) 0%, var(--page-edge) 100%);
+  border-radius: 12px;
+  padding: 20px 18px;
+  color: var(--ink);
+  box-shadow: 0 20px 50px rgba(0,0,0,.5), inset 0 0 30px rgba(120,90,40,.12);
+}
+.toppanel h2 {
+  font: 700 1.3rem 'Fredoka', sans-serif;
+  text-align: center;
+}
+.topsub {
+  text-align: center;
+  font-size: .85rem;
+  opacity: .7;
+  margin: 4px 0 14px;
+}
+.toppanel ol { list-style: none; }
+.top-row {
+  display: grid;
+  grid-template-columns: 2.2em 44px 1fr auto 1.6em;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.top-row:nth-child(odd) { background: rgba(120,90,40,.07); }
+.top-row:hover { background: rgba(232,184,75,.25); }
+.trank { font: 700 .9rem 'Fredoka', sans-serif; color: #8a5a00; text-align: right; }
+.top-row img { width: 44px; height: 44px; object-fit: contain; }
+.top-row:not(.owned) img { filter: grayscale(.85); opacity: .45; }
+body.show-all .top-row:not(.owned) img { filter: none; opacity: 1; }
+.tname { font: 700 .95rem 'Fredoka', sans-serif; }
+.tname small { font-weight: 600; opacity: .55; margin-left: 4px; }
+.trate {
+  font: 700 .85rem 'Fredoka', sans-serif;
+  color: #8a5a00;
+  background: rgba(255,233,160,.75);
+  border: 1px solid rgba(168,124,20,.5);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.towned { text-align: center; font-size: 1rem; visibility: hidden; }
+.top-row.owned .towned { visibility: visible; color: #2e7d32; }
+.card.hit { animation: hitpulse 1.6s ease 3; }
+.card.hit:not(.owned) { filter: none; opacity: 1; }
+.gridpick {
+  font: 700 .8rem 'Fredoka', sans-serif;
+  color: #f0e6d0;
+  opacity: .9;
+  display: flex; align-items: center; gap: 4px;
+}
+.gridpick select {
+  font: 700 .85rem 'Fredoka', sans-serif;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 2px solid rgba(255,217,94,.4);
+  background: rgba(0,0,0,.35);
+  color: #ffe9a8;
+  cursor: pointer;
+}
+@keyframes hitpulse {
+  0%,100% { box-shadow: 0 2px 5px rgba(0,0,0,.25); }
+  50% { box-shadow: 0 0 0 4px rgba(255,60,60,.85), 0 0 22px rgba(255,200,60,.9); }
+}
+
+/* ===== Flip sheet ===== */
+.sheet {
+  position: absolute;
+  top: 0; bottom: 0; left: 50%;
+  width: 50%;
+  transform-style: preserve-3d;
+  transform-origin: left center;
+  z-index: 20;
+}
+.sheet .face {
+  position: absolute; inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+}
+.sheet .face .page { width: 100%; height: 100%; }
+.sheet .back { transform: rotateY(180deg); }
+.sheet.animate { transition: transform .75s cubic-bezier(.4,.1,.25,1); }
+
+.status {
+  text-align: center;
+  font: 600 .85rem 'Fredoka', sans-serif;
+  opacity: .7;
+  padding: 8px 0 4px;
+}
+footer {
+  text-align: center;
+  font-size: .75rem;
+  opacity: .45;
+  padding: 14px 16px 26px;
+}
+footer a { color: inherit; }
+
+.loading, .error {
+  text-align: center;
+  padding: 60px 20px;
+  font: 600 1.1rem 'Fredoka', sans-serif;
+}
+.error { color: #ff9d9d; }
+.loading .pokeball {
+  width: 46px; height: 46px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #e33 0 46%, #222 46% 54%, #fff 54% 100%);
+  border: 3px solid #222;
+  position: relative;
+  animation: roll 1.1s linear infinite;
+}
+.loading .pokeball::after {
+  content: '';
+  position: absolute; inset: 0; margin: auto;
+  width: 12px; height: 12px;
+  background: #fff; border: 3px solid #222; border-radius: 50%;
+}
+@keyframes roll { to { transform: rotate(360deg); } }
+
+/* ===== Detail modal ===== */
+.modal {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(8,12,18,.78);
+  backdrop-filter: blur(4px);
+  padding: 18px;
+}
+.modal[hidden] { display: none; }
+.modal-card {
+  position: relative;
+  width: min(92vw, 380px);
+  max-height: 92vh;
+  overflow-y: auto;
+  border-radius: 16px;
+  padding: 20px 18px 16px;
+  text-align: center;
+  color: var(--ink);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.4), transparent 45%),
+    linear-gradient(120deg, #ffe9b0 0%, #ffd1e8 25%, #cfe4ff 50%, #d6ffd9 75%, #fff3c4 100%);
+  border: 2px solid rgba(190,150,60,.7);
+  box-shadow: 0 24px 60px rgba(0,0,0,.6);
+}
+.modal-close {
+  position: absolute; top: 8px; right: 8px;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(120,90,40,.4);
+  background: rgba(255,255,255,.6);
+  color: var(--ink);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.mtop {
+  display: flex; justify-content: space-between;
+  font: 600 .9rem 'Fredoka', sans-serif;
+  color: rgba(60,45,20,.7);
+  padding-right: 36px;
+}
+.mtop .rate { font-size: .85rem; }
+.modal-card img {
+  width: 68%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,.35));
+}
+.modal-card h2 { font: 700 1.5rem 'Fredoka', sans-serif; margin: 2px 0 8px; }
+.msources {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.msources span {
+  background: rgba(255,255,255,.55);
+  border: 1px solid rgba(150,130,90,.4);
+  border-radius: 999px;
+  padding: 4px 11px;
+  font: 700 .8rem 'Nunito', sans-serif;
+}
+#mcollect {
+  width: 100%;
+  padding: 13px;
+  border-radius: 12px;
+  font: 700 1.05rem 'Fredoka', sans-serif;
+  border: 2px solid #a87c14;
+  background: linear-gradient(180deg, #ffe9a0, var(--gold));
+  color: #5c3d00;
+  cursor: pointer;
+}
+#mcollect.on {
+  border-color: #2e7d32;
+  background: linear-gradient(180deg, #c9f2c9, #7fce85);
+  color: #1c4d20;
+}
+
+/* auth modal */
+.modal-card input {
+  width: 100%;
+  margin: 6px 0;
+  padding: 11px 13px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(150,130,90,.5);
+  background: rgba(255,255,255,.7);
+  font: 700 .95rem 'Nunito', sans-serif;
+  color: var(--ink);
+}
+.authaction {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  font: 700 1rem 'Fredoka', sans-serif;
+  border: 2px solid #a87c14;
+  background: linear-gradient(180deg, #ffe9a0, var(--gold));
+  color: #5c3d00;
+  cursor: pointer;
+}
+.authaction.secondary {
+  background: rgba(255,255,255,.55);
+  border-color: rgba(150,130,90,.5);
+}
+#aerr {
+  color: #a01818;
+  font: 700 .82rem 'Nunito', sans-serif;
+  min-height: 1.2em;
+  margin-top: 4px;
+}
+
+/* mobile: single page, big touch UI.
+   Second clause catches phones stuck in a ~980px viewport (frame-wrapper without
+   viewport meta, or "desktop site" mode): touch device + moderate width = mobile. */
+@media (max-width: 800px), ((pointer: coarse) and (max-width: 1024px)) {
+  header { padding: 14px 10px 2px; }
+  .legend { display: none; }
+  .toolbar { padding: 8px 8px 0; gap: 6px; }
+  .gridpick { display: none; }
+  .page { width: min(94vw, 460px); }
+  .binder-wrap { position: relative; gap: 0; padding: 14px 0 6px; }
+  .navbtn {
+    position: absolute; top: 50%;
+    z-index: 40;
+    width: 56px; height: 56px;
+    font-size: 1.6rem;
+    background: rgba(0,0,0,.55);
+    transform: translateY(-50%);
+  }
+  .navbtn:hover { transform: translateY(-50%); }
+  #prev { left: 2px; }
+  #next { right: 2px; }
+  .binder { padding: 12px; }
+  .rings { left: 3px; }
+  .page.right { border-radius: 2px 10px 10px 2px; }
+  .page.right::after { display: none; }
+  .card .nm { font-size: .74rem; }
+  .card .dex, .card .rate { font-size: .6rem; }
+  .card .badges { font-size: .64rem; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="spark">✨</span> Shiny-binderen <span class="spark">✨</span></h1>
+  <div class="subtitle">Alle shinies du kan samle i Pokémon GO lige nu</div>
+  <div class="legend">
+    <span>🌿 Vild</span><span>⚔️ Raid</span><span>🥚 Æg</span>
+    <span>🔄 Udvikling</span><span>🔬 Research</span><span>📸 Snapshot</span>
+  </div>
+</header>
+
+<div class="toolbar">
+  <input id="search" type="search" placeholder="Søg Pokémon…" autocomplete="off">
+  <button id="showall" aria-pressed="false" title="Vis ikke-samlede i fuld farve">👁 Vis alle tydeligt</button>
+  <button id="top50" aria-pressed="false" title="De 50 sværeste shinies efter rate">🏆 Top 50</button>
+  <button id="authbtn" title="Log ind for at gemme din samling på tværs af enheder">👤 Log ind</button>
+  <label class="gridpick" title="Lommer pr. side (bredde × højde)">Lommer:
+    <select id="cols"></select> ×
+    <select id="rows"></select>
+  </label>
+  <div class="gens" id="gens"></div>
+</div>
+
+<div id="app">
+  <div class="loading"><div class="pokeball"></div>Åbner binderen…</div>
+</div>
+
+<div class="status" id="status"></div>
+
+<footer>
+  Data: <a href="https://pogoapi.net" target="_blank" rel="noopener">pogoapi.net</a> ·
+  Rates: <a href="https://shinyrates.com" target="_blank" rel="noopener">shinyrates.com</a> (snapshot 4/7 2026) ·
+  Billeder: <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a> ·
+  Uofficiel fanside
+</footer>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Luk">✕</button>
+    <div class="mtop"><span id="mdex"></span><span id="mrate" class="rate"></span></div>
+    <img id="mimg" alt="">
+    <h2 id="mname"></h2>
+    <div class="msources" id="msources"></div>
+    <button id="mcollect"></button>
+  </div>
+</div>
+
+<div id="authmodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Luk">✕</button>
+    <h2 style="font: 700 1.4rem 'Fredoka', sans-serif; margin-bottom: 10px;">👤 Log ind</h2>
+    <input id="auser" placeholder="Brugernavn" autocomplete="username">
+    <input id="apass" type="password" placeholder="Kodeord (mindst 6 tegn)" autocomplete="current-password">
+    <div id="aerr"></div>
+    <button id="dologin" class="authaction">Log ind</button>
+    <button id="doregister" class="authaction secondary">Opret ny bruger</button>
+  </div>
+</div>
+
+<script>
+const API = 'https://pogoapi.net/api/v1/shiny_pokemon.json';
+const ART = id => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/${id}.png`;
+const SPRITE = id => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/${id}.png`;
+
+const GENS = [
+  [1, 1], [2, 152], [3, 252], [4, 387], [5, 494],
+  [6, 650], [7, 722], [8, 810], [9, 906]
+];
+const BADGES = [
+  ['found_wild', '🌿', 'Vild'], ['found_raid', '⚔️', 'Raid'], ['found_egg', '🥚', 'Æg'],
+  ['found_evolution', '🔄', 'Udvikling'], ['found_research', '🔬', 'Research'],
+  ['found_photobomb', '📸', 'Snapshot']
+];
+
+const app = document.getElementById('app');
+const statusEl = document.getElementById('status');
+// must match the mobile @media block in the CSS above
+const mqMobile = window.matchMedia('(max-width: 800px), ((pointer: coarse) and (max-width: 1024px))');
+
+let rates = {};
+fetch('shinyrates.json')
+  .then(r => r.json())
+  .then(list => {
+    list.forEach(x => rates[+x.id] = x.rate);
+    if (mons.length) render();
+  })
+  .catch(() => {}); // ponytail: local snapshot only — shinyrates.com has no CORS
+
+const collected = new Set(JSON.parse(localStorage.getItem('shinyCollected') || '[]'));
+const saveCollected = () => {
+  localStorage.setItem('shinyCollected', JSON.stringify([...collected]));
+  pushCollection();
+};
+
+let mons = [];       // sorted list
+let spreads = [];    // array of arrays (18 or 9 per spread)
+let cur = 0;
+let animating = false;
+let highlightId = null;
+let view = 'binder'; // 'binder' | 'top'
+
+fetch(API)
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(data => {
+    mons = Object.values(data).sort((a, b) => a.id - b.id);
+    buildSpreads();
+    render();
+    document.querySelector('.subtitle').textContent =
+      `${mons.length} shinies du kan samle i Pokémon GO lige nu`;
+  })
+  .catch(err => {
+    app.innerHTML = `<div class="error">Kunne ikke hente shiny-listen fra pogoapi.net 😢<br>
+      <small>(${err.message}) — prøv at genindlæse siden</small></div>`;
+  });
+
+let gridCfg = JSON.parse(localStorage.getItem('shinyGrid') || '{"cols":3,"rows":3}');
+// mobile always 3×3 — desktop grid choice gives unreadable mini-cards on a phone
+function pageSize() { return mqMobile.matches ? 9 : gridCfg.cols * gridCfg.rows; }
+function perSpread() { return mqMobile.matches ? pageSize() : pageSize() * 2; }
+
+function buildSpreads() {
+  const n = perSpread();
+  spreads = [];
+  for (let i = 0; i < mons.length; i += n) spreads.push(mons.slice(i, i + n));
+  cur = Math.min(cur, spreads.length - 1);
+}
+
+mqMobile.addEventListener('change', () => {
+  document.documentElement.style.setProperty('--cols', mqMobile.matches ? 3 : gridCfg.cols);
+  const firstId = spreads[cur]?.[0]?.id;
+  buildSpreads();
+  if (firstId) cur = spreadOf(firstId);
+  render();
+});
+
+function spreadOf(id) {
+  const idx = mons.findIndex(m => m.id >= id);
+  if (idx < 0) return spreads.length - 1;
+  return Math.floor(idx / perSpread());
+}
+
+function cardHTML(m) {
+  const badges = BADGES.filter(([k]) => m[k])
+    .map(([, icon, label]) => `<span title="${label}">${icon}</span>`).join('');
+  const hit = m.id === highlightId ? ' hit' : '';
+  const owned = collected.has(m.id) ? ' owned' : '';
+  const rate = rates[m.id]
+    ? `<span class="rate" title="Shiny rate (shinyrates.com)">${rates[m.id]}</span>` : '';
+  return `<div class="pocket"><div class="card${hit}${owned}" data-id="${m.id}" title="${m.name} #${m.id} — klik for at markere som samlet">
+    <div class="cardtop"><span class="dex">#${String(m.id).padStart(3, '0')}</span>${rate}</div>
+    <img loading="lazy" alt="Shiny ${m.name}" src="${ART(m.id)}"
+         onerror="if(!this.dataset.f){this.dataset.f=1;this.src='${SPRITE(m.id)}'}else{this.style.visibility='hidden'}">
+    <span class="nm">${m.name}</span>
+    <div class="badges">${badges}</div>
+  </div></div>`;
+}
+
+function pageHTML(items, side, pageNo) {
+  const cells = items.map(cardHTML);
+  while (cells.length < pageSize()) cells.push('<div class="pocket empty"></div>');
+  return `<div class="page ${side}">
+    <div class="grid">${cells.join('')}</div>
+    <span class="page-num">Side ${pageNo}</span>
+  </div>`;
+}
+
+function spreadHTML(i) {
+  const items = spreads[i] || [];
+  if (mqMobile.matches) {
+    return pageHTML(items, 'right', i + 1);
+  }
+  const P = pageSize();
+  return pageHTML(items.slice(0, P), 'left', i * 2 + 1) +
+         pageHTML(items.slice(P), 'right', i * 2 + 2);
+}
+
+function render() {
+  document.getElementById('top50').setAttribute('aria-pressed', view === 'top');
+  if (view === 'top') { renderTop(); return; }
+  app.innerHTML = `
+  <div class="binder-wrap">
+    <button class="navbtn" id="prev" aria-label="Forrige side">‹</button>
+    <div class="binder">
+      <div class="spread" id="spread">${spreadHTML(cur)}</div>
+      <div class="rings"><div class="ring"></div><div class="ring"></div><div class="ring"></div></div>
+    </div>
+    <button class="navbtn" id="next" aria-label="Næste side">›</button>
+  </div>`;
+  document.getElementById('prev').onclick = () => flip(-1);
+  document.getElementById('next').onclick = () => flip(1);
+  updateNav();
+  highlightId = null;
+}
+
+function updateNav() {
+  if (view === 'top') {
+    statusEl.textContent = `${collected.size} af ${mons.length} samlet ✔`;
+    return;
+  }
+  const p = document.getElementById('prev'), n = document.getElementById('next');
+  if (p) p.disabled = cur === 0;
+  if (n) n.disabled = cur >= spreads.length - 1;
+  statusEl.textContent = spreads.length
+    ? `Opslag ${cur + 1} af ${spreads.length} · ${collected.size} af ${mons.length} samlet ✔`
+    : '';
+}
+
+function toggleCollected(id) {
+  if (collected.has(id)) collected.delete(id); else collected.add(id);
+  saveCollected();
+  document.querySelectorAll(`[data-id="${id}"]`)
+    .forEach(c => c.classList.toggle('owned', collected.has(id)));
+  const tc = document.getElementById('topcount');
+  if (tc) tc.textContent = topList().filter(m => collected.has(m.id)).length;
+  updateNav();
+}
+
+// click card: desktop = toggle collected, mobile = open detail modal
+app.addEventListener('click', e => {
+  const row = e.target.closest('.top-row');
+  if (row) { openModal(Number(row.dataset.id)); return; }
+  const card = e.target.closest('.card');
+  if (!card || !card.dataset.id) return;
+  const id = Number(card.dataset.id);
+  if (mqMobile.matches) openModal(id); else toggleCollected(id);
+});
+
+// swipe to flip
+let touchX = 0, touchY = 0;
+app.addEventListener('touchstart', e => {
+  touchX = e.touches[0].clientX;
+  touchY = e.touches[0].clientY;
+}, { passive: true });
+app.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchX;
+  const dy = e.changedTouches[0].clientY - touchY;
+  if (Math.abs(dx) > 60 && Math.abs(dx) > 1.5 * Math.abs(dy)) flip(dx < 0 ? 1 : -1);
+}, { passive: true });
+
+// detail modal
+const modal = document.getElementById('modal');
+const mcollect = document.getElementById('mcollect');
+let modalId = null;
+
+function openModal(id) {
+  const m = mons.find(x => x.id === id);
+  if (!m) return;
+  modalId = id;
+  const img = document.getElementById('mimg');
+  img.onerror = () => { img.onerror = null; img.src = SPRITE(id); };
+  img.src = ART(id);
+  img.alt = 'Shiny ' + m.name;
+  document.getElementById('mdex').textContent = '#' + String(id).padStart(3, '0');
+  const rateEl = document.getElementById('mrate');
+  rateEl.textContent = rates[id] || '';
+  rateEl.style.display = rates[id] ? '' : 'none';
+  document.getElementById('mname').textContent = m.name;
+  document.getElementById('msources').innerHTML = BADGES
+    .filter(([k]) => m[k])
+    .map(([, icon, label]) => `<span>${icon} ${label}</span>`).join('');
+  syncCollectBtn();
+  modal.hidden = false;
+}
+function syncCollectBtn() {
+  const on = collected.has(modalId);
+  mcollect.textContent = on ? '✔ Samlet — tryk for at fjerne' : '☆ Markér som samlet';
+  mcollect.classList.toggle('on', on);
+}
+mcollect.onclick = () => { toggleCollected(modalId); syncCollectBtn(); };
+modal.addEventListener('click', e => {
+  if (e.target === modal || e.target.closest('.modal-close')) modal.hidden = true;
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { modal.hidden = true; authmodal.hidden = true; }
+});
+
+// ===== login & server sync =====
+const authmodal = document.getElementById('authmodal');
+const authbtn = document.getElementById('authbtn');
+const aerr = document.getElementById('aerr');
+let me = null;
+let pushTimer = null;
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'Serverfejl ' + r.status);
+  return j;
+}
+
+function pushCollection() {
+  if (!me) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => {
+    api('/api/collection', { method: 'PUT', body: JSON.stringify({ collected: [...collected] }) })
+      .catch(() => {}); // offline: localStorage still has it; next save retries
+  }, 800);
+}
+
+async function loadServerCollection() {
+  const server = (await api('/api/collection')).collected;
+  const before = collected.size;
+  server.forEach(id => collected.add(id)); // merge = union, never destructive
+  localStorage.setItem('shinyCollected', JSON.stringify([...collected]));
+  if (collected.size !== server.length || collected.size !== before) pushCollection();
+  if (mons.length) render();
+  updateNav();
+}
+
+function updateAuthUI() {
+  authbtn.textContent = me ? `👤 ${me} · log ud` : '👤 Log ind';
+}
+
+authbtn.onclick = async () => {
+  if (me) {
+    await api('/api/logout', { method: 'POST' }).catch(() => {});
+    me = null;
+    updateAuthUI();
+  } else {
+    aerr.textContent = '';
+    authmodal.hidden = false;
+    document.getElementById('auser').focus();
+  }
+};
+
+async function doAuth(endpoint) {
+  aerr.textContent = '';
+  try {
+    const j = await api(endpoint, {
+      method: 'POST',
+      body: JSON.stringify({
+        username: document.getElementById('auser').value.trim(),
+        password: document.getElementById('apass').value,
+      }),
+    });
+    me = j.username;
+    updateAuthUI();
+    authmodal.hidden = true;
+    document.getElementById('apass').value = '';
+    await loadServerCollection();
+  } catch (e) {
+    aerr.textContent = e.message;
+  }
+}
+document.getElementById('dologin').onclick = () => doAuth('/api/login');
+document.getElementById('doregister').onclick = () => doAuth('/api/register');
+document.getElementById('apass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doAuth('/api/login');
+});
+authmodal.addEventListener('click', e => {
+  if (e.target === authmodal || e.target.closest('.modal-close')) authmodal.hidden = true;
+});
+
+// restore session on load (no-op on static hosting without the API)
+api('/api/me')
+  .then(j => { me = j.username; updateAuthUI(); if (me) return loadServerCollection(); })
+  .catch(() => {});
+
+// show-all toggle
+const showallBtn = document.getElementById('showall');
+function applyShowAll(on) {
+  document.body.classList.toggle('show-all', on);
+  showallBtn.setAttribute('aria-pressed', on);
+  localStorage.setItem('shinyShowAll', on ? '1' : '');
+}
+showallBtn.onclick = () =>
+  applyShowAll(!document.body.classList.contains('show-all'));
+applyShowAll(!!localStorage.getItem('shinyShowAll'));
+
+// top 50 view
+document.getElementById('top50').onclick = () => {
+  if (!mons.length) return;
+  view = view === 'top' ? 'binder' : 'top';
+  render();
+};
+
+// grid size (pockets per page)
+const colsSel = document.getElementById('cols');
+const rowsSel = document.getElementById('rows');
+for (let c = 2; c <= 6; c++) colsSel.add(new Option(c, c));
+for (let r = 2; r <= 5; r++) rowsSel.add(new Option(r, r));
+
+function applyGrid() {
+  gridCfg.cols = Math.min(6, Math.max(2, gridCfg.cols | 0)) || 3;
+  gridCfg.rows = Math.min(5, Math.max(2, gridCfg.rows | 0)) || 3;
+  colsSel.value = gridCfg.cols;
+  rowsSel.value = gridCfg.rows;
+  document.documentElement.style.setProperty('--cols', mqMobile.matches ? 3 : gridCfg.cols);
+  localStorage.setItem('shinyGrid', JSON.stringify(gridCfg));
+  if (!mons.length) return;
+  const firstId = spreads[cur]?.[0]?.id;
+  buildSpreads();
+  if (firstId) cur = spreadOf(firstId);
+  render();
+}
+colsSel.onchange = () => { gridCfg.cols = +colsSel.value; applyGrid(); };
+rowsSel.onchange = () => { gridCfg.rows = +rowsSel.value; applyGrid(); };
+applyGrid();
+
+function topList() {
+  return mons
+    .filter(m => rates[m.id])
+    .map(m => ({ ...m, denom: +rates[m.id].split('/')[1].replace(/,/g, '') || 0 }))
+    .sort((a, b) => b.denom - a.denom)
+    .slice(0, 50);
+}
+
+function renderTop() {
+  const list = topList();
+  const got = list.filter(m => collected.has(m.id)).length;
+  app.innerHTML = `<div class="toppanel">
+    <h2>🏆 Top 50 sværeste shinies</h2>
+    <p class="topsub">Sorteret efter shiny rate · Du har samlet <b id="topcount">${got}</b> af ${list.length}</p>
+    <ol>${list.map((m, i) => `
+      <li class="top-row${collected.has(m.id) ? ' owned' : ''}" data-id="${m.id}">
+        <span class="trank">${i + 1}.</span>
+        <img loading="lazy" alt="" src="${SPRITE(m.id)}">
+        <span class="tname">${m.name}<small>#${m.id}</small></span>
+        <span class="trate">${rates[m.id]}</span>
+        <span class="towned">✔</span>
+      </li>`).join('')}</ol>
+  </div>`;
+  statusEl.textContent = `${collected.size} af ${mons.length} samlet ✔`;
+}
+
+function flip(dir) {
+  const target = cur + dir;
+  if (view !== 'binder' || animating || target < 0 || target >= spreads.length) return;
+  if (mqMobile.matches) { cur = target; render(); return; }
+
+  animating = true;
+  const spreadEl = document.getElementById('spread');
+  const curItems = spreads[cur], nextItems = spreads[target];
+
+  const P = pageSize();
+  let frontHTML, backHTML, staticL, staticR, fromDeg, toDeg;
+  if (dir === 1) {
+    // right page lifts and lands on the left
+    frontHTML = pageHTML(curItems.slice(P), 'right', cur * 2 + 2);
+    backHTML  = pageHTML(nextItems.slice(0, P), 'left', target * 2 + 1);
+    staticL   = pageHTML(curItems.slice(0, P), 'left', cur * 2 + 1);
+    staticR   = pageHTML(nextItems.slice(P), 'right', target * 2 + 2);
+    fromDeg = 0; toDeg = -180;
+  } else {
+    // left page lifts back over to the right
+    frontHTML = pageHTML(nextItems.slice(P), 'right', target * 2 + 2);
+    backHTML  = pageHTML(curItems.slice(0, P), 'left', cur * 2 + 1);
+    staticL   = pageHTML(nextItems.slice(0, P), 'left', target * 2 + 1);
+    staticR   = pageHTML(curItems.slice(P), 'right', cur * 2 + 2);
+    fromDeg = -180; toDeg = 0;
+  }
+
+  spreadEl.innerHTML = staticL + staticR + `
+    <div class="sheet" style="transform:rotateY(${fromDeg}deg)">
+      <div class="face front">${frontHTML}</div>
+      <div class="face back">${backHTML}</div>
+    </div>`;
+
+  const sheet = spreadEl.querySelector('.sheet');
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    sheet.classList.add('animate');
+    sheet.style.transform = `rotateY(${toDeg}deg)`;
+  }));
+  sheet.addEventListener('transitionend', () => {
+    cur = target;
+    animating = false;
+    render();
+  }, { once: true });
+}
+
+// keyboard
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight') flip(1);
+  if (e.key === 'ArrowLeft') flip(-1);
+});
+
+// search
+document.getElementById('search').addEventListener('input', e => {
+  const q = e.target.value.trim().toLowerCase();
+  if (q.length < 2 || !mons.length) return;
+  const m = mons.find(x => x.name.toLowerCase() === q) ||
+            mons.find(x => x.name.toLowerCase().startsWith(q)) ||
+            mons.find(x => x.name.toLowerCase().includes(q));
+  if (!m) { statusEl.textContent = 'Ingen match 😕'; return; }
+  view = 'binder';
+  highlightId = m.id;
+  cur = Math.floor(mons.indexOf(m) / perSpread());
+  render();
+  statusEl.textContent = `Fundet: ${m.name} (#${m.id}) · Opslag ${cur + 1} af ${spreads.length}`;
+  document.querySelector('.binder')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+// generation tabs
+const gensEl = document.getElementById('gens');
+GENS.forEach(([gen, startId]) => {
+  const b = document.createElement('button');
+  b.textContent = 'Gen ' + gen;
+  b.onclick = () => { if (mons.length) { view = 'binder'; cur = spreadOf(startId); render(); } };
+  gensEl.appendChild(b);
+});
+</script>
+</body>
+</html>

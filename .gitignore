@@ -1,0 +1,5 @@
+node_modules/
+shiny.db
+shiny.db-journal
+shiny.db-wal
+shiny.db-shm

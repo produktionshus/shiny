@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s https://pogoapi.net/api/v1/shiny_pokemon.json -o __TRACKED_VAR__/shiny.json)",
+      "Bash(curl -s https://pogoapi.net/api/v1/shiny_pokemon.json -o /tmp/shiny.json)",
+      "Read(//tmp/**)"
+    ]
+  }
+}
