@@ -769,7 +769,7 @@ fetch(API)
     app.innerHTML = `<div class="error">${t('load_error')(err.message)}</div>`;
   });
 
-let gridCfg = JSON.parse(localStorage.getItem('shinyGrid') || '{"cols":3,"rows":3}');
+let gridCfg = JSON.parse(localStorage.getItem('shinyGrid') || '{"cols":5,"rows":5}');
 // mobile always 3×3 — desktop grid choice gives unreadable mini-cards on a phone
 function pageSize() { return mqMobile.matches ? 9 : gridCfg.cols * gridCfg.rows; }
 function perSpread() { return mqMobile.matches ? pageSize() : pageSize() * 2; }
