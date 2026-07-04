@@ -38,7 +38,7 @@ app.use(cookieSession({
 }));
 
 function requireLogin(req, res, next) {
-  if (!req.session.userId) return res.status(401).json({ error: 'Ikke logget ind' });
+  if (!req.session.userId) return res.status(401).json({ error: 'not_logged_in' });
   next();
 }
 
@@ -46,7 +46,7 @@ app.post('/api/register', (req, res) => {
   const { username, password } = req.body || {};
   if (typeof username !== 'string' || typeof password !== 'string'
       || !/^[a-zA-Z0-9æøåÆØÅ_.-]{2,30}$/.test(username) || password.length < 6) {
-    return res.status(400).json({ error: 'Brugernavn 2-30 tegn (bogstaver/tal/_.-), kodeord mindst 6 tegn' });
+    return res.status(400).json({ error: 'invalid_input' });
   }
   const hash = bcrypt.hashSync(password, 10);
   try {
@@ -55,7 +55,7 @@ app.post('/api/register', (req, res) => {
     req.session.username = username;
     res.json({ username });
   } catch (e) {
-    if (String(e).includes('UNIQUE')) return res.status(409).json({ error: 'Brugernavnet er taget' });
+    if (String(e).includes('UNIQUE')) return res.status(409).json({ error: 'username_taken' });
     throw e;
   }
 });
@@ -64,7 +64,7 @@ app.post('/api/login', (req, res) => {
   const { username, password } = req.body || {};
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(String(username || ''));
   if (!user || !bcrypt.compareSync(String(password || ''), user.hash)) {
-    return res.status(401).json({ error: 'Forkert brugernavn eller kodeord' });
+    return res.status(401).json({ error: 'bad_credentials' });
   }
   req.session.userId = user.id;
   req.session.username = user.username;
@@ -89,7 +89,7 @@ app.put('/api/collection', requireLogin, (req, res) => {
   const { collected } = req.body || {};
   if (!Array.isArray(collected) || collected.length > 5000
       || !collected.every(n => Number.isInteger(n) && n > 0 && n < 100000)) {
-    return res.status(400).json({ error: 'Ugyldig samling' });
+    return res.status(400).json({ error: 'invalid_collection' });
   }
   db.prepare(`INSERT INTO collections (user_id, data, updated) VALUES (?, ?, CURRENT_TIMESTAMP)
               ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated = CURRENT_TIMESTAMP`)

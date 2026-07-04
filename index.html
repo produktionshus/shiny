@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Shiny-binderen · Pokémon GO</title>
+<title>Shiny Binder · Pokémon GO</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
@@ -300,7 +300,7 @@ body.show-all .card:not(.owned) { filter: none; opacity: 1; }
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0,0,0,.35);
 }
-#showall, #top50, #authbtn {
+#showall, #top50, #authbtn, #langbtn {
   font: 700 .8rem 'Fredoka', sans-serif;
   padding: 8px 14px;
   border-radius: 999px;
@@ -584,20 +584,18 @@ footer a { color: inherit; }
 <body>
 
 <header>
-  <h1><span class="spark">✨</span> Shiny-binderen <span class="spark">✨</span></h1>
-  <div class="subtitle">Alle shinies du kan samle i Pokémon GO lige nu</div>
-  <div class="legend">
-    <span>🌿 Vild</span><span>⚔️ Raid</span><span>🥚 Æg</span>
-    <span>🔄 Udvikling</span><span>🔬 Research</span><span>📸 Snapshot</span>
-  </div>
+  <h1><span class="spark">✨</span> <span id="apptitle">Shiny Binder</span> <span class="spark">✨</span></h1>
+  <div class="subtitle">All shinies you can collect in Pokémon GO right now</div>
+  <div class="legend" id="legend"></div>
 </header>
 
 <div class="toolbar">
-  <input id="search" type="search" placeholder="Søg Pokémon…" autocomplete="off">
-  <button id="showall" aria-pressed="false" title="Vis ikke-samlede i fuld farve">👁 Vis alle tydeligt</button>
-  <button id="top50" aria-pressed="false" title="De 50 sværeste shinies efter rate">🏆 Top 50</button>
-  <button id="authbtn" title="Log ind for at gemme din samling på tværs af enheder">👤 Log ind</button>
-  <label class="gridpick" title="Lommer pr. side (bredde × højde)">Lommer:
+  <input id="search" type="search" placeholder="Search Pokémon…" autocomplete="off">
+  <button id="showall" aria-pressed="false">👁 Show all clearly</button>
+  <button id="top50" aria-pressed="false" title="The 50 rarest shinies by rate">🏆 Top 50</button>
+  <button id="authbtn">👤 Log in</button>
+  <button id="langbtn" title="Skift sprog / switch language">🇩🇰 Dansk</button>
+  <label class="gridpick"><span id="pocklabel">Pockets:</span>
     <select id="cols"></select> ×
     <select id="rows"></select>
   </label>
@@ -605,16 +603,16 @@ footer a { color: inherit; }
 </div>
 
 <div id="app">
-  <div class="loading"><div class="pokeball"></div>Åbner binderen…</div>
+  <div class="loading"><div class="pokeball"></div><span id="loadingtext">Opening the binder…</span></div>
 </div>
 
 <div class="status" id="status"></div>
 
-<footer>
+<footer id="foot">
   Data: <a href="https://pogoapi.net" target="_blank" rel="noopener">pogoapi.net</a> ·
-  Rates: <a href="https://shinyrates.com" target="_blank" rel="noopener">shinyrates.com</a> (snapshot 4/7 2026) ·
-  Billeder: <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a> ·
-  Uofficiel fanside
+  Rates: <a href="https://shinyrates.com" target="_blank" rel="noopener">shinyrates.com</a> ·
+  Images: <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a> ·
+  Unofficial fan site
 </footer>
 
 <div id="modal" class="modal" hidden>
@@ -631,12 +629,12 @@ footer a { color: inherit; }
 <div id="authmodal" class="modal" hidden>
   <div class="modal-card">
     <button class="modal-close" aria-label="Luk">✕</button>
-    <h2 style="font: 700 1.4rem 'Fredoka', sans-serif; margin-bottom: 10px;">👤 Log ind</h2>
-    <input id="auser" placeholder="Brugernavn" autocomplete="username">
-    <input id="apass" type="password" placeholder="Kodeord (mindst 6 tegn)" autocomplete="current-password">
+    <h2 id="aheading" style="font: 700 1.4rem 'Fredoka', sans-serif; margin-bottom: 10px;">👤 Log in</h2>
+    <input id="auser" placeholder="Username" autocomplete="username">
+    <input id="apass" type="password" placeholder="Password (min. 6 characters)" autocomplete="current-password">
     <div id="aerr"></div>
-    <button id="dologin" class="authaction">Log ind</button>
-    <button id="doregister" class="authaction secondary">Opret ny bruger</button>
+    <button id="dologin" class="authaction">Log in</button>
+    <button id="doregister" class="authaction secondary">Create account</button>
   </div>
 </div>
 
@@ -650,10 +648,88 @@ const GENS = [
   [6, 650], [7, 722], [8, 810], [9, 906]
 ];
 const BADGES = [
-  ['found_wild', '🌿', 'Vild'], ['found_raid', '⚔️', 'Raid'], ['found_egg', '🥚', 'Æg'],
-  ['found_evolution', '🔄', 'Udvikling'], ['found_research', '🔬', 'Research'],
-  ['found_photobomb', '📸', 'Snapshot']
+  ['found_wild', '🌿', { en: 'Wild', da: 'Vild' }],
+  ['found_raid', '⚔️', { en: 'Raid', da: 'Raid' }],
+  ['found_egg', '🥚', { en: 'Egg', da: 'Æg' }],
+  ['found_evolution', '🔄', { en: 'Evolution', da: 'Udvikling' }],
+  ['found_research', '🔬', { en: 'Research', da: 'Research' }],
+  ['found_photobomb', '📸', { en: 'Snapshot', da: 'Snapshot' }]
 ];
+
+const L = {
+  en: {
+    app_title: 'Shiny Binder',
+    subtitle: n => n ? `${n} shinies you can collect in Pokémon GO right now`
+                     : 'All shinies you can collect in Pokémon GO right now',
+    search_ph: 'Search Pokémon…',
+    showall: '👁 Show all clearly',
+    login: '👤 Log in',
+    logout: name => `👤 ${name} · log out`,
+    pockets: 'Pockets:',
+    page: 'Page',
+    spread: (c, n) => `Spread ${c} of ${n}`,
+    collected_of: (g, n) => `${g} of ${n} collected ✔`,
+    top_title: '🏆 Top 50 hardest shinies',
+    top_sub: (got, n) => `Sorted by shiny rate · You've collected <b id="topcount">${got}</b> of ${n}`,
+    card_tip: 'click to mark as collected',
+    mark: '☆ Mark as collected',
+    unmark: '✔ Collected — tap to remove',
+    no_match: 'No match 😕',
+    found: (nm, id, c, n) => `Found: ${nm} (#${id}) · Spread ${c} of ${n}`,
+    loading: 'Opening the binder…',
+    load_error: msg => `Couldn't load the shiny list from pogoapi.net 😢<br><small>(${msg}) — try reloading the page</small>`,
+    auth_title: '👤 Log in',
+    user_ph: 'Username',
+    pass_ph: 'Password (min. 6 characters)',
+    do_login: 'Log in',
+    do_register: 'Create account',
+    lang_btn: '🇩🇰 Dansk',
+    foot: 'Data: <a href="https://pogoapi.net" target="_blank" rel="noopener">pogoapi.net</a> · Rates: <a href="https://shinyrates.com" target="_blank" rel="noopener">shinyrates.com</a> · Images: <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a> · Unofficial fan site',
+    err_invalid_input: 'Username 2-30 characters (letters/digits/_.-), password at least 6 characters',
+    err_username_taken: 'That username is taken',
+    err_bad_credentials: 'Wrong username or password',
+    err_not_logged_in: 'Not logged in',
+    err_invalid_collection: 'Invalid collection',
+    err_server: 'Server error — try again',
+  },
+  da: {
+    app_title: 'Shiny-binderen',
+    subtitle: n => n ? `${n} shinies du kan samle i Pokémon GO lige nu`
+                     : 'Alle shinies du kan samle i Pokémon GO lige nu',
+    search_ph: 'Søg Pokémon…',
+    showall: '👁 Vis alle tydeligt',
+    login: '👤 Log ind',
+    logout: name => `👤 ${name} · log ud`,
+    pockets: 'Lommer:',
+    page: 'Side',
+    spread: (c, n) => `Opslag ${c} af ${n}`,
+    collected_of: (g, n) => `${g} af ${n} samlet ✔`,
+    top_title: '🏆 Top 50 sværeste shinies',
+    top_sub: (got, n) => `Sorteret efter shiny rate · Du har samlet <b id="topcount">${got}</b> af ${n}`,
+    card_tip: 'klik for at markere som samlet',
+    mark: '☆ Markér som samlet',
+    unmark: '✔ Samlet — tryk for at fjerne',
+    no_match: 'Ingen match 😕',
+    found: (nm, id, c, n) => `Fundet: ${nm} (#${id}) · Opslag ${c} af ${n}`,
+    loading: 'Åbner binderen…',
+    load_error: msg => `Kunne ikke hente shiny-listen fra pogoapi.net 😢<br><small>(${msg}) — prøv at genindlæse siden</small>`,
+    auth_title: '👤 Log ind',
+    user_ph: 'Brugernavn',
+    pass_ph: 'Kodeord (mindst 6 tegn)',
+    do_login: 'Log ind',
+    do_register: 'Opret ny bruger',
+    lang_btn: '🇬🇧 English',
+    foot: 'Data: <a href="https://pogoapi.net" target="_blank" rel="noopener">pogoapi.net</a> · Rates: <a href="https://shinyrates.com" target="_blank" rel="noopener">shinyrates.com</a> · Billeder: <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a> · Uofficiel fanside',
+    err_invalid_input: 'Brugernavn 2-30 tegn (bogstaver/tal/_.-), kodeord mindst 6 tegn',
+    err_username_taken: 'Brugernavnet er taget',
+    err_bad_credentials: 'Forkert brugernavn eller kodeord',
+    err_not_logged_in: 'Ikke logget ind',
+    err_invalid_collection: 'Ugyldig samling',
+    err_server: 'Serverfejl — prøv igen',
+  },
+};
+let lang = localStorage.getItem('shinyLang') || 'en';
+const t = k => L[lang][k] ?? L.en[k] ?? k;
 
 const app = document.getElementById('app');
 const statusEl = document.getElementById('status');
@@ -687,13 +763,10 @@ fetch(API)
   .then(data => {
     mons = Object.values(data).sort((a, b) => a.id - b.id);
     buildSpreads();
-    render();
-    document.querySelector('.subtitle').textContent =
-      `${mons.length} shinies du kan samle i Pokémon GO lige nu`;
+    applyLang(); // renders + sets all texts incl. subtitle count
   })
   .catch(err => {
-    app.innerHTML = `<div class="error">Kunne ikke hente shiny-listen fra pogoapi.net 😢<br>
-      <small>(${err.message}) — prøv at genindlæse siden</small></div>`;
+    app.innerHTML = `<div class="error">${t('load_error')(err.message)}</div>`;
   });
 
 let gridCfg = JSON.parse(localStorage.getItem('shinyGrid') || '{"cols":3,"rows":3}');
@@ -724,12 +797,12 @@ function spreadOf(id) {
 
 function cardHTML(m) {
   const badges = BADGES.filter(([k]) => m[k])
-    .map(([, icon, label]) => `<span title="${label}">${icon}</span>`).join('');
+    .map(([, icon, label]) => `<span title="${label[lang]}">${icon}</span>`).join('');
   const hit = m.id === highlightId ? ' hit' : '';
   const owned = collected.has(m.id) ? ' owned' : '';
   const rate = rates[m.id]
     ? `<span class="rate" title="Shiny rate (shinyrates.com)">${rates[m.id]}</span>` : '';
-  return `<div class="pocket"><div class="card${hit}${owned}" data-id="${m.id}" title="${m.name} #${m.id} — klik for at markere som samlet">
+  return `<div class="pocket"><div class="card${hit}${owned}" data-id="${m.id}" title="${m.name} #${m.id} — ${t('card_tip')}">
     <div class="cardtop"><span class="dex">#${String(m.id).padStart(3, '0')}</span>${rate}</div>
     <img loading="lazy" alt="Shiny ${m.name}" src="${ART(m.id)}"
          onerror="if(!this.dataset.f){this.dataset.f=1;this.src='${SPRITE(m.id)}'}else{this.style.visibility='hidden'}">
@@ -743,7 +816,7 @@ function pageHTML(items, side, pageNo) {
   while (cells.length < pageSize()) cells.push('<div class="pocket empty"></div>');
   return `<div class="page ${side}">
     <div class="grid">${cells.join('')}</div>
-    <span class="page-num">Side ${pageNo}</span>
+    <span class="page-num">${t('page')} ${pageNo}</span>
   </div>`;
 }
 
@@ -777,14 +850,14 @@ function render() {
 
 function updateNav() {
   if (view === 'top') {
-    statusEl.textContent = `${collected.size} af ${mons.length} samlet ✔`;
+    statusEl.textContent = t('collected_of')(collected.size, mons.length);
     return;
   }
   const p = document.getElementById('prev'), n = document.getElementById('next');
   if (p) p.disabled = cur === 0;
   if (n) n.disabled = cur >= spreads.length - 1;
   statusEl.textContent = spreads.length
-    ? `Opslag ${cur + 1} af ${spreads.length} · ${collected.size} af ${mons.length} samlet ✔`
+    ? `${t('spread')(cur + 1, spreads.length)} · ${t('collected_of')(collected.size, mons.length)}`
     : '';
 }
 
@@ -840,13 +913,13 @@ function openModal(id) {
   document.getElementById('mname').textContent = m.name;
   document.getElementById('msources').innerHTML = BADGES
     .filter(([k]) => m[k])
-    .map(([, icon, label]) => `<span>${icon} ${label}</span>`).join('');
+    .map(([, icon, label]) => `<span>${icon} ${label[lang]}</span>`).join('');
   syncCollectBtn();
   modal.hidden = false;
 }
 function syncCollectBtn() {
   const on = collected.has(modalId);
-  mcollect.textContent = on ? '✔ Samlet — tryk for at fjerne' : '☆ Markér som samlet';
+  mcollect.textContent = on ? t('unmark') : t('mark');
   mcollect.classList.toggle('on', on);
 }
 mcollect.onclick = () => { toggleCollected(modalId); syncCollectBtn(); };
@@ -867,7 +940,7 @@ let pushTimer = null;
 async function api(path, opts = {}) {
   const r = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || 'Serverfejl ' + r.status);
+  if (!r.ok) throw new Error(j.error || 'server');
   return j;
 }
 
@@ -891,7 +964,7 @@ async function loadServerCollection() {
 }
 
 function updateAuthUI() {
-  authbtn.textContent = me ? `👤 ${me} · log ud` : '👤 Log ind';
+  authbtn.textContent = me ? t('logout')(me) : t('login');
 }
 
 authbtn.onclick = async () => {
@@ -922,7 +995,7 @@ async function doAuth(endpoint) {
     document.getElementById('apass').value = '';
     await loadServerCollection();
   } catch (e) {
-    aerr.textContent = e.message;
+    aerr.textContent = L[lang]['err_' + e.message] || L.en['err_' + e.message] || e.message;
   }
 }
 document.getElementById('dologin').onclick = () => doAuth('/api/login');
@@ -933,6 +1006,36 @@ document.getElementById('apass').addEventListener('keydown', e => {
 authmodal.addEventListener('click', e => {
   if (e.target === authmodal || e.target.closest('.modal-close')) authmodal.hidden = true;
 });
+
+// language
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.title = t('app_title') + ' · Pokémon GO';
+  document.getElementById('apptitle').textContent = t('app_title');
+  document.querySelector('.subtitle').textContent = t('subtitle')(mons.length);
+  document.getElementById('legend').innerHTML =
+    BADGES.map(([, icon, l]) => `<span>${icon} ${l[lang]}</span>`).join('');
+  document.getElementById('search').placeholder = t('search_ph');
+  document.getElementById('showall').textContent = t('showall');
+  document.getElementById('pocklabel').textContent = t('pockets');
+  document.getElementById('langbtn').textContent = t('lang_btn');
+  document.getElementById('foot').innerHTML = t('foot');
+  document.getElementById('aheading').textContent = t('auth_title');
+  document.getElementById('auser').placeholder = t('user_ph');
+  document.getElementById('apass').placeholder = t('pass_ph');
+  document.getElementById('dologin').textContent = t('do_login');
+  document.getElementById('doregister').textContent = t('do_register');
+  const lt = document.getElementById('loadingtext');
+  if (lt) lt.textContent = t('loading');
+  updateAuthUI();
+  if (mons.length) render(); else updateNav();
+}
+document.getElementById('langbtn').onclick = () => {
+  lang = lang === 'en' ? 'da' : 'en';
+  localStorage.setItem('shinyLang', lang);
+  applyLang();
+};
+applyLang();
 
 // restore session on load (no-op on static hosting without the API)
 api('/api/me')
@@ -992,8 +1095,8 @@ function renderTop() {
   const list = topList();
   const got = list.filter(m => collected.has(m.id)).length;
   app.innerHTML = `<div class="toppanel">
-    <h2>🏆 Top 50 sværeste shinies</h2>
-    <p class="topsub">Sorteret efter shiny rate · Du har samlet <b id="topcount">${got}</b> af ${list.length}</p>
+    <h2>${t('top_title')}</h2>
+    <p class="topsub">${t('top_sub')(got, list.length)}</p>
     <ol>${list.map((m, i) => `
       <li class="top-row${collected.has(m.id) ? ' owned' : ''}" data-id="${m.id}">
         <span class="trank">${i + 1}.</span>
@@ -1003,7 +1106,7 @@ function renderTop() {
         <span class="towned">✔</span>
       </li>`).join('')}</ol>
   </div>`;
-  statusEl.textContent = `${collected.size} af ${mons.length} samlet ✔`;
+  statusEl.textContent = t('collected_of')(collected.size, mons.length);
 }
 
 function flip(dir) {
@@ -1065,12 +1168,12 @@ document.getElementById('search').addEventListener('input', e => {
   const m = mons.find(x => x.name.toLowerCase() === q) ||
             mons.find(x => x.name.toLowerCase().startsWith(q)) ||
             mons.find(x => x.name.toLowerCase().includes(q));
-  if (!m) { statusEl.textContent = 'Ingen match 😕'; return; }
+  if (!m) { statusEl.textContent = t('no_match'); return; }
   view = 'binder';
   highlightId = m.id;
   cur = Math.floor(mons.indexOf(m) / perSpread());
   render();
-  statusEl.textContent = `Fundet: ${m.name} (#${m.id}) · Opslag ${cur + 1} af ${spreads.length}`;
+  statusEl.textContent = t('found')(m.name, m.id, cur + 1, spreads.length);
   document.querySelector('.binder')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 });
 
