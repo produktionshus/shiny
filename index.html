@@ -701,8 +701,8 @@ const SPRITE = id => `https://raw.githubusercontent.com/PokeAPI/sprites/master/s
 const CRY = id => `https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${id}.ogg`;
 
 const GENS = [
-  [1, 1], [2, 152], [3, 252], [4, 387], [5, 494],
-  [6, 650], [7, 722], [8, 810], [9, 906]
+  ['Kanto', 1], ['Johto', 152], ['Hoenn', 252], ['Sinnoh', 387], ['Unova', 494],
+  ['Kalos', 650], ['Alola', 722], ['Galar', 810], ['Paldea', 906]
 ];
 const BADGES = [
   ['found_wild', '🌿', 'Wild'], ['found_raid', '⚔️', 'Raid'], ['found_egg', '🥚', 'Egg'],
@@ -1266,9 +1266,9 @@ document.getElementById('search').addEventListener('input', e => {
 
 // generation tabs
 const gensEl = document.getElementById('gens');
-GENS.forEach(([gen, startId]) => {
+GENS.forEach(([region, startId]) => {
   const b = document.createElement('button');
-  b.textContent = 'Gen ' + gen;
+  b.textContent = region;
   b.onclick = () => { if (mons.length) { view = 'binder'; cur = spreadOf(startId); render(); } };
   gensEl.appendChild(b);
 });
