@@ -702,7 +702,7 @@ const CRY = id => `https://raw.githubusercontent.com/PokeAPI/cries/main/cries/po
 
 const GENS = [
   ['Kanto', 1], ['Johto', 152], ['Hoenn', 252], ['Sinnoh', 387], ['Unova', 494],
-  ['Kalos', 650], ['Alola', 722], ['Galar', 810], ['Paldea', 906]
+  ['Kalos', 650], ['Alola', 722], ['Galar/Hisui', 810], ['Paldea', 906]
 ];
 const BADGES = [
   ['found_wild', '🌿', 'Wild'], ['found_raid', '⚔️', 'Raid'], ['found_egg', '🥚', 'Egg'],
@@ -766,11 +766,26 @@ let view = 'binder'; // 'binder' | 'top'
 
 // shinies released in GO but missing from pogoapi's list — ignored once the API catches up
 const EXTRA_SHINIES = [
+  { id: 679, name: 'Honedge', found_wild: true },
+  { id: 680, name: 'Doublade', found_evolution: true },
+  { id: 681, name: 'Aegislash', found_evolution: true },
+  { id: 701, name: 'Hawlucha', found_wild: true },
+  { id: 707, name: 'Klefki', found_wild: true },
+  { id: 719, name: 'Diancie', found_research: true },
+  { id: 813, name: 'Scorbunny', found_wild: true, found_research: true },
+  { id: 814, name: 'Raboot', found_evolution: true },
+  { id: 815, name: 'Cinderace', found_evolution: true },
   { id: 816, name: 'Sobble', found_wild: true, found_research: true },
   { id: 817, name: 'Drizzile', found_evolution: true },
   { id: 818, name: 'Inteleon', found_evolution: true },
+  { id: 850, name: 'Sizzlipede', found_wild: true, found_egg: true },
+  { id: 866, name: 'Mr. Rime', found_evolution: true },
+  { id: 901, name: 'Ursaluna', found_evolution: true },
   { id: 948, name: 'Toedscool', found_wild: true },
   { id: 949, name: 'Toedscruel', found_evolution: true },
+  { id: 965, name: 'Varoom', found_wild: true },
+  { id: 966, name: 'Revavroom', found_evolution: true },
+  { id: 968, name: 'Orthworm', found_wild: true },
 ];
 
 fetch(API)
