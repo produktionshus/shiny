@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="da">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -300,7 +300,7 @@ body.show-all .card:not(.owned) { filter: none; opacity: 1; }
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0,0,0,.35);
 }
-#showall, #top50, #authbtn, #langbtn {
+#showall, #top50, #authbtn {
   font: 700 .8rem 'Fredoka', sans-serif;
   padding: 8px 14px;
   border-radius: 999px;
@@ -594,7 +594,6 @@ footer a { color: inherit; }
   <button id="showall" aria-pressed="false">👁 Show all clearly</button>
   <button id="top50" aria-pressed="false" title="The 50 rarest shinies by rate">🏆 Top 50</button>
   <button id="authbtn">👤 Log in</button>
-  <button id="langbtn" title="Skift sprog / switch language">🇩🇰 Dansk</button>
   <label class="gridpick"><span id="pocklabel">Pockets:</span>
     <select id="cols"></select> ×
     <select id="rows"></select>
@@ -648,24 +647,17 @@ const GENS = [
   [6, 650], [7, 722], [8, 810], [9, 906]
 ];
 const BADGES = [
-  ['found_wild', '🌿', { en: 'Wild', da: 'Vild' }],
-  ['found_raid', '⚔️', { en: 'Raid', da: 'Raid' }],
-  ['found_egg', '🥚', { en: 'Egg', da: 'Æg' }],
-  ['found_evolution', '🔄', { en: 'Evolution', da: 'Udvikling' }],
-  ['found_research', '🔬', { en: 'Research', da: 'Research' }],
-  ['found_photobomb', '📸', { en: 'Snapshot', da: 'Snapshot' }]
+  ['found_wild', '🌿', 'Wild'], ['found_raid', '⚔️', 'Raid'], ['found_egg', '🥚', 'Egg'],
+  ['found_evolution', '🔄', 'Evolution'], ['found_research', '🔬', 'Research'],
+  ['found_photobomb', '📸', 'Snapshot']
 ];
 
 const L = {
   en: {
-    app_title: 'Shiny Binder',
     subtitle: n => n ? `${n} shinies you can collect in Pokémon GO right now`
                      : 'All shinies you can collect in Pokémon GO right now',
-    search_ph: 'Search Pokémon…',
-    showall: '👁 Show all clearly',
     login: '👤 Log in',
     logout: name => `👤 ${name} · log out`,
-    pockets: 'Pockets:',
     page: 'Page',
     spread: (c, n) => `Spread ${c} of ${n}`,
     collected_of: (g, n) => `${g} of ${n} collected ✔`,
@@ -676,15 +668,7 @@ const L = {
     unmark: '✔ Collected — tap to remove',
     no_match: 'No match 😕',
     found: (nm, id, c, n) => `Found: ${nm} (#${id}) · Spread ${c} of ${n}`,
-    loading: 'Opening the binder…',
     load_error: msg => `Couldn't load the shiny list from pogoapi.net 😢<br><small>(${msg}) — try reloading the page</small>`,
-    auth_title: '👤 Log in',
-    user_ph: 'Username',
-    pass_ph: 'Password (min. 6 characters)',
-    do_login: 'Log in',
-    do_register: 'Create account',
-    lang_btn: '🇩🇰 Dansk',
-    foot: 'Data: <a href="https://pogoapi.net" target="_blank" rel="noopener">pogoapi.net</a> · Rates: <a href="https://shinyrates.com" target="_blank" rel="noopener">shinyrates.com</a> · Images: <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a> · Unofficial fan site',
     err_invalid_input: 'Username 2-30 characters (letters/digits/_.-), password at least 6 characters',
     err_username_taken: 'That username is taken',
     err_bad_credentials: 'Wrong username or password',
@@ -692,44 +676,8 @@ const L = {
     err_invalid_collection: 'Invalid collection',
     err_server: 'Server error — try again',
   },
-  da: {
-    app_title: 'Shiny-binderen',
-    subtitle: n => n ? `${n} shinies du kan samle i Pokémon GO lige nu`
-                     : 'Alle shinies du kan samle i Pokémon GO lige nu',
-    search_ph: 'Søg Pokémon…',
-    showall: '👁 Vis alle tydeligt',
-    login: '👤 Log ind',
-    logout: name => `👤 ${name} · log ud`,
-    pockets: 'Lommer:',
-    page: 'Side',
-    spread: (c, n) => `Opslag ${c} af ${n}`,
-    collected_of: (g, n) => `${g} af ${n} samlet ✔`,
-    top_title: '🏆 Top 50 sværeste shinies',
-    top_sub: (got, n) => `Sorteret efter shiny rate · Du har samlet <b id="topcount">${got}</b> af ${n}`,
-    card_tip: 'klik for at markere som samlet',
-    mark: '☆ Markér som samlet',
-    unmark: '✔ Samlet — tryk for at fjerne',
-    no_match: 'Ingen match 😕',
-    found: (nm, id, c, n) => `Fundet: ${nm} (#${id}) · Opslag ${c} af ${n}`,
-    loading: 'Åbner binderen…',
-    load_error: msg => `Kunne ikke hente shiny-listen fra pogoapi.net 😢<br><small>(${msg}) — prøv at genindlæse siden</small>`,
-    auth_title: '👤 Log ind',
-    user_ph: 'Brugernavn',
-    pass_ph: 'Kodeord (mindst 6 tegn)',
-    do_login: 'Log ind',
-    do_register: 'Opret ny bruger',
-    lang_btn: '🇬🇧 English',
-    foot: 'Data: <a href="https://pogoapi.net" target="_blank" rel="noopener">pogoapi.net</a> · Rates: <a href="https://shinyrates.com" target="_blank" rel="noopener">shinyrates.com</a> · Billeder: <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a> · Uofficiel fanside',
-    err_invalid_input: 'Brugernavn 2-30 tegn (bogstaver/tal/_.-), kodeord mindst 6 tegn',
-    err_username_taken: 'Brugernavnet er taget',
-    err_bad_credentials: 'Forkert brugernavn eller kodeord',
-    err_not_logged_in: 'Ikke logget ind',
-    err_invalid_collection: 'Ugyldig samling',
-    err_server: 'Serverfejl — prøv igen',
-  },
 };
-let lang = localStorage.getItem('shinyLang') || 'en';
-const t = k => L[lang][k] ?? L.en[k] ?? k;
+const t = k => L.en[k] ?? k;
 
 const app = document.getElementById('app');
 const statusEl = document.getElementById('status');
@@ -797,7 +745,7 @@ function spreadOf(id) {
 
 function cardHTML(m) {
   const badges = BADGES.filter(([k]) => m[k])
-    .map(([, icon, label]) => `<span title="${label[lang]}">${icon}</span>`).join('');
+    .map(([, icon, label]) => `<span title="${label}">${icon}</span>`).join('');
   const hit = m.id === highlightId ? ' hit' : '';
   const owned = collected.has(m.id) ? ' owned' : '';
   const rate = rates[m.id]
@@ -913,7 +861,7 @@ function openModal(id) {
   document.getElementById('mname').textContent = m.name;
   document.getElementById('msources').innerHTML = BADGES
     .filter(([k]) => m[k])
-    .map(([, icon, label]) => `<span>${icon} ${label[lang]}</span>`).join('');
+    .map(([, icon, label]) => `<span>${icon} ${label}</span>`).join('');
   syncCollectBtn();
   modal.hidden = false;
 }
@@ -995,7 +943,7 @@ async function doAuth(endpoint) {
     document.getElementById('apass').value = '';
     await loadServerCollection();
   } catch (e) {
-    aerr.textContent = L[lang]['err_' + e.message] || L.en['err_' + e.message] || e.message;
+    aerr.textContent = L.en['err_' + e.message] || e.message;
   }
 }
 document.getElementById('dologin').onclick = () => doAuth('/api/login');
@@ -1007,34 +955,13 @@ authmodal.addEventListener('click', e => {
   if (e.target === authmodal || e.target.closest('.modal-close')) authmodal.hidden = true;
 });
 
-// language
+// refresh texts that depend on loaded data (subtitle count, legend)
 function applyLang() {
-  document.documentElement.lang = lang;
-  document.title = t('app_title') + ' · Pokémon GO';
-  document.getElementById('apptitle').textContent = t('app_title');
   document.querySelector('.subtitle').textContent = t('subtitle')(mons.length);
   document.getElementById('legend').innerHTML =
-    BADGES.map(([, icon, l]) => `<span>${icon} ${l[lang]}</span>`).join('');
-  document.getElementById('search').placeholder = t('search_ph');
-  document.getElementById('showall').textContent = t('showall');
-  document.getElementById('pocklabel').textContent = t('pockets');
-  document.getElementById('langbtn').textContent = t('lang_btn');
-  document.getElementById('foot').innerHTML = t('foot');
-  document.getElementById('aheading').textContent = t('auth_title');
-  document.getElementById('auser').placeholder = t('user_ph');
-  document.getElementById('apass').placeholder = t('pass_ph');
-  document.getElementById('dologin').textContent = t('do_login');
-  document.getElementById('doregister').textContent = t('do_register');
-  const lt = document.getElementById('loadingtext');
-  if (lt) lt.textContent = t('loading');
-  updateAuthUI();
+    BADGES.map(([, icon, l]) => `<span>${icon} ${l}</span>`).join('');
   if (mons.length) render(); else updateNav();
 }
-document.getElementById('langbtn').onclick = () => {
-  lang = lang === 'en' ? 'da' : 'en';
-  localStorage.setItem('shinyLang', lang);
-  applyLang();
-};
 applyLang();
 
 // restore session on load (no-op on static hosting without the API)
