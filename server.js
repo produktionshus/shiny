@@ -102,6 +102,48 @@ app.put('/api/collection', requireLogin, (req, res) => {
   res.json({ ok: true, count: collected.length });
 });
 
+// ===== admin (enabled only when ADMIN_KEY env is set; key sent as X-Admin-Key header) =====
+const crypto = require('crypto');
+function requireAdmin(req, res, next) {
+  const key = process.env.ADMIN_KEY;
+  const given = req.get('x-admin-key') || '';
+  const ok = key && given.length === key.length &&
+    crypto.timingSafeEqual(Buffer.from(given), Buffer.from(key));
+  if (!ok) return res.status(403).json({ error: 'forbidden' });
+  next();
+}
+
+app.get('/api/admin/users', requireAdmin, (req, res) => {
+  const rows = db.prepare(`
+    SELECT u.id, u.username, u.created, COALESCE(c.data, '[]') AS data, c.updated
+    FROM users u LEFT JOIN collections c ON c.user_id = u.id
+    ORDER BY u.id`).all();
+  res.json(rows.map(r => ({
+    id: r.id, username: r.username, created: r.created,
+    items: JSON.parse(r.data).length, updated: r.updated || null,
+  })));
+});
+
+app.post('/api/admin/reset-password', requireAdmin, (req, res) => {
+  const { username, password } = req.body || {};
+  if (typeof password !== 'string' || password.length < 6) {
+    return res.status(400).json({ error: 'invalid_input' });
+  }
+  const info = db.prepare('UPDATE users SET hash = ? WHERE username = ?')
+    .run(bcrypt.hashSync(password, 10), String(username || ''));
+  if (!info.changes) return res.status(404).json({ error: 'not_found' });
+  res.json({ ok: true });
+});
+
+app.post('/api/admin/delete-user', requireAdmin, (req, res) => {
+  const u = db.prepare('SELECT id FROM users WHERE username = ?')
+    .get(String((req.body || {}).username || ''));
+  if (!u) return res.status(404).json({ error: 'not_found' });
+  db.prepare('DELETE FROM collections WHERE user_id = ?').run(u.id);
+  db.prepare('DELETE FROM users WHERE id = ?').run(u.id);
+  res.json({ ok: true });
+});
+
 // get-or-create the caller's share token
 app.post('/api/share', requireLogin, (req, res) => {
   let row = db.prepare('SELECT share_token FROM users WHERE id = ?').get(req.session.userId);
