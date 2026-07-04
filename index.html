@@ -300,7 +300,7 @@ body.show-all .card:not(.owned) { filter: none; opacity: 1; }
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0,0,0,.35);
 }
-#showall, #top50, #authbtn, #costumes, #regionals, #specials {
+#showall, #top50, #authbtn, #sharebtn, #costumes, #regionals, #specials {
   font: 700 .8rem 'Fredoka', sans-serif;
   padding: 8px 14px;
   border-radius: 999px;
@@ -654,6 +654,7 @@ footer a { color: inherit; }
   <button id="regionals" aria-pressed="false" title="Regional exclusives">🌍 Regionals</button>
   <button id="specials" aria-pressed="false" title="Legendary & mythical exceptions">⭐ Specials</button>
   <button id="authbtn">👤 Log in</button>
+  <button id="sharebtn" title="Copy a read-only link to your collection" style="display:none">🔗 Share</button>
   <label class="gridpick"><span id="pocklabel">Pockets:</span>
     <select id="cols"></select> ×
     <select id="rows"></select>
@@ -767,6 +768,9 @@ let cur = 0;
 let animating = false;
 let highlightId = null;
 let view = 'binder'; // 'binder' | 'top' | 'costumes' | 'regionals' | 'specials'
+const shareToken = new URLSearchParams(location.search).get('share');
+const readonly = !!shareToken;
+let shareName = null; // set when viewing someone else's collection
 let extras = null;   // loaded from extras.json
 fetch('extras.json').then(r => r.json()).then(j => { extras = j; }).catch(() => {});
 const shinyCount = () => [...collected].filter(v => typeof v === 'number').length;
@@ -978,6 +982,7 @@ function celebrate(n) {
 }
 
 function toggleCollected(id) {
+  if (readonly) return;
   const adding = !collected.has(id);
   if (adding) {
     playSparkle();
@@ -1040,6 +1045,7 @@ function openModal(id) {
     .filter(([k]) => m[k])
     .map(([, icon, label]) => `<span>${icon} ${label}</span>`).join('');
   syncCollectBtn();
+  mcollect.style.display = readonly ? 'none' : '';
   modal.hidden = false;
   playCry(id);
 }
@@ -1099,7 +1105,23 @@ async function loadServerCollection() {
 
 function updateAuthUI() {
   authbtn.textContent = me ? t('logout')(me) : t('login');
+  document.getElementById('sharebtn').style.display = me && !readonly ? '' : 'none';
 }
+
+document.getElementById('sharebtn').onclick = async () => {
+  try {
+    const j = await api('/api/share', { method: 'POST' });
+    const url = `${location.origin}/?share=${j.token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      statusEl.textContent = '🔗 Read-only link copied!';
+    } catch (e) {
+      prompt('Copy your read-only link:', url);
+    }
+  } catch (e) {
+    statusEl.textContent = 'Could not create share link';
+  }
+};
 
 authbtn.onclick = async () => {
   if (me) {
@@ -1143,17 +1165,34 @@ authmodal.addEventListener('click', e => {
 
 // refresh texts that depend on loaded data (subtitle count, legend)
 function applyLang() {
-  document.querySelector('.subtitle').textContent = t('subtitle')(mons.length);
+  document.querySelector('.subtitle').textContent =
+    shareName ? `👀 Viewing ${shareName}'s collection (read-only)` : t('subtitle')(mons.length);
   document.getElementById('legend').innerHTML =
     BADGES.map(([, icon, l]) => `<span>${icon} ${l}</span>`).join('');
   if (mons.length) render(); else updateNav();
 }
 applyLang();
 
-// restore session on load (no-op on static hosting without the API)
-api('/api/me')
-  .then(j => { me = j.username; updateAuthUI(); if (me) return loadServerCollection(); })
-  .catch(() => {});
+// share view: load the shared collection instead of your own
+if (readonly) {
+  authbtn.style.display = 'none';
+  collected.clear();
+  api('/api/shared/' + encodeURIComponent(shareToken))
+    .then(j => {
+      shareName = j.username;
+      collected.clear();
+      j.collected.forEach(v => collected.add(v));
+      applyLang();
+    })
+    .catch(() => {
+      document.querySelector('.subtitle').textContent = 'Share link not found 😕';
+    });
+} else {
+  // restore session on load (no-op on static hosting without the API)
+  api('/api/me')
+    .then(j => { me = j.username; updateAuthUI(); if (me) return loadServerCollection(); })
+    .catch(() => {});
+}
 
 // show-all toggle
 const showallBtn = document.getElementById('showall');
@@ -1257,6 +1296,7 @@ function renderExtras(kind) {
 }
 
 function toggleKey(key, el) {
+  if (readonly) return;
   const adding = !collected.has(key);
   if (adding) { playSparkle(); if (el) sparkleBurst(el); collected.add(key); }
   else collected.delete(key);

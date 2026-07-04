@@ -25,6 +25,8 @@ db.exec(`
   );
 `);
 
+try { db.exec('ALTER TABLE users ADD COLUMN share_token TEXT'); } catch (e) { /* column exists */ }
+
 const app = express();
 app.set('trust proxy', 1); // Railway sits behind a proxy
 app.use(express.json({ limit: '64kb' }));
@@ -98,6 +100,26 @@ app.put('/api/collection', requireLogin, (req, res) => {
               ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated = CURRENT_TIMESTAMP`)
     .run(req.session.userId, JSON.stringify(collected));
   res.json({ ok: true, count: collected.length });
+});
+
+// get-or-create the caller's share token
+app.post('/api/share', requireLogin, (req, res) => {
+  let row = db.prepare('SELECT share_token FROM users WHERE id = ?').get(req.session.userId);
+  if (!row.share_token) {
+    const token = require('crypto').randomBytes(9).toString('base64url');
+    db.prepare('UPDATE users SET share_token = ? WHERE id = ?').run(token, req.session.userId);
+    row = { share_token: token };
+  }
+  res.json({ token: row.share_token });
+});
+
+// public read-only view of a shared collection
+app.get('/api/shared/:token', (req, res) => {
+  const user = db.prepare('SELECT id, username FROM users WHERE share_token = ?')
+    .get(String(req.params.token));
+  if (!user) return res.status(404).json({ error: 'not_found' });
+  const row = db.prepare('SELECT data FROM collections WHERE user_id = ?').get(user.id);
+  res.json({ username: user.username, collected: row ? JSON.parse(row.data) : [] });
 });
 
 app.use(express.static(__dirname, { extensions: ['html'] }));
