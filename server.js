@@ -87,8 +87,11 @@ app.get('/api/collection', requireLogin, (req, res) => {
 
 app.put('/api/collection', requireLogin, (req, res) => {
   const { collected } = req.body || {};
-  if (!Array.isArray(collected) || collected.length > 5000
-      || !collected.every(n => Number.isInteger(n) && n > 0 && n < 100000)) {
+  // items are either dex numbers (shiny binder) or extras keys like "c25_FALL_2019"
+  const okItem = v =>
+    (Number.isInteger(v) && v > 0 && v < 100000) ||
+    (typeof v === 'string' && /^[a-z][0-9]{1,4}(_[A-Z0-9_]{1,40})?$/.test(v));
+  if (!Array.isArray(collected) || collected.length > 10000 || !collected.every(okItem)) {
     return res.status(400).json({ error: 'invalid_collection' });
   }
   db.prepare(`INSERT INTO collections (user_id, data, updated) VALUES (?, ?, CURRENT_TIMESTAMP)

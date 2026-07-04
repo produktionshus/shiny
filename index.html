@@ -300,7 +300,7 @@ body.show-all .card:not(.owned) { filter: none; opacity: 1; }
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0,0,0,.35);
 }
-#showall, #top50, #authbtn {
+#showall, #top50, #authbtn, #costumes, #regionals, #specials {
   font: 700 .8rem 'Fredoka', sans-serif;
   padding: 8px 14px;
   border-radius: 999px;
@@ -310,7 +310,8 @@ body.show-all .card:not(.owned) { filter: none; opacity: 1; }
   cursor: pointer;
   transition: background .15s;
 }
-#showall[aria-pressed="true"], #top50[aria-pressed="true"] {
+#showall[aria-pressed="true"], #top50[aria-pressed="true"],
+#costumes[aria-pressed="true"], #regionals[aria-pressed="true"], #specials[aria-pressed="true"] {
   background: rgba(232,184,75,.35);
   border-color: var(--stitch);
 }
@@ -649,6 +650,9 @@ footer a { color: inherit; }
   <input id="search" type="search" placeholder="Search Pokémon…" autocomplete="off">
   <button id="showall" aria-pressed="false">👁 Show all clearly</button>
   <button id="top50" aria-pressed="false" title="The 50 rarest shinies by rate">🏆 Top 50</button>
+  <button id="costumes" aria-pressed="false" title="Costumed Pokémon (hats & outfits)">🎩 Costumes</button>
+  <button id="regionals" aria-pressed="false" title="Regional exclusives">🌍 Regionals</button>
+  <button id="specials" aria-pressed="false" title="Legendary & mythical exceptions">⭐ Specials</button>
   <button id="authbtn">👤 Log in</button>
   <label class="gridpick"><span id="pocklabel">Pockets:</span>
     <select id="cols"></select> ×
@@ -762,7 +766,10 @@ let spreads = [];    // array of arrays (18 or 9 per spread)
 let cur = 0;
 let animating = false;
 let highlightId = null;
-let view = 'binder'; // 'binder' | 'top'
+let view = 'binder'; // 'binder' | 'top' | 'costumes' | 'regionals' | 'specials'
+let extras = null;   // loaded from extras.json
+fetch('extras.json').then(r => r.json()).then(j => { extras = j; }).catch(() => {});
+const shinyCount = () => [...collected].filter(v => typeof v === 'number').length;
 
 // shinies released in GO but missing from pogoapi's list — ignored once the API catches up
 const EXTRA_SHINIES = [
@@ -862,9 +869,12 @@ function spreadHTML(i) {
          pageHTML(items.slice(P), 'right', i * 2 + 2);
 }
 
+const VIEW_BTNS = { top: 'top50', costumes: 'costumes', regionals: 'regionals', specials: 'specials' };
 function render() {
-  document.getElementById('top50').setAttribute('aria-pressed', view === 'top');
+  Object.entries(VIEW_BTNS).forEach(([v, id]) =>
+    document.getElementById(id).setAttribute('aria-pressed', view === v));
   if (view === 'top') { renderTop(); return; }
+  if (view in EXTRA_VIEWS) { renderExtras(view); return; }
   app.innerHTML = `
   <div class="binder-wrap">
     <button class="navbtn" id="prev" aria-label="Forrige side">‹</button>
@@ -881,15 +891,15 @@ function render() {
 }
 
 function updateNav() {
-  if (view === 'top') {
-    statusEl.textContent = t('collected_of')(collected.size, mons.length);
+  if (view !== 'binder') {
+    statusEl.textContent = t('collected_of')(shinyCount(), mons.length);
     return;
   }
   const p = document.getElementById('prev'), n = document.getElementById('next');
   if (p) p.disabled = cur === 0;
   if (n) n.disabled = cur >= spreads.length - 1;
   statusEl.textContent = spreads.length
-    ? `${t('spread')(cur + 1, spreads.length)} · ${t('collected_of')(collected.size, mons.length)}`
+    ? `${t('spread')(cur + 1, spreads.length)} · ${t('collected_of')(shinyCount(), mons.length)}`
     : '';
 }
 
@@ -975,7 +985,7 @@ function toggleCollected(id) {
     if (!modal.hidden && modalId === id) sparkleBurst(document.querySelector('.modal-card img'));
   }
   if (collected.has(id)) collected.delete(id); else collected.add(id);
-  const n = collected.size;
+  const n = shinyCount();
   if (adding && (n === 5 || n === 10 || n % 25 === 0)) celebrate(n);
   saveCollected();
   document.querySelectorAll(`[data-id="${id}"]`)
@@ -988,6 +998,7 @@ function toggleCollected(id) {
 // click card: desktop = toggle collected, mobile = open detail modal
 app.addEventListener('click', e => {
   const row = e.target.closest('.top-row');
+  if (row && row.dataset.key) { toggleKey(row.dataset.key, row); return; }
   if (row) { openModal(Number(row.dataset.id)); return; }
   const card = e.target.closest('.card');
   if (!card || !card.dataset.id) return;
@@ -1155,12 +1166,14 @@ showallBtn.onclick = () =>
   applyShowAll(!document.body.classList.contains('show-all'));
 applyShowAll(!!localStorage.getItem('shinyShowAll'));
 
-// top 50 view
-document.getElementById('top50').onclick = () => {
-  if (!mons.length) return;
-  view = view === 'top' ? 'binder' : 'top';
-  render();
-};
+// top 50 + extras views
+Object.entries(VIEW_BTNS).forEach(([v, id]) => {
+  document.getElementById(id).onclick = () => {
+    if (!mons.length) return;
+    view = view === v ? 'binder' : v;
+    render();
+  };
+});
 
 // grid size (pockets per page)
 const colsSel = document.getElementById('cols');
@@ -1208,7 +1221,51 @@ function renderTop() {
         <span class="towned">✔</span>
       </li>`).join('')}</ol>
   </div>`;
-  statusEl.textContent = t('collected_of')(collected.size, mons.length);
+  statusEl.textContent = t('collected_of')(shinyCount(), mons.length);
+}
+
+const ART_PLAIN = id => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
+const COSTUME_ICON = (dex, form) =>
+  `https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Pokemon/Addressable%20Assets/pm${dex}.f${form}.icon.png`;
+
+const EXTRA_VIEWS = {
+  costumes:  { title: '🎩 Costumed Pokémon', sub: 'Hats & outfits from events (game data)' },
+  regionals: { title: '🌍 Regional exclusives', sub: 'Only catchable in certain parts of the world' },
+  specials:  { title: '⭐ Legendary & mythical exceptions', sub: 'Unique forms and research-exclusive mythicals' },
+};
+
+function renderExtras(kind) {
+  if (!extras) { app.innerHTML = '<div class="loading">Loading…</div>'; return; }
+  const list = extras[kind];
+  const got = list.filter(x => collected.has(x.key)).length;
+  const cfg = EXTRA_VIEWS[kind];
+  app.innerHTML = `<div class="toppanel">
+    <h2>${cfg.title}</h2>
+    <p class="topsub">${cfg.sub} · You've collected <b id="xcount">${got}</b> of ${list.length}</p>
+    <ol>${list.map(x => {
+      const icon = x.form && kind === 'costumes' ? COSTUME_ICON(x.dex, x.form) : ART_PLAIN(x.dex);
+      return `<li class="top-row${collected.has(x.key) ? ' owned' : ''}" data-key="${x.key}">
+        <span class="trank">#${x.dex}</span>
+        <img loading="lazy" alt="" src="${icon}" onerror="this.onerror=null;this.src='${ART_PLAIN(x.dex)}'">
+        <span class="tname">${x.name}<small>${x.sub}</small></span>
+        <span></span>
+        <span class="towned">✔</span>
+      </li>`;
+    }).join('')}</ol>
+  </div>`;
+  statusEl.textContent = t('collected_of')(shinyCount(), mons.length);
+}
+
+function toggleKey(key, el) {
+  const adding = !collected.has(key);
+  if (adding) { playSparkle(); if (el) sparkleBurst(el); collected.add(key); }
+  else collected.delete(key);
+  if (el) el.classList.toggle('owned', adding);
+  saveCollected();
+  const xc = document.getElementById('xcount');
+  if (xc && extras && view in EXTRA_VIEWS) {
+    xc.textContent = extras[view].filter(x => collected.has(x.key)).length;
+  }
 }
 
 function flip(dir) {

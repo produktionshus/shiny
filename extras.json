@@ -1,0 +1,903 @@
+{
+ "generated": "2026-07-04",
+ "costumes": [
+  {
+   "key": "c1_FALL_2019",
+   "dex": 1,
+   "name": "Bulbasaur",
+   "sub": "Fall 2019",
+   "form": "FALL_2019"
+  },
+  {
+   "key": "c4_FALL_2019",
+   "dex": 4,
+   "name": "Charmander",
+   "sub": "Fall 2019",
+   "form": "FALL_2019"
+  },
+  {
+   "key": "c7_FALL_2019",
+   "dex": 7,
+   "name": "Squirtle",
+   "sub": "Fall 2019",
+   "form": "FALL_2019"
+  },
+  {
+   "key": "c25_ADVENTURE_HAT_2020",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Adventure Hat 2020",
+   "form": "ADVENTURE_HAT_2020"
+  },
+  {
+   "key": "c25_BB_2026",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Bb 2026",
+   "form": "BB_2026"
+  },
+  {
+   "key": "c25_COSTUME_2020",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Costume 2020",
+   "form": "COSTUME_2020"
+  },
+  {
+   "key": "c25_DIWALI_2024",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Diwali 2024",
+   "form": "DIWALI_2024"
+  },
+  {
+   "key": "c25_DOCTOR",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Doctor",
+   "form": "DOCTOR"
+  },
+  {
+   "key": "c25_FALL_2019",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Fall 2019",
+   "form": "FALL_2019"
+  },
+  {
+   "key": "c25_FLYING_01",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Flying 01",
+   "form": "FLYING_01"
+  },
+  {
+   "key": "c25_FLYING_02",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Flying 02",
+   "form": "FLYING_02"
+  },
+  {
+   "key": "c25_FLYING_03",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Flying 03",
+   "form": "FLYING_03"
+  },
+  {
+   "key": "c25_FLYING_04",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Flying 04",
+   "form": "FLYING_04"
+  },
+  {
+   "key": "c25_FLYING_5TH_ANNIV",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Flying 5th Anniv",
+   "form": "FLYING_5TH_ANNIV"
+  },
+  {
+   "key": "c25_FLYING_OKINAWA",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Flying Okinawa",
+   "form": "FLYING_OKINAWA"
+  },
+  {
+   "key": "c25_GOFEST_2022",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gofest 2022",
+   "form": "GOFEST_2022"
+  },
+  {
+   "key": "c25_GOFEST_2024_MTIARA",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gofest 2024 Mtiara",
+   "form": "GOFEST_2024_MTIARA"
+  },
+  {
+   "key": "c25_GOFEST_2024_STIARA",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gofest 2024 Stiara",
+   "form": "GOFEST_2024_STIARA"
+  },
+  {
+   "key": "c25_GOFEST_2025_GOGGLES_BLUE",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gofest 2025 Goggles Blue",
+   "form": "GOFEST_2025_GOGGLES_BLUE"
+  },
+  {
+   "key": "c25_GOFEST_2025_GOGGLES_RED",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gofest 2025 Goggles Red",
+   "form": "GOFEST_2025_GOGGLES_RED"
+  },
+  {
+   "key": "c25_GOFEST_2025_GOGGLES_YELLOW",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gofest 2025 Goggles Yellow",
+   "form": "GOFEST_2025_GOGGLES_YELLOW"
+  },
+  {
+   "key": "c25_GOFEST_2025_MONOCLE_BLUE",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gofest 2025 Monocle Blue",
+   "form": "GOFEST_2025_MONOCLE_BLUE"
+  },
+  {
+   "key": "c25_GOFEST_2025_MONOCLE_RED",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gofest 2025 Monocle Red",
+   "form": "GOFEST_2025_MONOCLE_RED"
+  },
+  {
+   "key": "c25_GOFEST_2025_MONOCLE_YELLOW",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gofest 2025 Monocle Yellow",
+   "form": "GOFEST_2025_MONOCLE_YELLOW"
+  },
+  {
+   "key": "c25_GOTOUR_2024_A",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gotour 2024 A",
+   "form": "GOTOUR_2024_A"
+  },
+  {
+   "key": "c25_GOTOUR_2024_A_02",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gotour 2024 A 02",
+   "form": "GOTOUR_2024_A_02"
+  },
+  {
+   "key": "c25_GOTOUR_2024_B",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gotour 2024 B",
+   "form": "GOTOUR_2024_B"
+  },
+  {
+   "key": "c25_GOTOUR_2024_B_02",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gotour 2024 B 02",
+   "form": "GOTOUR_2024_B_02"
+  },
+  {
+   "key": "c25_GOTOUR_2025_A",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gotour 2025 A",
+   "form": "GOTOUR_2025_A"
+  },
+  {
+   "key": "c25_GOTOUR_2025_A_02",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gotour 2025 A 02",
+   "form": "GOTOUR_2025_A_02"
+  },
+  {
+   "key": "c25_GOTOUR_2025_B",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gotour 2025 B",
+   "form": "GOTOUR_2025_B"
+  },
+  {
+   "key": "c25_GOTOUR_2025_B_02",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gotour 2025 B 02",
+   "form": "GOTOUR_2025_B_02"
+  },
+  {
+   "key": "c25_GOTOUR_2026_A",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gotour 2026 A",
+   "form": "GOTOUR_2026_A"
+  },
+  {
+   "key": "c25_GOTOUR_2026_A_02",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gotour 2026 A 02",
+   "form": "GOTOUR_2026_A_02"
+  },
+  {
+   "key": "c25_GOTOUR_2026_B",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gotour 2026 B",
+   "form": "GOTOUR_2026_B"
+  },
+  {
+   "key": "c25_GOTOUR_2026_B_02",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gotour 2026 B 02",
+   "form": "GOTOUR_2026_B_02"
+  },
+  {
+   "key": "c25_GOTOUR_2026_C",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gotour 2026 C",
+   "form": "GOTOUR_2026_C"
+  },
+  {
+   "key": "c25_GOTOUR_2026_C_02",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Gotour 2026 C 02",
+   "form": "GOTOUR_2026_C_02"
+  },
+  {
+   "key": "c25_HORIZONS",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Horizons",
+   "form": "HORIZONS"
+  },
+  {
+   "key": "c25_JEJU",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Jeju",
+   "form": "JEJU"
+  },
+  {
+   "key": "c25_KARIYUSHI",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Kariyushi",
+   "form": "KARIYUSHI"
+  },
+  {
+   "key": "c25_KURTA",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Kurta",
+   "form": "KURTA"
+  },
+  {
+   "key": "c25_POP_STAR",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Pop Star",
+   "form": "POP_STAR"
+  },
+  {
+   "key": "c25_ROCK_STAR",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Rock Star",
+   "form": "ROCK_STAR"
+  },
+  {
+   "key": "c25_SUMMER_2023_A",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Summer 2023 A",
+   "form": "SUMMER_2023_A"
+  },
+  {
+   "key": "c25_SUMMER_2023_B",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Summer 2023 B",
+   "form": "SUMMER_2023_B"
+  },
+  {
+   "key": "c25_SUMMER_2023_C",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Summer 2023 C",
+   "form": "SUMMER_2023_C"
+  },
+  {
+   "key": "c25_SUMMER_2023_D",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Summer 2023 D",
+   "form": "SUMMER_2023_D"
+  },
+  {
+   "key": "c25_SUMMER_2023_E",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Summer 2023 E",
+   "form": "SUMMER_2023_E"
+  },
+  {
+   "key": "c25_TSHIRT_01",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Tshirt 01",
+   "form": "TSHIRT_01"
+  },
+  {
+   "key": "c25_TSHIRT_02",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Tshirt 02",
+   "form": "TSHIRT_02"
+  },
+  {
+   "key": "c25_TSHIRT_03",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Tshirt 03",
+   "form": "TSHIRT_03"
+  },
+  {
+   "key": "c25_VS_2019",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Vs 2019",
+   "form": "VS_2019"
+  },
+  {
+   "key": "c25_WCS_2022",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Wcs 2022",
+   "form": "WCS_2022"
+  },
+  {
+   "key": "c25_WCS_2023",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Wcs 2023",
+   "form": "WCS_2023"
+  },
+  {
+   "key": "c25_WCS_2024",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Wcs 2024",
+   "form": "WCS_2024"
+  },
+  {
+   "key": "c25_WCS_2025",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Wcs 2025",
+   "form": "WCS_2025"
+  },
+  {
+   "key": "c25_WINTER_2020",
+   "dex": 25,
+   "name": "Pikachu",
+   "sub": "Winter 2020",
+   "form": "WINTER_2020"
+  },
+  {
+   "key": "c79_2020",
+   "dex": 79,
+   "name": "Slowpoke",
+   "sub": "2020",
+   "form": "2020"
+  },
+  {
+   "key": "c80_2021",
+   "dex": 80,
+   "name": "Slowbro",
+   "sub": "2021",
+   "form": "2021"
+  },
+  {
+   "key": "c94_COSTUME_2020",
+   "dex": 94,
+   "name": "Gengar",
+   "sub": "Costume 2020",
+   "form": "COSTUME_2020"
+  },
+  {
+   "key": "c131_COSTUME_2020",
+   "dex": 131,
+   "name": "Lapras",
+   "sub": "Costume 2020",
+   "form": "COSTUME_2020"
+  },
+  {
+   "key": "c132_SPRING_2026_A",
+   "dex": 132,
+   "name": "Ditto",
+   "sub": "Spring 2026 A",
+   "form": "SPRING_2026_A"
+  },
+  {
+   "key": "c132_SPRING_2026_B",
+   "dex": 132,
+   "name": "Ditto",
+   "sub": "Spring 2026 B",
+   "form": "SPRING_2026_B"
+  },
+  {
+   "key": "c133_GOFEST_2024_MTIARA",
+   "dex": 133,
+   "name": "Eevee",
+   "sub": "Gofest 2024 Mtiara",
+   "form": "GOFEST_2024_MTIARA"
+  },
+  {
+   "key": "c133_GOFEST_2024_STIARA",
+   "dex": 133,
+   "name": "Eevee",
+   "sub": "Gofest 2024 Stiara",
+   "form": "GOFEST_2024_STIARA"
+  },
+  {
+   "key": "c142_SUMMER_2023",
+   "dex": 142,
+   "name": "Aerodactyl",
+   "sub": "Summer 2023",
+   "form": "SUMMER_2023"
+  },
+  {
+   "key": "c143_WILDAREA_2024",
+   "dex": 143,
+   "name": "Snorlax",
+   "sub": "Wildarea 2024",
+   "form": "WILDAREA_2024"
+  },
+  {
+   "key": "c150_A",
+   "dex": 150,
+   "name": "Mewtwo",
+   "sub": "A",
+   "form": "A"
+  },
+  {
+   "key": "c185_WINTER_2025",
+   "dex": 185,
+   "name": "Sudowoodo",
+   "sub": "Winter 2025",
+   "form": "WINTER_2025"
+  },
+  {
+   "key": "c196_GOFEST_2024_SSCARF",
+   "dex": 196,
+   "name": "Espeon",
+   "sub": "Gofest 2024 Sscarf",
+   "form": "GOFEST_2024_SSCARF"
+  },
+  {
+   "key": "c197_GOFEST_2024_MSCARF",
+   "dex": 197,
+   "name": "Umbreon",
+   "sub": "Gofest 2024 Mscarf",
+   "form": "GOFEST_2024_MSCARF"
+  },
+  {
+   "key": "c199_2022",
+   "dex": 199,
+   "name": "Slowking",
+   "sub": "2022",
+   "form": "2022"
+  },
+  {
+   "key": "c222_SPRING_2026",
+   "dex": 222,
+   "name": "Corsola",
+   "sub": "Spring 2026",
+   "form": "SPRING_2026"
+  },
+  {
+   "key": "c225_WINTER_2020",
+   "dex": 225,
+   "name": "Delibird",
+   "sub": "Winter 2020",
+   "form": "WINTER_2020"
+  },
+  {
+   "key": "c302_COSTUME_2020",
+   "dex": 302,
+   "name": "Sableye",
+   "sub": "Costume 2020",
+   "form": "COSTUME_2020"
+  },
+  {
+   "key": "c613_WINTER_2020",
+   "dex": 613,
+   "name": "Cubchoo",
+   "sub": "Winter 2020",
+   "form": "WINTER_2020"
+  },
+  {
+   "key": "c614_WINTER_2020",
+   "dex": 614,
+   "name": "Beartic",
+   "sub": "Winter 2020",
+   "form": "WINTER_2020"
+  },
+  {
+   "key": "c737_WINTER_2025",
+   "dex": 737,
+   "name": "Charjabug",
+   "sub": "Winter 2025",
+   "form": "WINTER_2025"
+  },
+  {
+   "key": "c738_WINTER_2025",
+   "dex": 738,
+   "name": "Vikavolt",
+   "sub": "Winter 2025",
+   "form": "WINTER_2025"
+  },
+  {
+   "key": "c760_WILDAREA_2025",
+   "dex": 760,
+   "name": "Bewear",
+   "sub": "Wildarea 2025",
+   "form": "WILDAREA_2025"
+  },
+  {
+   "key": "c870_GOFEST_2025_TRAIN_CONDUCTOR",
+   "dex": 870,
+   "name": "Falinks",
+   "sub": "Gofest 2025 Train Conductor",
+   "form": "GOFEST_2025_TRAIN_CONDUCTOR"
+  },
+  {
+   "key": "c999_COIN_A1",
+   "dex": 999,
+   "name": "Gimmighoul",
+   "sub": "Coin A1",
+   "form": "COIN_A1"
+  }
+ ],
+ "regionals": [
+  {
+   "key": "r83",
+   "dex": 83,
+   "name": "Farfetch'd",
+   "sub": "East Asia"
+  },
+  {
+   "key": "r115",
+   "dex": 115,
+   "name": "Kangaskhan",
+   "sub": "Australia"
+  },
+  {
+   "key": "r122",
+   "dex": 122,
+   "name": "Mr. Mime",
+   "sub": "Europe"
+  },
+  {
+   "key": "r128",
+   "dex": 128,
+   "name": "Tauros",
+   "sub": "The Americas"
+  },
+  {
+   "key": "r214",
+   "dex": 214,
+   "name": "Heracross",
+   "sub": "Latin America"
+  },
+  {
+   "key": "r222",
+   "dex": 222,
+   "name": "Corsola",
+   "sub": "Tropics"
+  },
+  {
+   "key": "r324",
+   "dex": 324,
+   "name": "Torkoal",
+   "sub": "South Asia"
+  },
+  {
+   "key": "r335",
+   "dex": 335,
+   "name": "Zangoose",
+   "sub": "Rotating hemisphere"
+  },
+  {
+   "key": "r336",
+   "dex": 336,
+   "name": "Seviper",
+   "sub": "Rotating hemisphere"
+  },
+  {
+   "key": "r337",
+   "dex": 337,
+   "name": "Lunatone",
+   "sub": "Rotating hemisphere"
+  },
+  {
+   "key": "r338",
+   "dex": 338,
+   "name": "Solrock",
+   "sub": "Rotating hemisphere"
+  },
+  {
+   "key": "r357",
+   "dex": 357,
+   "name": "Tropius",
+   "sub": "Africa/Mediterranean"
+  },
+  {
+   "key": "r369",
+   "dex": 369,
+   "name": "Relicanth",
+   "sub": "New Zealand/Pacific"
+  },
+  {
+   "key": "r417",
+   "dex": 417,
+   "name": "Pachirisu",
+   "sub": "Canada/Russia/Alaska"
+  },
+  {
+   "key": "r441",
+   "dex": 441,
+   "name": "Chatot",
+   "sub": "Southern Hemisphere"
+  },
+  {
+   "key": "r455",
+   "dex": 455,
+   "name": "Carnivine",
+   "sub": "Southeast US"
+  },
+  {
+   "key": "r480",
+   "dex": 480,
+   "name": "Uxie",
+   "sub": "Asia-Pacific"
+  },
+  {
+   "key": "r481",
+   "dex": 481,
+   "name": "Mesprit",
+   "sub": "Europe/Africa/Middle East"
+  },
+  {
+   "key": "r482",
+   "dex": 482,
+   "name": "Azelf",
+   "sub": "The Americas/Greenland"
+  },
+  {
+   "key": "r538",
+   "dex": 538,
+   "name": "Throh",
+   "sub": "Americas/Africa"
+  },
+  {
+   "key": "r539",
+   "dex": 539,
+   "name": "Sawk",
+   "sub": "Europe/Asia-Pacific"
+  },
+  {
+   "key": "r550",
+   "dex": 550,
+   "name": "Basculin",
+   "sub": "Stripe by hemisphere"
+  },
+  {
+   "key": "r556",
+   "dex": 556,
+   "name": "Maractus",
+   "sub": "Southern US/Latin America"
+  },
+  {
+   "key": "r561",
+   "dex": 561,
+   "name": "Sigilyph",
+   "sub": "Egypt/Greece"
+  },
+  {
+   "key": "r626",
+   "dex": 626,
+   "name": "Bouffalant",
+   "sub": "New York area"
+  },
+  {
+   "key": "r631",
+   "dex": 631,
+   "name": "Heatmor",
+   "sub": "Western Hemisphere"
+  },
+  {
+   "key": "r632",
+   "dex": 632,
+   "name": "Durant",
+   "sub": "Eastern Hemisphere"
+  },
+  {
+   "key": "r666",
+   "dex": 666,
+   "name": "Vivillon",
+   "sub": "Patterns by region"
+  },
+  {
+   "key": "r701",
+   "dex": 701,
+   "name": "Hawlucha",
+   "sub": "Mexico"
+  },
+  {
+   "key": "r707",
+   "dex": 707,
+   "name": "Klefki",
+   "sub": "France"
+  },
+  {
+   "key": "r741",
+   "dex": 741,
+   "name": "Oricorio",
+   "sub": "Style by region"
+  },
+  {
+   "key": "r764",
+   "dex": 764,
+   "name": "Comfey",
+   "sub": "Hawaii"
+  },
+  {
+   "key": "r774",
+   "dex": 774,
+   "name": "Minior",
+   "sub": "Core colours rotate"
+  },
+  {
+   "key": "r874",
+   "dex": 874,
+   "name": "Stonjourner",
+   "sub": "UK/Ireland (events)"
+  }
+ ],
+ "specials": [
+  {
+   "key": "s150_A",
+   "dex": 150,
+   "name": "Armored Mewtwo",
+   "sub": "Raid event exclusive form",
+   "form": "A"
+  },
+  {
+   "key": "s151",
+   "dex": 151,
+   "name": "Mew",
+   "sub": "Special Research (A Mythical Discovery)"
+  },
+  {
+   "key": "s251",
+   "dex": 251,
+   "name": "Celebi",
+   "sub": "Special Research (A Ripple in Time)"
+  },
+  {
+   "key": "s385",
+   "dex": 385,
+   "name": "Jirachi",
+   "sub": "Special Research (A Thousand-Year Slumber)"
+  },
+  {
+   "key": "s386",
+   "dex": 386,
+   "name": "Deoxys",
+   "sub": "EX/regular raids, four forms"
+  },
+  {
+   "key": "s491",
+   "dex": 491,
+   "name": "Darkrai",
+   "sub": "Halloween raids"
+  },
+  {
+   "key": "s492",
+   "dex": 492,
+   "name": "Shaymin",
+   "sub": "GO Fest research, Land/Sky forms"
+  },
+  {
+   "key": "s494",
+   "dex": 494,
+   "name": "Victini",
+   "sub": "Special Research (The Feeling of Victory)"
+  },
+  {
+   "key": "s647",
+   "dex": 647,
+   "name": "Keldeo",
+   "sub": "Special Research (Something Extraordinary)"
+  },
+  {
+   "key": "s648",
+   "dex": 648,
+   "name": "Meloetta",
+   "sub": "GO Fest Special Research"
+  },
+  {
+   "key": "s649",
+   "dex": 649,
+   "name": "Genesect",
+   "sub": "Special Research + raids, drive forms"
+  },
+  {
+   "key": "s718",
+   "dex": 718,
+   "name": "Zygarde",
+   "sub": "Routes (From A to Zygarde), three forms"
+  },
+  {
+   "key": "s719",
+   "dex": 719,
+   "name": "Diancie",
+   "sub": "GO Fest Special Research"
+  },
+  {
+   "key": "s720",
+   "dex": 720,
+   "name": "Hoopa",
+   "sub": "Misunderstood Mischief research, two forms"
+  },
+  {
+   "key": "s800",
+   "dex": 800,
+   "name": "Necrozma",
+   "sub": "GO Fest raids, fusion forms"
+  },
+  {
+   "key": "s802",
+   "dex": 802,
+   "name": "Marshadow",
+   "sub": "GO Fest Special Research"
+  },
+  {
+   "key": "s891",
+   "dex": 891,
+   "name": "Kubfu",
+   "sub": "Special Research (To Be a Better Buddy)"
+  },
+  {
+   "key": "s893",
+   "dex": 893,
+   "name": "Zarude",
+   "sub": "Special Research (Search for Zarude)"
+  }
+ ]
+}
