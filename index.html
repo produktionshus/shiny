@@ -364,6 +364,25 @@ body.show-all .top-row:not(.owned) img { filter: none; opacity: 1; }
 .towned { text-align: center; font-size: 1rem; visibility: hidden; }
 .top-row.owned .towned { visibility: visible; color: #2e7d32; }
 .card.hit { animation: hitpulse 1.6s ease 3; }
+
+/* sparkle burst on collect */
+.burst { position: fixed; z-index: 200; pointer-events: none; }
+.burst span {
+  position: absolute;
+  left: 0; top: 0;
+  font-size: 15px;
+  text-shadow: 0 0 6px rgba(255,220,90,.9);
+  animation: sparklefly .8s ease-out forwards;
+}
+@keyframes sparklefly {
+  0%   { transform: translate(-50%,-50%) scale(.3); opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.4) rotate(var(--rot)); opacity: 0; }
+}
+.card.flash { animation: goldflash .9s ease-out; }
+@keyframes goldflash {
+  0%   { filter: brightness(1.8) saturate(1.4); box-shadow: 0 0 24px 6px rgba(255,215,80,.95); }
+  100% { filter: none; box-shadow: 0 2px 5px rgba(0,0,0,.25); }
+}
 .card.hit:not(.owned) { filter: none; opacity: 1; }
 .gridpick {
   font: 700 .8rem 'Fredoka', sans-serif;
@@ -850,9 +869,39 @@ function playSparkleSynth() {
   } catch (e) { /* no audio: skip */ }
 }
 
+function sparkleBurst(el) {
+  const r = el.getBoundingClientRect();
+  const holder = document.createElement('div');
+  holder.className = 'burst';
+  holder.style.left = (r.left + r.width / 2) + 'px';
+  holder.style.top = (r.top + r.height / 2) + 'px';
+  for (let i = 0; i < 10; i++) {
+    const s = document.createElement('span');
+    s.textContent = ['✨', '⭐', '✦'][i % 3];
+    const ang = (i / 10) * 2 * Math.PI + Math.random() * 0.6;
+    const dist = 45 + Math.random() * 50;
+    s.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
+    s.style.setProperty('--dy', Math.sin(ang) * dist + 'px');
+    s.style.setProperty('--rot', (Math.random() * 180 - 90) + 'deg');
+    s.style.animationDelay = (Math.random() * 0.12) + 's';
+    holder.appendChild(s);
+  }
+  document.body.appendChild(holder);
+  setTimeout(() => holder.remove(), 1100);
+  if (el.classList.contains('card')) {
+    el.classList.remove('flash');
+    void el.offsetWidth; // restart animation
+    el.classList.add('flash');
+  }
+}
+
 function toggleCollected(id) {
   const adding = !collected.has(id);
-  if (adding) playSparkle();
+  if (adding) {
+    playSparkle();
+    document.querySelectorAll(`.card[data-id="${id}"]`).forEach(sparkleBurst);
+    if (!modal.hidden && modalId === id) sparkleBurst(document.querySelector('.modal-card img'));
+  }
   if (collected.has(id)) collected.delete(id); else collected.add(id);
   saveCollected();
   document.querySelectorAll(`[data-id="${id}"]`)
