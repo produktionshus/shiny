@@ -1313,6 +1313,17 @@ Promise.all(friends.map(loadFriend)).then(() => {
   }
 });
 
+// auto-refresh friends' collections every 30s (only when tab is visible)
+async function refreshFriends() {
+  if (!friends.length || document.hidden) return;
+  const sizes = friends.map(f => friendData[f.token]?.size ?? 0);
+  await Promise.all(friends.map(loadFriend));
+  const changed = friends.some((f, i) => (friendData[f.token]?.size ?? 0) !== sizes[i]);
+  if (changed) { renderFriendbar(); if (view === 'binder' && mons.length) render(); }
+}
+setInterval(refreshFriends, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshFriends(); });
+
 // merge the account's friend list with the local one (union by token)
 async function loadServerFriends() {
   try {
