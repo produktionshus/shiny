@@ -822,9 +822,16 @@ function updateNav() {
     : '';
 }
 
-// synthesized shiny-sparkle chime (the real PoGo sound is copyrighted game audio)
-let actx = null;
+const sparkleSound = new Audio('sparkle.mp3');
+sparkleSound.volume = 0.5;
 function playSparkle() {
+  sparkleSound.currentTime = 0;
+  sparkleSound.play().catch(playSparkleSynth); // file missing/blocked: synth fallback
+}
+
+// synthesized fallback chime
+let actx = null;
+function playSparkleSynth() {
   try {
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
     const now = actx.currentTime;
