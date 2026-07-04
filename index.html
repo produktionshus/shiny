@@ -488,7 +488,18 @@ footer a { color: inherit; }
   object-fit: contain;
   filter: drop-shadow(0 6px 10px rgba(0,0,0,.35));
 }
-.modal-card h2 { font: 700 1.5rem 'Fredoka', sans-serif; margin: 2px 0 8px; }
+.modal-card h2 { font: 700 1.5rem 'Fredoka', sans-serif; margin: 2px 0 8px; display: inline-block; }
+#mcry {
+  margin-left: 8px;
+  width: 36px; height: 36px;
+  vertical-align: middle;
+  border-radius: 50%;
+  border: 1px solid rgba(120,90,40,.4);
+  background: rgba(255,255,255,.6);
+  font-size: 1rem;
+  cursor: pointer;
+}
+#mcry:active { transform: scale(.9); }
 .msources {
   display: flex; flex-wrap: wrap; gap: 6px;
   justify-content: center;
@@ -620,6 +631,7 @@ footer a { color: inherit; }
     <div class="mtop"><span id="mdex"></span><span id="mrate" class="rate"></span></div>
     <img id="mimg" alt="">
     <h2 id="mname"></h2>
+    <button id="mcry" title="Play cry">🔊</button>
     <div class="msources" id="msources"></div>
     <button id="mcollect"></button>
   </div>
@@ -641,6 +653,7 @@ footer a { color: inherit; }
 const API = 'https://pogoapi.net/api/v1/shiny_pokemon.json';
 const ART = id => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/${id}.png`;
 const SPRITE = id => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/${id}.png`;
+const CRY = id => `https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${id}.ogg`;
 
 const GENS = [
   [1, 1], [2, 152], [3, 252], [4, 387], [5, 494],
@@ -864,7 +877,16 @@ function openModal(id) {
     .map(([, icon, label]) => `<span>${icon} ${label}</span>`).join('');
   syncCollectBtn();
   modal.hidden = false;
+  playCry(id);
 }
+let cryAudio = null;
+function playCry(id) {
+  if (cryAudio) cryAudio.pause();
+  cryAudio = new Audio(CRY(id));
+  cryAudio.volume = 0.35;
+  cryAudio.play().catch(() => {}); // no cry file / autoplay blocked: silently skip
+}
+document.getElementById('mcry').onclick = () => { if (modalId) playCry(modalId); };
 function syncCollectBtn() {
   const on = collected.has(modalId);
   mcollect.textContent = on ? t('unmark') : t('mark');
