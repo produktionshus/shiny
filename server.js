@@ -26,6 +26,7 @@ db.exec(`
 `);
 
 try { db.exec('ALTER TABLE users ADD COLUMN share_token TEXT'); } catch (e) { /* column exists */ }
+try { db.exec('ALTER TABLE users ADD COLUMN friends TEXT'); } catch (e) { /* column exists */ }
 
 const app = express();
 app.set('trust proxy', 1); // Railway sits behind a proxy
@@ -141,6 +142,26 @@ app.post('/api/admin/delete-user', requireAdmin, (req, res) => {
   if (!u) return res.status(404).json({ error: 'not_found' });
   db.prepare('DELETE FROM collections WHERE user_id = ?').run(u.id);
   db.prepare('DELETE FROM users WHERE id = ?').run(u.id);
+  res.json({ ok: true });
+});
+
+// friends list (for compare view) follows the account
+app.get('/api/friends', requireLogin, (req, res) => {
+  const row = db.prepare('SELECT friends FROM users WHERE id = ?').get(req.session.userId);
+  res.json({ friends: row.friends ? JSON.parse(row.friends) : [] });
+});
+
+app.put('/api/friends', requireLogin, (req, res) => {
+  const { friends } = req.body || {};
+  const ok = Array.isArray(friends) && friends.length <= 20 && friends.every(f =>
+    f && typeof f === 'object' &&
+    typeof f.token === 'string' && /^[\w-]{1,40}$/.test(f.token) &&
+    typeof f.name === 'string' && f.name.length <= 40 &&
+    typeof f.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(f.color));
+  if (!ok) return res.status(400).json({ error: 'invalid_friends' });
+  const clean = friends.map(f => ({ token: f.token, name: f.name, color: f.color }));
+  db.prepare('UPDATE users SET friends = ? WHERE id = ?')
+    .run(JSON.stringify(clean), req.session.userId);
   res.json({ ok: true });
 });
 

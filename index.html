@@ -820,7 +820,18 @@ let shareName = null; // set when viewing someone else's collection
 const FRIEND_COLORS = ['#ff5252', '#40c4ff', '#69f0ae', '#ffd740', '#e040fb', '#ff6e40'];
 let friends = JSON.parse(localStorage.getItem('shinyFriends') || '[]');
 const friendData = {}; // token -> Set of collected items
-const saveFriends = () => localStorage.setItem('shinyFriends', JSON.stringify(friends));
+const saveFriends = () => {
+  localStorage.setItem('shinyFriends', JSON.stringify(friends));
+  pushFriends();
+};
+let friendsTimer = null;
+function pushFriends() {
+  if (!me) return;
+  clearTimeout(friendsTimer);
+  friendsTimer = setTimeout(() => {
+    api('/api/friends', { method: 'PUT', body: JSON.stringify({ friends }) }).catch(() => {});
+  }, 800);
+}
 let extras = null;   // loaded from extras.json
 fetch('extras.json').then(r => r.json()).then(j => { extras = j; }).catch(() => {});
 const shinyCount = () => [...collected].filter(v => typeof v === 'number').length;
@@ -1205,6 +1216,7 @@ async function doAuth(endpoint) {
     authmodal.hidden = true;
     document.getElementById('apass').value = '';
     await loadServerCollection();
+    loadServerFriends();
   } catch (e) {
     aerr.textContent = L.en['err_' + e.message] || e.message;
   }
@@ -1300,6 +1312,20 @@ Promise.all(friends.map(loadFriend)).then(() => {
   }
 });
 
+// merge the account's friend list with the local one (union by token)
+async function loadServerFriends() {
+  try {
+    const server = (await api('/api/friends')).friends;
+    const byToken = new Map(server.map(f => [f.token, f]));
+    friends.forEach(f => { if (!byToken.has(f.token)) byToken.set(f.token, f); });
+    friends = [...byToken.values()];
+    await Promise.all(friends.map(loadFriend));
+    saveFriends();
+    renderFriendbar();
+    if (mons.length) render();
+  } catch (e) { /* offline or old server */ }
+}
+
 // share view: load the shared collection instead of your own
 if (readonly) {
   authbtn.style.display = 'none';
@@ -1317,7 +1343,11 @@ if (readonly) {
 } else {
   // restore session on load (no-op on static hosting without the API)
   api('/api/me')
-    .then(j => { me = j.username; updateAuthUI(); if (me) return loadServerCollection(); })
+    .then(j => {
+      me = j.username;
+      updateAuthUI();
+      if (me) { loadServerFriends(); return loadServerCollection(); }
+    })
     .catch(() => {});
 }
 
