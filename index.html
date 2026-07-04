@@ -738,9 +738,20 @@ let animating = false;
 let highlightId = null;
 let view = 'binder'; // 'binder' | 'top'
 
+// shinies released in GO but missing from pogoapi's list — ignored once the API catches up
+const EXTRA_SHINIES = [
+  { id: 816, name: 'Sobble', found_wild: true, found_research: true },
+  { id: 817, name: 'Drizzile', found_evolution: true },
+  { id: 818, name: 'Inteleon', found_evolution: true },
+  { id: 948, name: 'Toedscool', found_wild: true },
+  { id: 949, name: 'Toedscruel', found_evolution: true },
+];
+
 fetch(API)
   .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
   .then(data => {
+    const have = new Set(Object.values(data).map(m => m.id));
+    EXTRA_SHINIES.filter(m => !have.has(m.id)).forEach(m => { data[m.id] = m; });
     mons = Object.values(data).sort((a, b) => a.id - b.id);
     buildSpreads();
     applyLang(); // renders + sets all texts incl. subtitle count
