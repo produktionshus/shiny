@@ -909,7 +909,7 @@ function cardHTML(m) {
     ? `<span class="rate" title="Shiny rate (shinyrates.com)">${rates[m.id]}</span>` : '';
   const rings = friends.filter(f => friendData[f.token]?.has(m.id));
   const ringStyle = rings.length
-    ? ` style="box-shadow:${rings.map((f, i) => `0 0 0 ${(i + 1) * 3}px ${f.color}`).join(',')},0 2px 5px rgba(0,0,0,.25)"`
+    ? ` style="box-shadow:${rings.map((f, i) => `inset 0 0 0 ${(i + 1) * 3}px ${f.color}`).join(',')},0 2px 5px rgba(0,0,0,.25)"`
     : '';
   const ringTip = rings.length ? ` · caught by ${rings.map(f => f.name).join(', ')}` : '';
   return `<div class="pocket"><div class="card${hit}${owned}" data-id="${m.id}"${ringStyle} title="${m.name} #${m.id} — ${t('card_tip')}${ringTip}">
