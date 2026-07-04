@@ -960,7 +960,8 @@ function toggleCollected(id) {
     if (!modal.hidden && modalId === id) sparkleBurst(document.querySelector('.modal-card img'));
   }
   if (collected.has(id)) collected.delete(id); else collected.add(id);
-  if (adding && collected.size % 25 === 0) celebrate(collected.size);
+  const n = collected.size;
+  if (adding && (n === 5 || n === 10 || n % 25 === 0)) celebrate(n);
   saveCollected();
   document.querySelectorAll(`[data-id="${id}"]`)
     .forEach(c => c.classList.toggle('owned', collected.has(id)));
