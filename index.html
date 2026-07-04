@@ -300,7 +300,7 @@ body.show-all .card:not(.owned) { filter: none; opacity: 1; }
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0,0,0,.35);
 }
-#showall, #top50, #authbtn, #sharebtn, #costumes, #regionals, #specials {
+#showall, #top50, #authbtn, #sharebtn, #comparebtn, #costumes, #regionals, #specials {
   font: 700 .8rem 'Fredoka', sans-serif;
   padding: 8px 14px;
   border-radius: 999px;
@@ -574,6 +574,34 @@ footer a { color: inherit; }
   color: #1c4d20;
 }
 
+/* compare with friends */
+#friendbar {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  justify-content: center;
+  padding: 8px 16px 0;
+}
+#friendbar .fchip {
+  font: 700 .78rem 'Fredoka', sans-serif;
+  color: #f0e6d0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 2px solid;
+  background: rgba(0,0,0,.35);
+}
+.cmprow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 2px;
+  font: 700 .95rem 'Nunito', sans-serif;
+  text-align: left;
+}
+.cmprow .dot { width: 14px; height: 14px; border-radius: 50%; flex: 0 0 auto; }
+.cmprow .cname { flex: 1; }
+.cmprow button {
+  border: none; background: rgba(0,0,0,.1);
+  width: 26px; height: 26px; border-radius: 50%;
+  cursor: pointer; color: var(--ink);
+}
+
 /* auth modal */
 .modal-card input {
   width: 100%;
@@ -655,12 +683,15 @@ footer a { color: inherit; }
   <button id="specials" aria-pressed="false" title="Legendary & mythical exceptions">⭐ Specials</button>
   <button id="authbtn">👤 Log in</button>
   <button id="sharebtn" title="Copy a read-only link to your collection" style="display:none">🔗 Share</button>
+  <button id="comparebtn" title="Compare with friends via their share links">👥 Compare</button>
   <label class="gridpick"><span id="pocklabel">Pockets:</span>
     <select id="cols"></select> ×
     <select id="rows"></select>
   </label>
   <div class="gens" id="gens"></div>
 </div>
+
+<div id="friendbar" style="display:none"></div>
 
 <div id="app">
   <div class="loading"><div class="pokeball"></div><span id="loadingtext">Opening the binder…</span></div>
@@ -684,6 +715,19 @@ footer a { color: inherit; }
     <button id="mcry" title="Play cry">🔊</button>
     <div class="msources" id="msources"></div>
     <button id="mcollect"></button>
+  </div>
+</div>
+
+<div id="cmpmodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 style="font: 700 1.4rem 'Fredoka', sans-serif; margin-bottom: 6px;">👥 Compare with friends</h2>
+    <p style="font: 600 .82rem 'Nunito', sans-serif; opacity:.75; margin-bottom: 10px;">
+      Paste a friend's share link — their catches show as a colored ring on each card.</p>
+    <div id="cmplist"></div>
+    <input id="cmpinput" placeholder="Paste share link or code…" autocomplete="off">
+    <div id="cmperr" style="color:#a01818; font: 700 .82rem 'Nunito', sans-serif; min-height:1.2em;"></div>
+    <button id="cmpadd" class="authaction">Add friend</button>
   </div>
 </div>
 
@@ -771,6 +815,12 @@ let view = 'binder'; // 'binder' | 'top' | 'costumes' | 'regionals' | 'specials'
 const shareToken = new URLSearchParams(location.search).get('share');
 const readonly = !!shareToken;
 let shareName = null; // set when viewing someone else's collection
+
+// compare-with-friends: friends' share tokens + their collections
+const FRIEND_COLORS = ['#ff5252', '#40c4ff', '#69f0ae', '#ffd740', '#e040fb', '#ff6e40'];
+let friends = JSON.parse(localStorage.getItem('shinyFriends') || '[]');
+const friendData = {}; // token -> Set of collected items
+const saveFriends = () => localStorage.setItem('shinyFriends', JSON.stringify(friends));
 let extras = null;   // loaded from extras.json
 fetch('extras.json').then(r => r.json()).then(j => { extras = j; }).catch(() => {});
 const shinyCount = () => [...collected].filter(v => typeof v === 'number').length;
@@ -845,7 +895,12 @@ function cardHTML(m) {
   const owned = collected.has(m.id) ? ' owned' : '';
   const rate = rates[m.id]
     ? `<span class="rate" title="Shiny rate (shinyrates.com)">${rates[m.id]}</span>` : '';
-  return `<div class="pocket"><div class="card${hit}${owned}" data-id="${m.id}" title="${m.name} #${m.id} — ${t('card_tip')}">
+  const rings = friends.filter(f => friendData[f.token]?.has(m.id));
+  const ringStyle = rings.length
+    ? ` style="box-shadow:${rings.map((f, i) => `0 0 0 ${(i + 1) * 3}px ${f.color}`).join(',')},0 2px 5px rgba(0,0,0,.25)"`
+    : '';
+  const ringTip = rings.length ? ` · caught by ${rings.map(f => f.name).join(', ')}` : '';
+  return `<div class="pocket"><div class="card${hit}${owned}" data-id="${m.id}"${ringStyle} title="${m.name} #${m.id} — ${t('card_tip')}${ringTip}">
     <div class="cardtop"><span class="dex">#${String(m.id).padStart(3, '0')}</span>${rate}</div>
     <img loading="lazy" alt="Shiny ${m.name}" src="${ART(m.id)}"
          onerror="if(!this.dataset.f){this.dataset.f=1;this.src='${SPRITE(m.id)}'}else{this.style.visibility='hidden'}">
@@ -1172,6 +1227,78 @@ function applyLang() {
   if (mons.length) render(); else updateNav();
 }
 applyLang();
+
+// ===== compare with friends =====
+const cmpmodal = document.getElementById('cmpmodal');
+const cmperr = document.getElementById('cmperr');
+
+async function loadFriend(f) {
+  try {
+    const j = await api('/api/shared/' + encodeURIComponent(f.token));
+    f.name = j.username;
+    friendData[f.token] = new Set(j.collected);
+    return true;
+  } catch (e) {
+    friendData[f.token] = new Set();
+    return false;
+  }
+}
+
+function renderFriendbar() {
+  const bar = document.getElementById('friendbar');
+  bar.style.display = friends.length ? '' : 'none';
+  bar.innerHTML = friends.map(f =>
+    `<span class="fchip" style="border-color:${f.color}">● ${f.name} — ${friendData[f.token]?.size ?? 0}</span>`
+  ).join('');
+}
+
+function renderCmpList() {
+  document.getElementById('cmplist').innerHTML = friends.map(f =>
+    `<div class="cmprow">
+      <span class="dot" style="background:${f.color}"></span>
+      <span class="cname">${f.name} (${friendData[f.token]?.size ?? 0} collected)</span>
+      <button data-token="${f.token}" title="Remove">✕</button>
+    </div>`).join('') || '<p style="opacity:.6;font:600 .85rem Nunito">No friends added yet.</p>';
+}
+
+document.getElementById('comparebtn').onclick = () => {
+  cmperr.textContent = '';
+  document.getElementById('cmpinput').value = '';
+  renderCmpList();
+  cmpmodal.hidden = false;
+};
+cmpmodal.addEventListener('click', async e => {
+  if (e.target === cmpmodal || e.target.closest('.modal-close')) { cmpmodal.hidden = true; return; }
+  const rm = e.target.closest('button[data-token]');
+  if (rm) {
+    friends = friends.filter(f => f.token !== rm.dataset.token);
+    delete friendData[rm.dataset.token];
+    saveFriends(); renderCmpList(); renderFriendbar();
+    if (mons.length) render();
+  }
+});
+document.getElementById('cmpadd').onclick = async () => {
+  cmperr.textContent = '';
+  const raw = document.getElementById('cmpinput').value.trim();
+  const token = (raw.match(/share=([\w-]+)/) || [])[1] || raw;
+  if (!token) return;
+  if (friends.some(f => f.token === token)) { cmperr.textContent = 'Already added'; return; }
+  if (friends.length >= FRIEND_COLORS.length) { cmperr.textContent = `Max ${FRIEND_COLORS.length} friends`; return; }
+  const used = new Set(friends.map(f => f.color));
+  const f = { token, name: '…', color: FRIEND_COLORS.find(c => !used.has(c)) };
+  if (!(await loadFriend(f))) { cmperr.textContent = 'Share link not found'; return; }
+  friends.push(f);
+  saveFriends(); renderCmpList(); renderFriendbar();
+  if (mons.length) render();
+};
+
+Promise.all(friends.map(loadFriend)).then(() => {
+  if (friends.length) {
+    saveFriends(); // names may have refreshed
+    renderFriendbar();
+    if (mons.length) render();
+  }
+});
 
 // share view: load the shared collection instead of your own
 if (readonly) {
