@@ -401,6 +401,9 @@ body.viewmode #binderSettings { display: none; }
   cursor: pointer;
 }
 .friendrow button:hover { background: rgba(0,0,0,.16); }
+.needrow { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; margin: 6px 0; }
+.needrow a { color: #1d4e9c; font-weight: 800; margin-left: 8px; text-decoration: underline; white-space: nowrap; }
+.needrow .nr-price { color: #6b5d3f; margin-left: 8px; white-space: nowrap; }
 #frienderr {
   color: #a01818;
   font: 700 .82rem 'Nunito', sans-serif;
@@ -1617,6 +1620,19 @@ function cardPrice(d) {
   }
   return null;
 }
+function tcgplayerProductId(d) {
+  if (!d) return null;
+  const blocks = [];
+  if (d.pricing) blocks.push(d.pricing);
+  for (const v of d.variants_detailed || []) if (v.pricing) blocks.push(v.pricing);
+  for (const b of blocks) {
+    const tp = b && b.tcgplayer;
+    if (tp) for (const k of Object.keys(tp)) {
+      if (tp[k] && tp[k].productId) return tp[k].productId;
+    }
+  }
+  return null;
+}
 function fmtPrice(x) {
   const sym = priceSource() === 'tcgplayer' ? '$' : '€';
   return sym + (x >= 100 ? Math.round(x) : x.toFixed(2));
@@ -2059,7 +2075,9 @@ document.getElementById('fillBtn').addEventListener('click', () => {
 // ---------- Need list ----------
 const needmodal = document.getElementById('needmodal');
 let needLines = [];
-document.getElementById('needBtn').addEventListener('click', () => {
+let needGen = 0; // ignorer forsinkede opslag fra en tidligere aabning
+document.getElementById('needBtn').addEventListener('click', async () => {
+  const gen = ++needGen;
   const counts = new Map();
   for (const c of binder().pages.flat()) {
     if (c && c.o === false) {
@@ -2071,19 +2089,61 @@ document.getElementById('needBtn').addEventListener('click', () => {
   const list = document.getElementById('needlist');
   list.innerHTML = '';
   needLines = [];
+  const jobs = [];
   if (!counts.size) {
     list.textContent = 'Nothing missing — binder complete 🎉';
   } else {
     for (const [id, v] of counts) {
       const line = v.n + ' (' + id + ')' + (v.count > 1 ? ' ×' + v.count : '');
       needLines.push(line);
-      const div = document.createElement('div');
-      div.textContent = line;
-      list.appendChild(div);
+      const row = document.createElement('div');
+      row.className = 'needrow';
+      const name = document.createElement('span');
+      name.textContent = line;
+      row.appendChild(name);
+      const links = document.createElement('span');
+      const cm = document.createElement('a');
+      cm.href = 'https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=' + encodeURIComponent(v.n);
+      cm.target = '_blank';
+      cm.rel = 'noopener';
+      cm.textContent = 'CM ↗';
+      cm.title = 'Search on Cardmarket';
+      links.appendChild(cm);
+      row.appendChild(links);
+      list.appendChild(row);
+      jobs.push({ id, links });
     }
   }
   document.getElementById('needcopy').style.display = counts.size ? '' : 'none';
   needmodal.hidden = false;
+  // beriger raekkerne efterhaanden: direkte TCGplayer-link + pris
+  const queue = jobs.slice();
+  await Promise.all(Array.from({ length: 8 }, async () => {
+    while (queue.length) {
+      const job = queue.shift();
+      const d = await getDetail(job.id);
+      if (gen !== needGen) return;
+      const pid = tcgplayerProductId(d);
+      if (pid) {
+        const a = document.createElement('a');
+        a.href = 'https://www.tcgplayer.com/product/' + pid;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = 'TCG ↗';
+        a.title = 'Open on TCGplayer';
+        job.links.appendChild(a);
+      }
+      if (store.showPrices) {
+        const pr = cardPrice(d);
+        if (pr != null) {
+          const sp = document.createElement('span');
+          sp.className = 'nr-price';
+          sp.textContent = fmtPrice(pr);
+          job.links.appendChild(sp);
+        }
+      }
+    }
+  }));
 });
 document.getElementById('needcopy').addEventListener('click', async () => {
   try {
