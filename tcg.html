@@ -654,6 +654,33 @@ body.viewmode #binderSettings { display: none; }
   transition: opacity .25s;
 }
 #zoomCard.holo-on .holo { opacity: .5; }
+/* daempet holo i lommerne ved hover */
+.pocket .holo-sheen {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(
+    115deg,
+    transparent 20%,
+    rgba(255, 0, 132, .38) 36%,
+    rgba(255, 229, 0, .38) 44%,
+    rgba(0, 255, 138, .38) 52%,
+    rgba(0, 212, 255, .38) 60%,
+    rgba(140, 0, 255, .38) 68%,
+    transparent 84%
+  );
+  background-size: 300% 300%;
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity .25s;
+}
+.pocket:hover .holo-sheen { opacity: .55; animation: holoSlide 2.4s linear infinite; }
+@media (hover: none) { .pocket .holo-sheen { opacity: .3; animation: holoSlide 3.5s linear infinite; } }
+@keyframes holoSlide {
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
 #zoomCard .glare {
   position: absolute; inset: 0;
   background: radial-gradient(circle at var(--gx,50%) var(--gy,50%), rgba(255,255,255,.35) 0%, transparent 55%);
@@ -1287,6 +1314,13 @@ function renderPage(grid, pageIdx) {
           lastPlaced = null;
         }
         div.appendChild(im);
+        getDetail(card.id).then(d => {
+          if (d && d.variants && d.variants.holo && div.isConnected && !div.querySelector('.holo-sheen')) {
+            const sh = document.createElement('div');
+            sh.className = 'holo-sheen';
+            div.appendChild(sh);
+          }
+        });
       } else {
         div.innerHTML = '<div class="name-only">' + card.n + '</div>';
       }
