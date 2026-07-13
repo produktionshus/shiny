@@ -135,6 +135,7 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
   background: rgba(255,255,255,.07);
   border: 2px solid transparent;
   transition: transform .12s, border-color .12s;
+  touch-action: pan-y; /* lodret scroll i listen bevares; sidevaerts traek starter drag */
 }
 .result:hover { transform: scale(1.05); z-index: 2; }
 .result.selected { border-color: #ffd95e; box-shadow: 0 0 12px rgba(255,217,94,.7); }
@@ -305,6 +306,13 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
 }
 .swatch.on { border-color: #ffd95e; box-shadow: 0 0 0 2px rgba(255,217,94,.5); }
 body.viewmode #binderSettings { display: none; }
+
+@media (hover: none) {
+  .pocket .ptool, .result .zoom { opacity: .85; }
+  .toolbar input, .toolbar select,
+  .search-row input, .search-row select,
+  .modal-card input { font-size: 16px; } /* under 16px auto-zoomer iOS ved fokus */
+}
 
 /* ===== login (samme konto som shiny) ===== */
 .modal {
@@ -479,6 +487,7 @@ body.viewmode #binderSettings { display: none; }
   overflow: hidden;
   cursor: pointer;
   transition: border-color .12s, box-shadow .12s;
+  touch-action: none; /* ponytail: finger-traek vinder over scroll paa lommer */
 }
 .pocket::after {
   content: '';
@@ -573,6 +582,7 @@ body.viewmode #binderSettings { display: none; }
   align-items: center; justify-content: center;
   z-index: 300;
   perspective: 1100px;
+  touch-action: none;
 }
 #zoomOverlay.open { display: flex; }
 #zoomCard {
@@ -641,6 +651,7 @@ img { -webkit-user-drag: none; user-select: none; }
   from { transform: translate(-50%, -55%) rotate(0deg) scale(.7); }
   to   { transform: translate(-50%, -55%) rotate(4deg) scale(1); }
 }
+#dragGhost.touch { transform: translate(-50%, -130%) rotate(4deg); animation: none; }
 body.dragging { cursor: grabbing; }
 body.dragging * { cursor: grabbing !important; }
 .pocket .name-only {
@@ -1310,32 +1321,49 @@ function attachDrag(el, getPayload) {
     if (e.button !== 0 || viewBinder) return;
     if (e.target.closest('button')) return; // lad ✕/✓/🔍 virke
     const startX = e.clientX, startY = e.clientY;
+    const touch = e.pointerType === 'touch';
     const payload = getPayload();
     wasDrag = false;
     if (!payload.card.img) return; // navnløse kort: brug klik-flowet
 
+    function cleanup() {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+    }
     function onMove(ev) {
       if (!drag) {
         if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 7) return;
-        startDrag(payload);
+        startDrag(payload, touch);
       }
       moveGhost(ev.clientX, ev.clientY);
       markTarget(ev.clientX, ev.clientY);
     }
     function onUp(ev) {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
+      cleanup();
       if (drag) { endDrag(ev.clientX, ev.clientY); wasDrag = true; setTimeout(() => wasDrag = false, 0); }
+    }
+    function onCancel() { // browseren tog over (fx scroll) — ryd op
+      cleanup();
+      if (drag) {
+        drag.ghost.remove();
+        drag = null;
+        document.body.classList.remove('dragging');
+        document.querySelectorAll('.pocket.dragover').forEach(pk => pk.classList.remove('dragover'));
+        document.getElementById('inspectZone').classList.remove('dragover');
+      }
     }
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
   });
 }
 
-function startDrag(payload) {
+function startDrag(payload, touch) {
   drag = payload;
   const g = document.createElement('div');
   g.id = 'dragGhost';
+  if (touch) g.classList.add('touch'); // over fingeren, ikke under den
   g.innerHTML = '<img src="' + imgUrl(payload.card.img, 'low') + '" alt="">';
   document.body.appendChild(g);
   drag.ghost = g;
@@ -1592,6 +1620,7 @@ $pileCard.addEventListener('pointerdown', e => {
   }
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
 });
 
 // tastatur
