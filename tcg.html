@@ -845,7 +845,7 @@ function load() {
       return s;
     }
   } catch (e) {}
-  return { active: 0, binders: [newBinderObj('Min binder')] };
+  return { active: 0, binders: [newBinderObj('My binder')] };
 }
 function save() { localStorage.setItem(LS_KEY, JSON.stringify(store)); }
 function newBinderObj(name) {
