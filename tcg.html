@@ -188,6 +188,55 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
 }
 .spread { position: relative; display: flex; }
 
+/* forside — lukket binder */
+#cover {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: min(calc((100vw - 540px) / 2), calc((100vh - 260px) * 0.716 * var(--cols, 3) / var(--rows, 3)));
+  aspect-ratio: 0.75;
+  border-radius: 8px 14px 14px 8px;
+  background: linear-gradient(155deg, var(--lt, #2b4d9c) 0%, var(--leather) 50%, var(--leather-dark) 100%);
+  box-shadow:
+    inset 0 2px 6px rgba(255,255,255,.18),
+    inset -14px 0 30px -14px rgba(0,0,0,.5),
+    inset 14px 0 20px -16px rgba(0,0,0,.6);
+  cursor: pointer;
+  position: relative;
+}
+#cover::before {
+  content: '';
+  position: absolute; inset: 12px;
+  border: 2px dashed rgba(232,184,75,.5);
+  border-radius: 10px;
+  pointer-events: none;
+}
+#coverEmblem {
+  width: 74px; height: 74px;
+  border-radius: 50%;
+  border: 4px solid rgba(217,169,47,.85);
+  box-shadow: inset 0 0 14px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.35);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.9rem;
+  color: rgba(255,217,94,.9);
+}
+#coverName {
+  font: 700 clamp(1.2rem, 2.4vw, 2rem) 'Fredoka', sans-serif;
+  color: #ffd95e;
+  text-shadow: 0 2px 0 rgba(0,0,0,.45), 0 -1px 0 rgba(255,255,255,.15);
+  text-align: center;
+  padding: 0 20px;
+  letter-spacing: .04em;
+}
+#coverHint { font: 600 .8rem 'Fredoka', sans-serif; color: rgba(255,233,168,.7); }
+#cover:hover #coverHint { color: #ffe9a8; }
+
+/* omslagets inderside (foerste og sidste view) */
+.page.inside { background: linear-gradient(160deg, var(--leather) 0%, var(--leather-dark) 100%); }
+.page.inside::after { display: none; }
+
 .page {
   position: relative;
   width: min(calc((100vw - 540px) / 2), calc((100vh - 260px) * 0.716 * var(--cols, 3) / var(--rows, 3)));
@@ -643,6 +692,7 @@ body.viewmode .viewbar { display: flex; }
 
 @media (max-width: 900px) {
   .layout { flex-direction: column; align-items: stretch; }
+  #cover { width: 60vw; }
   .search-panel { position: static; flex: none; max-height: 45vh; order: 2; }
   .binder-col { order: 1; }
   .page { width: 44vw; }
@@ -721,6 +771,11 @@ body.viewmode .viewbar { display: flex; }
     <div class="binder-wrap">
       <button class="navbtn" id="prev" title="Previous spread">◀</button>
       <div class="binder">
+        <div id="cover">
+          <div id="coverEmblem">✦</div>
+          <div id="coverName"></div>
+          <div id="coverHint">Click to open</div>
+        </div>
         <div class="spread">
           <div class="page left">
             <div class="grid" id="gridL"></div>
@@ -825,7 +880,7 @@ const BINDER_COLORS = { // [top, mellem, bund] laedergradient
 
 // ---------- state ----------
 let store = load();
-let spread = 0;              // opslag-index (2 sider pr. opslag)
+let spread = 0;              // -1 = lukket (forside); 0 = kun side 1 til hoejre; derefter dobbeltopslag
 let placing = null;          // kort valgt fra søgning: {id, n, img}
 let picked = null;           // lomme løftet til flytning: {page, slot}
 let viewBinder = null;       // read-only binder fra delelink
@@ -980,30 +1035,37 @@ const $gridL = document.getElementById('gridL');
 const $gridR = document.getElementById('gridR');
 
 function pageCount() { return binder().pages.length; }
-function maxSpread() { return Math.max(0, Math.ceil(pageCount() / 2) - 1); }
+function maxSpread() { return pageCount() / 2; } // sidste view: bagsidens inderside
 
 function renderBinder() {
-  spread = Math.min(spread, maxSpread());
+  spread = Math.max(-1, Math.min(spread, maxSpread()));
   const bb = binder();
   const leather = BINDER_COLORS[bb.color] || BINDER_COLORS.blue;
   const binderEl = document.querySelector('.binder');
   binderEl.style.setProperty('--lt', leather[0]);
   binderEl.style.setProperty('--leather', leather[1]);
   binderEl.style.setProperty('--leather-dark', leather[2]);
-  document.querySelectorAll('.page').forEach(pg => {
-    pg.classList.toggle('dark', !!bb.dark);
-    pg.style.setProperty('--cols', bb.cols || 3);
-    pg.style.setProperty('--rows', bb.rows || 3);
-  });
-  const pL = spread * 2, pR = pL + 1;
+  binderEl.style.setProperty('--cols', bb.cols || 3);
+  binderEl.style.setProperty('--rows', bb.rows || 3);
+  const closed = spread < 0;
+  document.getElementById('cover').style.display = closed ? 'flex' : 'none';
+  document.querySelector('.spread').style.display = closed ? 'none' : 'flex';
+  document.getElementById('prev').disabled = closed;
+  document.getElementById('next').disabled = !closed && spread >= maxSpread();
+  if (closed) {
+    document.getElementById('coverName').textContent = bb.name;
+    document.getElementById('spreadLabel').textContent = bb.name;
+    renderProgress();
+    return;
+  }
+  document.querySelectorAll('.page').forEach(pg => pg.classList.toggle('dark', !!bb.dark));
+  const pL = spread * 2 - 1, pR = spread * 2; // view 0: kun hoejre side, som en rigtig binder
   renderPage($gridL, pL);
   renderPage($gridR, pR);
-  document.getElementById('numL').textContent = 'Page ' + (pL + 1);
+  document.getElementById('numL').textContent = pL >= 0 ? 'Page ' + (pL + 1) : '';
   document.getElementById('numR').textContent = pR < pageCount() ? 'Page ' + (pR + 1) : '';
-  document.getElementById('prev').disabled = spread === 0;
-  document.getElementById('next').disabled = spread >= maxSpread();
   document.getElementById('spreadLabel').textContent =
-    binder().name + ' · spread ' + (spread + 1) + ' of ' + (maxSpread() + 1);
+    bb.name + ' · ' + (spread + 1) + ' / ' + (maxSpread() + 1);
   renderProgress();
 }
 
@@ -1020,6 +1082,7 @@ function renderProgress() {
 function renderPage(grid, pageIdx) {
   grid.innerHTML = '';
   const page = binder().pages[pageIdx];
+  grid.closest('.page').classList.toggle('inside', !page); // omslagets inderside
   if (!page) { grid.style.visibility = 'hidden'; return; }
   grid.style.visibility = '';
   page.forEach((card, slot) => {
@@ -1116,12 +1179,13 @@ function moveCard(from, to) {
 }
 
 // ---------- sider & navigation ----------
+document.getElementById('cover').addEventListener('click', () => { spread = 0; renderBinder(); });
 document.getElementById('prev').addEventListener('click', () => { spread--; renderBinder(); });
 document.getElementById('next').addEventListener('click', () => { spread++; renderBinder(); });
 document.getElementById('addPages').addEventListener('click', () => {
   const n = slotsOf(binder());
   binder().pages.push(emptyPage(n), emptyPage(n));
-  spread = maxSpread();
+  spread = Math.floor((pageCount() - 1) / 2);
   save(); renderBinder();
 });
 document.getElementById('delPages').addEventListener('click', () => {
@@ -1204,7 +1268,7 @@ function checkHash() {
     viewBinder = decodeBinder(m[1]);
     document.body.classList.add('viewmode');
     document.getElementById('viewTitle').textContent = '👀 Viewing: ' + viewBinder.name;
-    spread = 0;
+    spread = -1;
   } catch (e) { toast('Invalid share link'); }
 }
 document.getElementById('importBtn').addEventListener('click', () => {
@@ -1487,7 +1551,7 @@ function pileAddCard() {
   const t = firstFreeSlot();
   binder().pages[t.page][t.slot] = { ...c, o: placeMode === 'owned' };
   lastPlaced = t;
-  spread = Math.floor(t.page / 2);
+  spread = Math.floor((t.page + 1) / 2);
   save(); renderBinder();
   pileToast(c.n + ' → page ' + (t.page + 1) + ', pocket ' + (t.slot + 1) + ' ✔');
   flyOut(0, -150, 3, () => {
