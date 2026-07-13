@@ -1024,17 +1024,23 @@ function toast(msg, undoable) {
   toastTimer = setTimeout(() => t.style.display = 'none', undoable ? 12000 : 2200);
 }
 
-// et-trins undo: snapshot af aktive binders sider foer destruktive aendringer
-let undoSnap = null;
+// et-trins undo: gem en gendan-funktion foer destruktive aendringer
+let undoFn = null;
 function snapshot() {
   if (viewBinder) return;
-  undoSnap = { idx: store.active, pages: JSON.stringify(store.binders[store.active].pages) };
+  const idx = store.active;
+  const pages = JSON.stringify(store.binders[idx].pages);
+  undoFn = () => {
+    if (!store.binders[idx]) return;
+    store.binders[idx].pages = JSON.parse(pages);
+    save(); renderBinder();
+  };
 }
 function restoreSnap() {
-  if (!undoSnap || viewBinder || !store.binders[undoSnap.idx]) return;
-  store.binders[undoSnap.idx].pages = JSON.parse(undoSnap.pages);
-  undoSnap = null;
-  save(); renderBinder();
+  if (!undoFn || viewBinder) return;
+  const f = undoFn;
+  undoFn = null;
+  f();
 }
 
 // ---------- søgning ----------
@@ -1352,20 +1358,27 @@ $binderName.addEventListener('change', () => {
   save(); renderBinderSelect(); renderBinder();
 });
 document.getElementById('newBinder').addEventListener('click', () => {
-  const name = prompt('Name of new binder:', 'Binder ' + (store.binders.length + 1));
-  if (name === null) return;
-  store.binders.push(newBinderObj(name.trim() || 'Untitled'));
+  // ingen prompt() — den er blokeret naar appen koerer fra iOS-hjemmeskaerm
+  store.binders.push(newBinderObj('Binder ' + (store.binders.length + 1)));
   store.active = store.binders.length - 1;
   spread = 0;
   save(); renderBinderSelect(); renderBinder();
+  $binderName.focus();
+  $binderName.select();
 });
 document.getElementById('delBinder').addEventListener('click', () => {
   if (store.binders.length === 1) { toast('You need at least one binder'); return; }
-  if (!confirm('Delete "' + binder().name + '"?')) return;
-  store.binders.splice(store.active, 1);
+  const at = store.active;
+  const removed = store.binders.splice(at, 1)[0];
   store.active = 0;
   spread = 0;
+  undoFn = () => {
+    store.binders.splice(at, 0, removed);
+    store.active = at;
+    save(); renderBinderSelect(); renderBinder();
+  };
   save(); renderBinderSelect(); renderBinder();
+  toast('Deleted "' + removed.name + '"', true);
 });
 
 // ---------- deling ----------
