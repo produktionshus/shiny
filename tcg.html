@@ -190,7 +190,7 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
 
 .page {
   position: relative;
-  width: min(41vw, calc((100vh - 260px) * 0.716 * var(--cols, 3) / var(--rows, 3)));
+  width: min(calc((100vw - 540px) / 2), calc((100vh - 260px) * 0.716 * var(--cols, 3) / var(--rows, 3)));
   background: linear-gradient(180deg, var(--page) 0%, var(--page-edge) 100%);
   padding: 14px 12px 30px;
 }
@@ -256,6 +256,72 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
 }
 .swatch.on { border-color: #ffd95e; box-shadow: 0 0 0 2px rgba(255,217,94,.5); }
 body.viewmode #binderSettings { display: none; }
+
+/* ===== login (samme konto som shiny) ===== */
+.modal {
+  position: fixed; inset: 0; z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(8,12,18,.78);
+  backdrop-filter: blur(4px);
+  padding: 18px;
+}
+.modal[hidden] { display: none; }
+.modal-card {
+  position: relative;
+  width: min(92vw, 380px);
+  max-height: 92vh;
+  overflow-y: auto;
+  border-radius: 16px;
+  padding: 20px 18px 16px;
+  text-align: center;
+  color: var(--ink);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.4), transparent 45%),
+    linear-gradient(120deg, #ffe9b0 0%, #ffd1e8 25%, #cfe4ff 50%, #d6ffd9 75%, #fff3c4 100%);
+  border: 2px solid rgba(190,150,60,.7);
+  box-shadow: 0 24px 60px rgba(0,0,0,.6);
+}
+.modal-close {
+  position: absolute; top: 8px; right: 8px;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(120,90,40,.4);
+  background: rgba(255,255,255,.6);
+  color: var(--ink);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.modal-card input {
+  width: 100%;
+  margin: 6px 0;
+  padding: 11px 13px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(150,130,90,.5);
+  background: rgba(255,255,255,.7);
+  font: 700 .95rem 'Nunito', sans-serif;
+  color: var(--ink);
+}
+.authaction {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  font: 700 1rem 'Fredoka', sans-serif;
+  border: 2px solid #a87c14;
+  background: linear-gradient(180deg, #ffe9a0, var(--gold));
+  color: #5c3d00;
+  cursor: pointer;
+}
+.authaction.secondary {
+  background: rgba(255,255,255,.55);
+  border-color: rgba(150,130,90,.5);
+}
+#aerr {
+  color: #a01818;
+  font: 700 .82rem 'Nunito', sans-serif;
+  min-height: 1.2em;
+  margin-top: 4px;
+}
 
 /* ===== Bunke-visning: bladr gennem soegeresultater som fysisk bunke ===== */
 #pileOverlay {
@@ -625,6 +691,7 @@ body.viewmode .viewbar { display: flex; }
   <input id="binderName" placeholder="Binder name" size="14">
   <button class="btn" id="newBinder">+ New binder</button>
   <button class="btn" id="delBinder">Delete binder</button>
+  <button class="btn" id="authbtn">👤 Log in</button>
   <button class="btn primary" id="shareBtn">🔗 Share binder</button>
 </div>
 
@@ -700,6 +767,18 @@ body.viewmode .viewbar { display: flex; }
   <button id="bannerCancel" title="Cancel">✕</button>
 </div>
 <div id="toast"></div>
+
+<div id="authmodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 id="aheading" style="font: 700 1.4rem 'Fredoka', sans-serif; margin-bottom: 10px;">👤 Log in</h2>
+    <input id="auser" placeholder="Username" autocomplete="username">
+    <input id="apass" type="password" placeholder="Password (min. 6 characters)" autocomplete="current-password">
+    <div id="aerr"></div>
+    <button id="dologin" class="authaction">Log in</button>
+    <button id="doregister" class="authaction secondary">Create account</button>
+  </div>
+</div>
 
 <div id="pileOverlay">
   <button id="pileClose" title="Close (Esc)">✕</button>
@@ -1457,6 +1536,66 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'ArrowUp') { e.preventDefault(); pileAddCard(); }
   else if (e.key === 'Escape') closePile();
 });
+
+// ---------- login (delt konto/session med shiny) ----------
+const AUTH_ERR = {
+  invalid_input: 'Username 2-30 characters (letters/digits/_.-), password at least 6 characters',
+  username_taken: 'That username is taken',
+  bad_credentials: 'Wrong username or password',
+  server: 'Server error — try again',
+};
+const authmodal = document.getElementById('authmodal');
+const authbtn = document.getElementById('authbtn');
+const aerr = document.getElementById('aerr');
+let me = null;
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'server');
+  return j;
+}
+function updateAuthUI() {
+  authbtn.textContent = me ? '👤 ' + me + ' · log out' : '👤 Log in';
+}
+authbtn.addEventListener('click', async () => {
+  if (me) {
+    await api('/api/logout', { method: 'POST' }).catch(() => {});
+    me = null;
+    updateAuthUI();
+  } else {
+    aerr.textContent = '';
+    authmodal.hidden = false;
+    document.getElementById('auser').focus();
+  }
+});
+async function doAuth(endpoint) {
+  aerr.textContent = '';
+  try {
+    const j = await api(endpoint, {
+      method: 'POST',
+      body: JSON.stringify({
+        username: document.getElementById('auser').value.trim(),
+        password: document.getElementById('apass').value,
+      }),
+    });
+    me = j.username;
+    updateAuthUI();
+    authmodal.hidden = true;
+    document.getElementById('apass').value = '';
+  } catch (e) {
+    aerr.textContent = AUTH_ERR[e.message] || e.message;
+  }
+}
+document.getElementById('dologin').addEventListener('click', () => doAuth('/api/login'));
+document.getElementById('doregister').addEventListener('click', () => doAuth('/api/register'));
+document.getElementById('apass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doAuth('/api/login');
+});
+authmodal.addEventListener('click', e => {
+  if (e.target === authmodal || e.target.closest('.modal-close')) authmodal.hidden = true;
+});
+api('/api/me').then(j => { me = j.username; updateAuthUI(); }).catch(() => {});
 
 // ---------- init ----------
 checkHash();
