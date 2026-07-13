@@ -1006,6 +1006,8 @@ function renderPage(grid, pageIdx) {
 function pocketClick(pageIdx, slot) {
   const pages = binder().pages;
   if (placing) {
+    const existing = pages[pageIdx][slot];
+    if (existing && !confirm('Lommen indeholder allerede ' + existing.n + '. Erstat med ' + placing.n + '?')) return;
     pages[pageIdx][slot] = { ...placing, o: placeMode === 'owned' }; // kopi — samme kort ubegrænset
     lastPlaced = { page: pageIdx, slot };
     save(); renderBinder();
@@ -1226,6 +1228,8 @@ function endDrag(x, y) {
   if (from) {
     moveCard(from, { page: t.page, slot: t.slot }); // flyt/byt
   } else {
+    const existing = pages[t.page][t.slot];
+    if (existing && !confirm('Lommen indeholder allerede ' + existing.n + '. Erstat med ' + card.n + '?')) return;
     pages[t.page][t.slot] = { ...card, o: placeMode === 'owned' }; // dubletter altid tilladt
     lastPlaced = { page: t.page, slot: t.slot };
     save(); renderBinder();
