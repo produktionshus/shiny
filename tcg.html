@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TCG Binder · Pokémon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --desk: #1b2430;
+  --leather: #1f3a7a;
+  --leather-dark: #16295a;
+  --stitch: #e8b84b;
+  --page: #f6efdd;
+  --page-edge: #e3d9c0;
+  --ink: #3a3226;
+  --gold: #d9a92f;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  min-height: 100vh;
+  font-family: 'Nunito', sans-serif;
+  color: #f0e6d0;
+  background:
+    radial-gradient(1200px 600px at 50% -100px, #2c3a4d 0%, transparent 60%),
+    var(--desk);
+  background-attachment: fixed;
+  overflow-x: hidden;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  opacity: .05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+header { text-align: center; padding: 22px 16px 6px; }
+h1 {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+  letter-spacing: .02em;
+  color: #ffd95e;
+  text-shadow: 0 2px 0 #8a5a00, 0 5px 18px rgba(0,0,0,.5);
+}
+.subtitle { opacity: .8; font-size: .9rem; margin-top: 4px; }
+
+/* ===== Toolbar ===== */
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  justify-content: center; align-items: center;
+  padding: 12px 16px 4px;
+}
+.toolbar input, .toolbar select {
+  font: 700 .9rem 'Nunito', sans-serif;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,217,94,.4);
+  background: rgba(0,0,0,.35);
+  color: #ffe9a8;
+  outline: none;
+}
+.toolbar select option { background: #1b2430; }
+.toolbar input:focus, .toolbar select:focus { border-color: var(--stitch); box-shadow: 0 0 0 3px rgba(232,184,75,.2); }
+button.btn {
+  font: 700 .85rem 'Fredoka', sans-serif;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.2);
+  background: rgba(255,255,255,.1);
+  color: #f0e6d0;
+  cursor: pointer;
+  transition: background .15s, transform .15s;
+}
+button.btn:hover { background: rgba(232,184,75,.3); transform: translateY(-1px); }
+button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitch); color: #ffe9a8; }
+
+/* ===== Layout ===== */
+.layout {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12px;
+  max-width: 1700px;
+  margin: 0 auto;
+}
+
+/* ===== Search panel ===== */
+.search-panel {
+  flex: 0 0 330px;
+  background: rgba(0,0,0,.3);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 14px;
+  padding: 14px;
+  position: sticky;
+  top: 10px;
+  max-height: calc(100vh - 20px);
+  display: flex;
+  flex-direction: column;
+}
+.search-panel h2 { font: 600 1rem 'Fredoka', sans-serif; color: #ffd95e; margin-bottom: 8px; }
+.search-row { display: flex; flex-direction: column; gap: 7px; margin-bottom: 10px; }
+.search-row input, .search-row select {
+  font: 700 .9rem 'Nunito', sans-serif;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 2px solid rgba(255,217,94,.35);
+  background: rgba(0,0,0,.35);
+  color: #ffe9a8;
+  outline: none;
+  width: 100%;
+}
+.search-row select option { background: #1b2430; }
+.search-row input::placeholder { color: rgba(255,233,168,.45); }
+.search-hint { font-size: .75rem; opacity: .65; margin-bottom: 8px; min-height: 1em; }
+.results {
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  align-content: start;
+  flex: 1;
+}
+.result {
+  position: relative;
+  aspect-ratio: 63/88;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: grab;
+  background: rgba(255,255,255,.07);
+  border: 2px solid transparent;
+  transition: transform .12s, border-color .12s;
+}
+.result:hover { transform: scale(1.05); z-index: 2; }
+.result.selected { border-color: #ffd95e; box-shadow: 0 0 12px rgba(255,217,94,.7); }
+.result img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.result .noimg {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; padding: 6px; text-align: center;
+  font-size: .68rem; font-weight: 700; color: #cbbf9f;
+}
+
+/* ===== Binder ===== */
+.binder-col { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; }
+.binder-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+.navbtn {
+  font-size: 1.5rem;
+  width: 48px; height: 48px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 2px solid rgba(255,217,94,.5);
+  background: rgba(0,0,0,.4);
+  color: #ffd95e;
+  cursor: pointer;
+  transition: transform .15s, background .15s;
+  user-select: none;
+}
+.navbtn:hover { background: rgba(232,184,75,.25); transform: scale(1.08); }
+.navbtn:disabled { opacity: .25; cursor: default; transform: none; }
+
+.binder {
+  position: relative;
+  background: linear-gradient(155deg, var(--lt, #2b4d9c) 0%, var(--leather) 45%, var(--leather-dark) 100%);
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow:
+    0 30px 60px rgba(0,0,0,.55),
+    inset 0 2px 4px rgba(255,255,255,.15),
+    inset 0 -3px 8px rgba(0,0,0,.4);
+  border: 1px solid rgba(0,0,0,.4);
+}
+.binder::before {
+  content: '';
+  position: absolute; inset: 9px;
+  border: 2px dashed rgba(232,184,75,.55);
+  border-radius: 12px;
+  pointer-events: none;
+}
+.spread { position: relative; display: flex; }
+
+.page {
+  position: relative;
+  width: min(38vw, calc(var(--cols, 3) * 150px + 30px));
+  background: linear-gradient(180deg, var(--page) 0%, var(--page-edge) 100%);
+  padding: 14px 12px 30px;
+}
+.page.left  { border-radius: 10px 2px 2px 10px; box-shadow: inset -18px 0 24px -18px rgba(0,0,0,.35), inset 0 0 30px rgba(120,90,40,.12); }
+.page.right { border-radius: 2px 10px 10px 2px; box-shadow: inset 18px 0 24px -18px rgba(0,0,0,.35), inset 0 0 30px rgba(120,90,40,.12); }
+.page.left::after, .page.right::after {
+  content: '';
+  position: absolute; top: 4px; bottom: 4px; width: 7px;
+  background: repeating-linear-gradient(90deg, #fffbe9 0 1.6px, #cfc3a3 1.6px 2.6px);
+  pointer-events: none;
+}
+.page.left::after  { left: -7px; border-radius: 4px 0 0 4px; }
+.page.right::after { right: -7px; border-radius: 0 4px 4px 0; }
+.page-num {
+  position: absolute; bottom: 8px;
+  font: 600 .72rem 'Fredoka', sans-serif;
+  color: #8a7a55;
+}
+.page.left .page-num { left: 16px; }
+.page.right .page-num { right: 16px; }
+
+/* sorte sider (som rigtige bindere) */
+.page.dark { background: linear-gradient(180deg, #26282e 0%, #1a1c21 100%); }
+.page.dark.left  { box-shadow: inset -18px 0 24px -18px rgba(0,0,0,.7), inset 0 0 30px rgba(0,0,0,.45); }
+.page.dark.right { box-shadow: inset 18px 0 24px -18px rgba(0,0,0,.7), inset 0 0 30px rgba(0,0,0,.45); }
+.page.dark.left::after, .page.dark.right::after { background: repeating-linear-gradient(90deg, #3a3d45 0 1.6px, #202228 1.6px 2.6px); }
+.page.dark .page-num { color: #8b8fa0; }
+.page.dark .pocket {
+  border-color: rgba(255,255,255,.22);
+  background: linear-gradient(160deg, rgba(255,255,255,.14), rgba(255,255,255,.03) 55%);
+  box-shadow: inset 0 1px 3px rgba(255,255,255,.15), 0 1px 2px rgba(0,0,0,.3);
+}
+.page.dark .name-only { color: #c9cbd6; }
+
+/* binder-indstillinger */
+#binderSettings {
+  display: none;
+  flex-wrap: wrap; gap: 14px; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font: 700 .82rem 'Fredoka', sans-serif;
+}
+#binderSettings.open { display: flex; }
+#binderSettings label { display: flex; gap: 7px; align-items: center; }
+#binderSettings select {
+  font: 700 .82rem 'Nunito', sans-serif;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(255,217,94,.4);
+  background: rgba(0,0,0,.35);
+  color: #ffe9a8;
+}
+#binderSettings select option { background: #1b2430; }
+#swatches { display: flex; gap: 6px; }
+.swatch {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.4);
+  cursor: pointer;
+  padding: 0;
+}
+.swatch.on { border-color: #ffd95e; box-shadow: 0 0 0 2px rgba(255,217,94,.5); }
+body.viewmode #binderSettings { display: none; }
+
+.rings {
+  position: absolute;
+  left: 50%; top: 0; bottom: 0;
+  width: 0;
+  z-index: 30;
+  pointer-events: none;
+}
+.ring {
+  position: absolute;
+  left: -12px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  border: 5px solid #b9bec7;
+  box-shadow:
+    inset 1px 1px 2px rgba(255,255,255,.8),
+    inset -1px -1px 2px rgba(0,0,0,.45),
+    2px 3px 5px rgba(0,0,0,.35);
+}
+.ring:nth-child(1) { top: 8%; }
+.ring:nth-child(2) { top: 47%; }
+.ring:nth-child(3) { top: 84%; }
+
+/* ===== Pockets ===== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), 1fr);
+  gap: 8px;
+}
+.pocket {
+  position: relative;
+  aspect-ratio: 63/88;
+  border-radius: 7px;
+  background: linear-gradient(160deg, rgba(255,255,255,.32), rgba(255,255,255,.06) 55%);
+  border: 1.5px solid rgba(150,130,90,.35);
+  box-shadow: inset 0 1px 3px rgba(255,255,255,.5), 0 1px 2px rgba(0,0,0,.12);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color .12s, box-shadow .12s;
+}
+.pocket::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.35) 42%, transparent 55%);
+  pointer-events: none;
+}
+.pocket img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pocket img.pop { animation: pop .28s cubic-bezier(.34,1.56,.64,1); }
+@keyframes pop {
+  0% { transform: scale(.55) rotate(-4deg); opacity: 0; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+/* mangler-kort: mål man ikke har endnu */
+.pocket.wanted img { filter: grayscale(.85) brightness(.75); }
+.pocket.wanted::before {
+  content: 'MANGLER';
+  position: absolute; left: 50%; bottom: 8px;
+  transform: translateX(-50%);
+  background: rgba(160,30,40,.9);
+  color: #fff;
+  font: 700 .58rem 'Fredoka', sans-serif;
+  letter-spacing: .08em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  z-index: 4;
+  pointer-events: none;
+}
+.pocket.dragover, .pocket.place-target:hover { border-color: #d9a92f; box-shadow: 0 0 0 3px rgba(217,169,47,.45), inset 0 1px 3px rgba(255,255,255,.5); }
+.pocket.picked { border-color: #3a7bd5; box-shadow: 0 0 0 3px rgba(58,123,213,.55); }
+.pocket .ptool {
+  position: absolute;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  font: 700 .75rem/1 'Nunito', sans-serif;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .12s;
+  z-index: 5;
+}
+.pocket .rm { top: 4px; right: 4px; }
+.pocket .own { top: 4px; left: 4px; }
+.pocket .zoom { bottom: 4px; right: 4px; }
+.pocket:hover .ptool { opacity: 1; }
+.result .zoom {
+  position: absolute; bottom: 3px; right: 3px;
+  width: 20px; height: 20px;
+  border-radius: 50%; border: none;
+  background: rgba(0,0,0,.55); color: #fff;
+  font-size: .7rem; cursor: pointer;
+  opacity: 0; transition: opacity .12s;
+  z-index: 3;
+}
+.result:hover .zoom { opacity: 1; }
+
+/* fremdrift mod samle-mål */
+.progress-wrap { display: flex; align-items: center; gap: 10px; font: 600 .85rem 'Fredoka', sans-serif; color: #ffe9a8; }
+.progress-bar {
+  width: 220px; height: 10px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.45);
+  border: 1px solid rgba(255,217,94,.35);
+  overflow: hidden;
+}
+.progress-bar > div {
+  height: 100%;
+  background: linear-gradient(90deg, #d9a92f, #ffd95e);
+  transition: width .3s;
+}
+
+/* placér-som toggle */
+.place-mode { display: flex; gap: 0; margin-bottom: 8px; border-radius: 999px; overflow: hidden; border: 1.5px solid rgba(255,217,94,.4); }
+.place-mode button {
+  flex: 1;
+  font: 700 .78rem 'Fredoka', sans-serif;
+  padding: 6px 0;
+  border: none;
+  background: rgba(0,0,0,.3);
+  color: #cbbf9f;
+  cursor: pointer;
+}
+.place-mode button.on { background: rgba(232,184,75,.4); color: #ffe9a8; }
+
+/* ===== Kort-zoom (3D-tilt) ===== */
+#zoomOverlay {
+  position: fixed; inset: 0;
+  background: rgba(8,12,18,.85);
+  display: none;
+  align-items: center; justify-content: center;
+  z-index: 300;
+  perspective: 1100px;
+}
+#zoomOverlay.open { display: flex; }
+#zoomCard {
+  position: relative;
+  width: min(70vw, 46vh, 420px);
+  aspect-ratio: 63/88;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 40px 90px rgba(0,0,0,.7);
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+#zoomCard img { width: 100%; height: 100%; display: block; }
+#zoomCard .glare {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at var(--gx,50%) var(--gy,50%), rgba(255,255,255,.35) 0%, transparent 55%);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+#zoomName {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+  font: 600 1.05rem 'Fredoka', sans-serif; color: #ffe9a8;
+  text-shadow: 0 2px 8px rgba(0,0,0,.8);
+  pointer-events: none;
+}
+#zoomActions {
+  position: fixed; left: 50%; top: 24px; transform: translateX(-50%);
+  display: flex; gap: 10px;
+}
+
+/* inspektionszone — vis kort tæt på før placering */
+#inspectZone {
+  display: none;
+  margin-top: 6px;
+  padding: 18px 34px;
+  border: 2.5px dashed rgba(255,217,94,.55);
+  border-radius: 14px;
+  font: 600 .95rem 'Fredoka', sans-serif;
+  color: #ffe9a8;
+  background: rgba(0,0,0,.25);
+  transition: background .15s, transform .15s;
+}
+body.dragging #inspectZone { display: block; }
+#inspectZone.dragover {
+  background: rgba(232,184,75,.3);
+  transform: scale(1.05);
+  border-style: solid;
+}
+
+/* ===== Custom drag: kortet i hånden ===== */
+img { -webkit-user-drag: none; user-select: none; }
+#dragGhost {
+  position: fixed;
+  width: 170px;
+  aspect-ratio: 63/88;
+  border-radius: 9px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 400;
+  transform: translate(-50%, -55%) rotate(4deg) scale(1);
+  box-shadow: 0 24px 50px rgba(0,0,0,.65);
+  animation: lift .15s ease-out;
+}
+#dragGhost img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@keyframes lift {
+  from { transform: translate(-50%, -55%) rotate(0deg) scale(.7); }
+  to   { transform: translate(-50%, -55%) rotate(4deg) scale(1); }
+}
+body.dragging { cursor: grabbing; }
+body.dragging * { cursor: grabbing !important; }
+.pocket .name-only {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; padding: 6px; text-align: center;
+  font-size: .7rem; font-weight: 800; color: #6b5d3f;
+}
+
+/* binder controls under spread */
+.binder-controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.spread-label { font: 600 .85rem 'Fredoka', sans-serif; opacity: .75; }
+
+/* selected-card banner */
+#placeBanner {
+  position: fixed;
+  left: 50%; bottom: 16px;
+  transform: translateX(-50%);
+  background: rgba(20,26,36,.95);
+  border: 2px solid var(--stitch);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-weight: 800;
+  color: #ffe9a8;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  z-index: 100;
+  box-shadow: 0 8px 30px rgba(0,0,0,.5);
+}
+#placeBanner img { height: 42px; border-radius: 4px; }
+#placeBanner button { border: none; background: none; color: #ffd95e; font-weight: 800; cursor: pointer; font-size: 1rem; }
+
+#toast {
+  position: fixed; left: 50%; top: 14px; transform: translateX(-50%);
+  background: rgba(20,26,36,.95); border: 2px solid var(--stitch);
+  border-radius: 999px; padding: 8px 20px; font-weight: 800; color: #ffe9a8;
+  display: none; z-index: 200; box-shadow: 0 8px 30px rgba(0,0,0,.5);
+}
+
+/* view mode */
+.viewbar {
+  display: none;
+  justify-content: center; align-items: center; gap: 10px;
+  padding: 8px 16px;
+  font-weight: 800; color: #ffe9a8;
+}
+body.viewmode .search-panel, body.viewmode .toolbar, body.viewmode .binder-controls .edit-only { display: none; }
+body.viewmode .viewbar { display: flex; }
+
+@media (max-width: 900px) {
+  .layout { flex-direction: column; align-items: stretch; }
+  .search-panel { position: static; flex: none; max-height: 45vh; order: 2; }
+  .binder-col { order: 1; }
+  .page { width: 44vw; }
+}
+</style>
+</head>
+<body>
+
+<style>
+/* global omskifter mellem binder-apps (samme blok i index.html) */
+.binder-switch {
+  position: fixed; top: 12px; left: 12px;
+  display: flex; gap: 4px;
+  z-index: 500;
+  background: rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 999px;
+  padding: 4px;
+  backdrop-filter: blur(4px);
+}
+.binder-switch a {
+  font: 700 .8rem 'Fredoka', sans-serif;
+  color: #cbbf9f;
+  text-decoration: none;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+.binder-switch a.active { color: #fff; box-shadow: inset 0 1px 2px rgba(255,255,255,.25); }
+.binder-switch a.go.active { background: linear-gradient(155deg, #8d2836, #5c1620); }
+.binder-switch a.tcg.active { background: linear-gradient(155deg, #2b4d9c, #16295a); }
+.binder-switch a:not(.active):hover { background: rgba(255,255,255,.12); color: #fff; }
+@media (max-width: 700px) { .binder-switch { position: static; margin: 10px auto 0; width: max-content; } }
+</style>
+<nav class="binder-switch">
+  <a class="go" href="/">✨ GO</a>
+  <a class="tcg active" href="/tcg">🃏 TCG</a>
+</nav>
+
+<header>
+  <h1>🗂️ TCG Binder</h1>
+  <div class="subtitle">Byg og fremvis dine Pokémon TCG-bindere digitalt</div>
+</header>
+
+<div class="toolbar">
+  <select id="binderSelect" title="Vælg binder"></select>
+  <input id="binderName" placeholder="Bindernavn" size="14">
+  <button class="btn" id="newBinder">+ Ny binder</button>
+  <button class="btn" id="delBinder">Slet binder</button>
+  <button class="btn primary" id="shareBtn">🔗 Del binder</button>
+</div>
+
+<div class="viewbar">
+  <span id="viewTitle"></span>
+  <button class="btn primary" id="importBtn">Gem som min binder</button>
+  <button class="btn" id="exitView">Til mine bindere</button>
+</div>
+
+<div class="layout">
+  <div class="search-panel">
+    <h2>Find kort</h2>
+    <div class="search-row">
+      <input id="q" placeholder="Søg kortnavn, fx Mew…" autocomplete="off">
+      <select id="setSelect"><option value="">Alle sæt (søg på navn)</option></select>
+    </div>
+    <div class="place-mode">
+      <button id="modeOwned" class="on" title="Kort du har">✓ Har</button>
+      <button id="modeWanted" title="Kort på din ønskeliste">☆ Mangler</button>
+    </div>
+    <div class="search-hint" id="hint">Klik på et kort og klik derefter på lommer — samme kort kan placeres så mange gange du vil.</div>
+    <div class="results" id="results"></div>
+  </div>
+
+  <div class="binder-col">
+    <div class="binder-wrap">
+      <button class="navbtn" id="prev" title="Forrige opslag">◀</button>
+      <div class="binder">
+        <div class="spread">
+          <div class="page left">
+            <div class="grid" id="gridL"></div>
+            <div class="page-num" id="numL"></div>
+          </div>
+          <div class="page right">
+            <div class="grid" id="gridR"></div>
+            <div class="page-num" id="numR"></div>
+          </div>
+          <div class="rings"><div class="ring"></div><div class="ring"></div><div class="ring"></div></div>
+        </div>
+      </div>
+      <button class="navbtn" id="next" title="Næste opslag">▶</button>
+    </div>
+    <div class="spread-label" id="spreadLabel"></div>
+    <div class="progress-wrap" id="progressWrap" style="display:none">
+      <span id="progressText"></span>
+      <div class="progress-bar"><div id="progressFill"></div></div>
+    </div>
+    <div class="binder-controls">
+      <button class="btn edit-only" id="addPages">+ Tilføj opslag</button>
+      <button class="btn edit-only" id="delPages">Fjern sidste opslag</button>
+      <button class="btn edit-only" id="settingsBtn">⚙ Udseende</button>
+    </div>
+    <div id="binderSettings">
+      <label>Lommer:
+        <select id="sizeSelect">
+          <option value="2x2">4 (2×2)</option>
+          <option value="3x3">9 (3×3)</option>
+          <option value="3x4">12 (3×4)</option>
+          <option value="4x4">16 (4×4)</option>
+        </select>
+      </label>
+      <label>Farve: <span id="swatches"></span></label>
+      <label><input type="checkbox" id="darkPages"> Sorte sider</label>
+    </div>
+    <div id="inspectZone">🔍 Slip kortet her for at se det tæt på</div>
+  </div>
+</div>
+
+<div id="placeBanner">
+  <img id="bannerImg" alt="">
+  <span id="bannerText"></span>
+  <button id="bannerCancel" title="Annullér">✕</button>
+</div>
+<div id="toast"></div>
+
+<div id="zoomOverlay">
+  <div id="zoomCard">
+    <img id="zoomImg" alt="">
+    <div class="glare"></div>
+  </div>
+  <div id="zoomName"></div>
+  <div id="zoomActions">
+    <button class="btn primary" id="zoomPlace">Læg i binder</button>
+    <button class="btn" id="zoomClose">Luk</button>
+  </div>
+</div>
+
+<script>
+const API = 'https://api.tcgdex.net/v2/en';
+const ASSETS = 'https://assets.tcgdex.net/';
+const LS_KEY = 'tcg-binder-v1';
+const BINDER_COLORS = { // [top, mellem, bund] laedergradient
+  blue:   ['#2b4d9c', '#1f3a7a', '#16295a'],
+  red:    ['#8d2836', '#7a1f2b', '#5c1620'],
+  green:  ['#2e7d4f', '#1f5c39', '#153f27'],
+  purple: ['#6a3d9c', '#53297a', '#3a1b5a'],
+  black:  ['#3a3f4a', '#262a33', '#171a20'],
+};
+
+// ---------- state ----------
+let store = load();
+let spread = 0;              // opslag-index (2 sider pr. opslag)
+let placing = null;          // kort valgt fra søgning: {id, n, img}
+let picked = null;           // lomme løftet til flytning: {page, slot}
+let viewBinder = null;       // read-only binder fra delelink
+let placeMode = 'owned';     // 'owned' | 'wanted' — status nye kort får
+let lastPlaced = null;       // {page, slot} → pop-animation ved næste render
+
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(LS_KEY));
+    if (s && s.binders && s.binders.length) {
+      for (const b of s.binders) { // migration: aeldre bindere faar defaults
+        if (!b.cols) b.cols = 3;
+        if (!b.rows) b.rows = 3;
+        if (!b.color) b.color = 'blue';
+        if (b.dark === undefined) b.dark = true;
+      }
+      return s;
+    }
+  } catch (e) {}
+  return { active: 0, binders: [newBinderObj('Min binder')] };
+}
+function save() { localStorage.setItem(LS_KEY, JSON.stringify(store)); }
+function newBinderObj(name) {
+  return { name, cols: 3, rows: 3, color: 'blue', dark: true, pages: [emptyPage(9), emptyPage(9)] };
+}
+function emptyPage(n) { return Array(n).fill(null); }
+function slotsOf(b) { return (b.cols || 3) * (b.rows || 3); }
+function binder() { return viewBinder || store.binders[store.active]; }
+function imgUrl(path, q) { return ASSETS + path + '/' + q + '.webp'; }
+
+// ---------- toast ----------
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.style.display = 'none', 2200);
+}
+
+// ---------- søgning ----------
+const $q = document.getElementById('q');
+const $set = document.getElementById('setSelect');
+const $results = document.getElementById('results');
+const $hint = document.getElementById('hint');
+let searchTimer, searchSeq = 0;
+
+async function loadSets() {
+  try {
+    const sets = await (await fetch(API + '/sets')).json();
+    for (const s of sets) {
+      const o = document.createElement('option');
+      o.value = s.id;
+      o.textContent = s.name + ' (' + (s.cardCount?.official ?? s.cardCount?.total ?? '?') + ')';
+      $set.appendChild(o);
+    }
+  } catch (e) { $hint.textContent = 'Kunne ikke hente sæt-listen.'; }
+}
+
+function scheduleSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(doSearch, 350);
+}
+$q.addEventListener('input', scheduleSearch);
+$set.addEventListener('change', doSearch);
+
+async function doSearch() {
+  const q = $q.value.trim();
+  const setId = $set.value;
+  if (!q && !setId) { $results.innerHTML = ''; $hint.textContent = 'Søg på navn eller vælg et sæt.'; return; }
+  const seq = ++searchSeq;
+  $hint.textContent = 'Søger…';
+  try {
+    let cards;
+    if (setId) {
+      const set = await (await fetch(API + '/sets/' + setId)).json();
+      cards = set.cards || [];
+      if (q) cards = cards.filter(c => c.name.toLowerCase().includes(q.toLowerCase()));
+    } else {
+      cards = await (await fetch(API + '/cards?name=' + encodeURIComponent(q))).json();
+    }
+    if (seq !== searchSeq) return; // forældet svar
+    renderResults(cards);
+  } catch (e) {
+    if (seq === searchSeq) $hint.textContent = 'Søgning fejlede — prøv igen.';
+  }
+}
+
+const MAX_RESULTS = 300;
+function renderResults(cards) {
+  $results.innerHTML = '';
+  const shown = cards.slice(0, MAX_RESULTS);
+  $hint.textContent = cards.length
+    ? (cards.length > MAX_RESULTS ? `Viser ${MAX_RESULTS} af ${cards.length} — indsnævr søgningen.` : `${cards.length} kort fundet.`)
+    : 'Ingen kort fundet.';
+  for (const c of shown) {
+    const card = { id: c.id, n: c.name, img: c.image ? c.image.replace(ASSETS, '') : null };
+    const div = document.createElement('div');
+    div.className = 'result';
+    div.title = c.name + ' · ' + c.id;
+    if (card.img) {
+      const im = document.createElement('img');
+      im.loading = 'lazy';
+      im.src = imgUrl(card.img, 'low');
+      im.alt = c.name;
+      div.appendChild(im);
+    } else {
+      div.innerHTML = '<div class="noimg">' + c.name + '</div>';
+    }
+    attachDrag(div, () => ({ card: { ...card }, from: null }));
+    div.addEventListener('click', () => { if (!wasDrag) selectCard(card, div); });
+    if (card.img) {
+      const z = document.createElement('button');
+      z.className = 'zoom';
+      z.textContent = '🔍';
+      z.title = 'Se kortet tæt på';
+      z.addEventListener('click', e => { e.stopPropagation(); openZoom(card); });
+      div.appendChild(z);
+    }
+    $results.appendChild(div);
+  }
+}
+
+// ---------- placering (klik-flow) ----------
+function selectCard(card, el) {
+  document.querySelectorAll('.result.selected').forEach(x => x.classList.remove('selected'));
+  if (placing && placing.id === card.id) { cancelPlacing(); return; }
+  placing = card;
+  picked = null;
+  if (el) el.classList.add('selected');
+  const b = document.getElementById('placeBanner');
+  document.getElementById('bannerImg').src = card.img ? imgUrl(card.img, 'low') : '';
+  document.getElementById('bannerImg').style.display = card.img ? '' : 'none';
+  document.getElementById('bannerText').textContent = card.n + ' — klik på lommer for at placere (Esc afslutter)';
+  b.style.display = 'flex';
+  renderBinder();
+}
+function cancelPlacing() {
+  placing = null;
+  document.querySelectorAll('.result.selected').forEach(x => x.classList.remove('selected'));
+  document.getElementById('placeBanner').style.display = 'none';
+  renderBinder();
+}
+document.getElementById('bannerCancel').addEventListener('click', cancelPlacing);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { cancelPlacing(); picked = null; renderBinder(); } });
+
+// ---------- binder-rendering ----------
+const $gridL = document.getElementById('gridL');
+const $gridR = document.getElementById('gridR');
+
+function pageCount() { return binder().pages.length; }
+function maxSpread() { return Math.max(0, Math.ceil(pageCount() / 2) - 1); }
+
+function renderBinder() {
+  spread = Math.min(spread, maxSpread());
+  const bb = binder();
+  const leather = BINDER_COLORS[bb.color] || BINDER_COLORS.blue;
+  const binderEl = document.querySelector('.binder');
+  binderEl.style.setProperty('--lt', leather[0]);
+  binderEl.style.setProperty('--leather', leather[1]);
+  binderEl.style.setProperty('--leather-dark', leather[2]);
+  document.querySelectorAll('.page').forEach(pg => {
+    pg.classList.toggle('dark', !!bb.dark);
+    pg.style.setProperty('--cols', bb.cols || 3);
+  });
+  const pL = spread * 2, pR = pL + 1;
+  renderPage($gridL, pL);
+  renderPage($gridR, pR);
+  document.getElementById('numL').textContent = 'Side ' + (pL + 1);
+  document.getElementById('numR').textContent = pR < pageCount() ? 'Side ' + (pR + 1) : '';
+  document.getElementById('prev').disabled = spread === 0;
+  document.getElementById('next').disabled = spread >= maxSpread();
+  document.getElementById('spreadLabel').textContent =
+    binder().name + ' · opslag ' + (spread + 1) + ' af ' + (maxSpread() + 1);
+  renderProgress();
+}
+
+function renderProgress() {
+  const cards = binder().pages.flat().filter(c => c);
+  const owned = cards.filter(c => c.o !== false).length;
+  const wrap = document.getElementById('progressWrap');
+  if (!cards.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'flex';
+  document.getElementById('progressText').textContent = owned + ' af ' + cards.length + ' samlet';
+  document.getElementById('progressFill').style.width = Math.round(100 * owned / cards.length) + '%';
+}
+
+function renderPage(grid, pageIdx) {
+  grid.innerHTML = '';
+  const page = binder().pages[pageIdx];
+  if (!page) { grid.style.visibility = 'hidden'; return; }
+  grid.style.visibility = '';
+  page.forEach((card, slot) => {
+    const div = document.createElement('div');
+    div.className = 'pocket';
+    if (placing || (picked && card)) div.classList.add('place-target');
+    if (picked && picked.page === pageIdx && picked.slot === slot) div.classList.add('picked');
+    if (card) {
+      if (card.o === false) div.classList.add('wanted');
+      if (card.img) {
+        const im = document.createElement('img');
+        im.src = imgUrl(card.img, 'low');
+        im.alt = card.n;
+        if (lastPlaced && lastPlaced.page === pageIdx && lastPlaced.slot === slot) {
+          im.classList.add('pop');
+          lastPlaced = null;
+        }
+        div.appendChild(im);
+      } else {
+        div.innerHTML = '<div class="name-only">' + card.n + '</div>';
+      }
+      div.title = card.n + (card.o === false ? ' (mangler)' : '');
+      if (card.img) {
+        const z = document.createElement('button');
+        z.className = 'ptool zoom';
+        z.textContent = '🔍';
+        z.title = 'Se kortet tæt på';
+        z.addEventListener('click', e => { e.stopPropagation(); openZoom(card); });
+        div.appendChild(z);
+      }
+      if (!viewBinder) {
+        const rm = document.createElement('button');
+        rm.className = 'ptool rm';
+        rm.textContent = '✕';
+        rm.title = 'Fjern kort';
+        rm.addEventListener('click', e => {
+          e.stopPropagation();
+          binder().pages[pageIdx][slot] = null;
+          save(); renderBinder();
+        });
+        div.appendChild(rm);
+        const own = document.createElement('button');
+        own.className = 'ptool own';
+        own.textContent = card.o === false ? '☆' : '✓';
+        own.title = card.o === false ? 'Markér som "har"' : 'Markér som "mangler"';
+        own.addEventListener('click', e => {
+          e.stopPropagation();
+          card.o = card.o === false ? true : false;
+          save(); renderBinder();
+        });
+        div.appendChild(own);
+        attachDrag(div, () => ({ card: { ...card }, from: { page: pageIdx, slot } }));
+      }
+    }
+    div.dataset.page = pageIdx;
+    div.dataset.slot = slot;
+    if (!viewBinder) {
+      div.addEventListener('click', () => { if (!wasDrag) pocketClick(pageIdx, slot); });
+    }
+    grid.appendChild(div);
+  });
+}
+
+function pocketClick(pageIdx, slot) {
+  const pages = binder().pages;
+  if (placing) {
+    pages[pageIdx][slot] = { ...placing, o: placeMode === 'owned' }; // kopi — samme kort ubegrænset
+    lastPlaced = { page: pageIdx, slot };
+    save(); renderBinder();
+    return;
+  }
+  if (picked) {
+    if (picked.page === pageIdx && picked.slot === slot) { picked = null; renderBinder(); return; }
+    moveCard(picked, { page: pageIdx, slot });
+    picked = null;
+    return;
+  }
+  if (pages[pageIdx][slot]) {
+    picked = { page: pageIdx, slot };
+    toast('Kort løftet — klik på en anden lomme for at flytte/bytte');
+    renderBinder();
+  }
+}
+
+function moveCard(from, to) {
+  const pages = binder().pages;
+  const a = pages[from.page][from.slot];
+  const b = pages[to.page][to.slot];
+  pages[to.page][to.slot] = a;
+  pages[from.page][from.slot] = b; // bytter hvis optaget, ellers flyt
+  save(); renderBinder();
+}
+
+// ---------- sider & navigation ----------
+document.getElementById('prev').addEventListener('click', () => { spread--; renderBinder(); });
+document.getElementById('next').addEventListener('click', () => { spread++; renderBinder(); });
+document.getElementById('addPages').addEventListener('click', () => {
+  const n = slotsOf(binder());
+  binder().pages.push(emptyPage(n), emptyPage(n));
+  spread = maxSpread();
+  save(); renderBinder();
+});
+document.getElementById('delPages').addEventListener('click', () => {
+  const pages = binder().pages;
+  if (pages.length <= 2) { toast('Binderen skal have mindst ét opslag'); return; }
+  const last2 = pages.slice(-2).flat();
+  if (last2.some(c => c) && !confirm('Sidste opslag indeholder kort — fjern alligevel?')) return;
+  pages.splice(-2, 2);
+  save(); renderBinder();
+});
+
+// ---------- bindere (flere) ----------
+const $binderSelect = document.getElementById('binderSelect');
+const $binderName = document.getElementById('binderName');
+
+function renderBinderSelect() {
+  $binderSelect.innerHTML = '';
+  store.binders.forEach((b, i) => {
+    const o = document.createElement('option');
+    o.value = i;
+    o.textContent = b.name;
+    if (i === store.active) o.selected = true;
+    $binderSelect.appendChild(o);
+  });
+  $binderName.value = store.binders[store.active].name;
+}
+$binderSelect.addEventListener('change', () => {
+  store.active = +$binderSelect.value;
+  spread = 0;
+  save(); renderBinderSelect(); renderBinder();
+});
+$binderName.addEventListener('change', () => {
+  store.binders[store.active].name = $binderName.value.trim() || 'Uden navn';
+  save(); renderBinderSelect(); renderBinder();
+});
+document.getElementById('newBinder').addEventListener('click', () => {
+  const name = prompt('Navn på ny binder:', 'Binder ' + (store.binders.length + 1));
+  if (name === null) return;
+  store.binders.push(newBinderObj(name.trim() || 'Uden navn'));
+  store.active = store.binders.length - 1;
+  spread = 0;
+  save(); renderBinderSelect(); renderBinder();
+});
+document.getElementById('delBinder').addEventListener('click', () => {
+  if (store.binders.length === 1) { toast('Du skal have mindst én binder'); return; }
+  if (!confirm('Slet "' + binder().name + '"?')) return;
+  store.binders.splice(store.active, 1);
+  store.active = 0;
+  spread = 0;
+  save(); renderBinderSelect(); renderBinder();
+});
+
+// ---------- deling ----------
+function encodeBinder(b) {
+  const json = JSON.stringify({ v: 1, n: b.name, p: b.pages, c: b.cols, r: b.rows, col: b.color, d: b.dark ? 1 : 0 });
+  return btoa(unescape(encodeURIComponent(json))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function decodeBinder(s) {
+  const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
+  const json = decodeURIComponent(escape(atob(b64)));
+  const d = JSON.parse(json);
+  if (d.v !== 1 || !Array.isArray(d.p)) throw new Error('bad payload');
+  return { name: String(d.n || 'Delt binder'), pages: d.p, cols: d.c || 3, rows: d.r || 3, color: d.col || 'blue', dark: !!d.d };
+}
+document.getElementById('shareBtn').addEventListener('click', async () => {
+  const url = location.origin + location.pathname + '#b=' + encodeBinder(binder());
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('Delelink kopieret 📋');
+  } catch (e) {
+    prompt('Kopiér linket:', url);
+  }
+});
+
+// view mode fra delelink
+function checkHash() {
+  const m = location.hash.match(/#b=(.+)/);
+  if (!m) return;
+  try {
+    viewBinder = decodeBinder(m[1]);
+    document.body.classList.add('viewmode');
+    document.getElementById('viewTitle').textContent = '👀 Fremvisning: ' + viewBinder.name;
+    spread = 0;
+  } catch (e) { toast('Ugyldigt delelink'); }
+}
+document.getElementById('importBtn').addEventListener('click', () => {
+  store.binders.push({ name: viewBinder.name, pages: viewBinder.pages, cols: viewBinder.cols, rows: viewBinder.rows, color: viewBinder.color, dark: viewBinder.dark });
+  store.active = store.binders.length - 1;
+  save();
+  exitViewMode();
+  toast('Binder gemt hos dig ✔');
+});
+document.getElementById('exitView').addEventListener('click', exitViewMode);
+function exitViewMode() {
+  viewBinder = null;
+  history.replaceState(null, '', location.pathname);
+  document.body.classList.remove('viewmode');
+  spread = 0;
+  renderBinderSelect(); renderBinder();
+}
+
+// ---------- placér-som (har/mangler) ----------
+const $modeOwned = document.getElementById('modeOwned');
+const $modeWanted = document.getElementById('modeWanted');
+function setPlaceMode(m) {
+  placeMode = m;
+  $modeOwned.classList.toggle('on', m === 'owned');
+  $modeWanted.classList.toggle('on', m === 'wanted');
+}
+$modeOwned.addEventListener('click', () => setPlaceMode('owned'));
+$modeWanted.addEventListener('click', () => setPlaceMode('wanted'));
+
+// ---------- custom drag: kortet i hånden ----------
+let wasDrag = false;   // undertrykker click efter et træk
+let drag = null;       // { card, from, ghost }
+document.addEventListener('dragstart', e => e.preventDefault()); // ingen native billed-drag
+
+function attachDrag(el, getPayload) {
+  el.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || viewBinder) return;
+    if (e.target.closest('button')) return; // lad ✕/✓/🔍 virke
+    const startX = e.clientX, startY = e.clientY;
+    const payload = getPayload();
+    wasDrag = false;
+    if (!payload.card.img) return; // navnløse kort: brug klik-flowet
+
+    function onMove(ev) {
+      if (!drag) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 7) return;
+        startDrag(payload);
+      }
+      moveGhost(ev.clientX, ev.clientY);
+      markTarget(ev.clientX, ev.clientY);
+    }
+    function onUp(ev) {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      if (drag) { endDrag(ev.clientX, ev.clientY); wasDrag = true; setTimeout(() => wasDrag = false, 0); }
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+}
+
+function startDrag(payload) {
+  drag = payload;
+  const g = document.createElement('div');
+  g.id = 'dragGhost';
+  g.innerHTML = '<img src="' + imgUrl(payload.card.img, 'low') + '" alt="">';
+  document.body.appendChild(g);
+  drag.ghost = g;
+  document.body.classList.add('dragging');
+}
+function moveGhost(x, y) {
+  drag.ghost.style.left = x + 'px';
+  drag.ghost.style.top = y + 'px';
+}
+function dropTargetAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  if (!el) return null;
+  const pocket = el.closest('.pocket');
+  if (pocket) return { type: 'pocket', page: +pocket.dataset.page, slot: +pocket.dataset.slot, el: pocket };
+  if (el.closest('#inspectZone')) return { type: 'inspect', el: document.getElementById('inspectZone') };
+  return null;
+}
+function markTarget(x, y) {
+  document.querySelectorAll('.pocket.dragover').forEach(p => p.classList.remove('dragover'));
+  document.getElementById('inspectZone').classList.remove('dragover');
+  const t = dropTargetAt(x, y);
+  if (t) t.el.classList.add('dragover');
+}
+function endDrag(x, y) {
+  const t = dropTargetAt(x, y);
+  drag.ghost.remove();
+  document.body.classList.remove('dragging');
+  document.querySelectorAll('.pocket.dragover').forEach(p => p.classList.remove('dragover'));
+  document.getElementById('inspectZone').classList.remove('dragover');
+  const { card, from } = drag;
+  drag = null;
+  if (!t) return;
+  if (t.type === 'inspect') { openZoom(card, from); return; }
+  const pages = binder().pages;
+  if (!pages[t.page]) return;
+  if (from) {
+    moveCard(from, { page: t.page, slot: t.slot }); // flyt/byt
+  } else {
+    pages[t.page][t.slot] = { ...card, o: placeMode === 'owned' }; // dubletter altid tilladt
+    lastPlaced = { page: t.page, slot: t.slot };
+    save(); renderBinder();
+  }
+}
+
+// ---------- kort-zoom med 3D-tilt ----------
+const $overlay = document.getElementById('zoomOverlay');
+const $zoomCard = document.getElementById('zoomCard');
+const $zoomImg = document.getElementById('zoomImg');
+let zoomedCard = null;
+
+function openZoom(card, from) {
+  if (!card.img) { toast('Intet billede af dette kort'); return; }
+  zoomedCard = card;
+  $zoomImg.src = imgUrl(card.img, 'low');
+  const hi = new Image(); // høj opløsning lægges ovenpå når hentet
+  hi.onload = () => { if (zoomedCard === card) $zoomImg.src = hi.src; };
+  hi.src = imgUrl(card.img, 'high');
+  document.getElementById('zoomName').textContent = card.n;
+  // "Læg i binder" kun for kort der ikke allerede ligger der
+  document.getElementById('zoomPlace').style.display = (viewBinder || from) ? 'none' : '';
+  $overlay.classList.add('open');
+  $zoomCard.style.transform = '';
+}
+function closeZoom() {
+  zoomedCard = null;
+  $overlay.classList.remove('open');
+}
+// vinkl kortets forside med musen som med et fysisk kort
+$overlay.addEventListener('pointermove', e => {
+  if (!zoomedCard) return;
+  const r = $zoomCard.getBoundingClientRect();
+  const px = Math.max(-.4, Math.min(1.4, (e.clientX - r.left) / r.width));
+  const py = Math.max(-.4, Math.min(1.4, (e.clientY - r.top) / r.height));
+  const rotY = (px - .5) * 36;  // ±18°
+  const rotX = (.5 - py) * 30;  // ±15°
+  $zoomCard.style.transform = 'rotateX(' + rotX + 'deg) rotateY(' + rotY + 'deg)';
+  $zoomCard.style.setProperty('--gx', (px * 100) + '%');
+  $zoomCard.style.setProperty('--gy', (py * 100) + '%');
+});
+$overlay.addEventListener('click', e => { if (e.target === $overlay) closeZoom(); });
+document.getElementById('zoomClose').addEventListener('click', closeZoom);
+document.getElementById('zoomPlace').addEventListener('click', () => {
+  const card = zoomedCard;
+  closeZoom();
+  selectCard({ id: card.id, n: card.n, img: card.img });
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeZoom(); });
+
+// ---------- binder-udseende ----------
+const $settings = document.getElementById('binderSettings');
+const $sizeSelect = document.getElementById('sizeSelect');
+const $darkPages = document.getElementById('darkPages');
+const $swatches = document.getElementById('swatches');
+
+for (const key of Object.keys(BINDER_COLORS)) {
+  const sw = document.createElement('button');
+  sw.className = 'swatch';
+  sw.dataset.color = key;
+  sw.style.background = 'linear-gradient(155deg, ' + BINDER_COLORS[key][0] + ', ' + BINDER_COLORS[key][2] + ')';
+  sw.addEventListener('click', () => {
+    binder().color = key;
+    save(); renderBinder(); renderSettings();
+  });
+  $swatches.appendChild(sw);
+}
+
+function renderSettings() {
+  const b = binder();
+  $sizeSelect.value = (b.cols || 3) + 'x' + (b.rows || 3);
+  $darkPages.checked = !!b.dark;
+  document.querySelectorAll('.swatch').forEach(sw =>
+    sw.classList.toggle('on', sw.dataset.color === (b.color || 'blue')));
+}
+
+document.getElementById('settingsBtn').addEventListener('click', () => {
+  $settings.classList.toggle('open');
+  renderSettings();
+});
+
+$sizeSelect.addEventListener('change', () => {
+  const parts = $sizeSelect.value.split('x').map(Number);
+  const b = binder();
+  const cards = b.pages.flat().filter(c => c); // kort bevares, omfordeles i raekkefoelge
+  b.cols = parts[0]; b.rows = parts[1];
+  const per = b.cols * b.rows;
+  const pages = [];
+  for (let i = 0; i < cards.length; i += per) {
+    const pg = cards.slice(i, i + per);
+    while (pg.length < per) pg.push(null);
+    pages.push(pg);
+  }
+  while (pages.length < 2 || pages.length % 2) pages.push(emptyPage(per));
+  b.pages = pages;
+  spread = 0;
+  save(); renderBinder();
+});
+
+$darkPages.addEventListener('change', () => {
+  binder().dark = $darkPages.checked;
+  save(); renderBinder();
+});
+
+// ---------- init ----------
+checkHash();
+renderBinderSelect();
+renderBinder();
+loadSets();
+</script>
+</body>
+</html>
