@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TCG Binder · Pokémon</title>
+<link rel="manifest" href="/tcg-manifest.json">
+<meta name="theme-color" content="#1b2430">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="/tcg-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
@@ -687,6 +692,13 @@ body.dragging * { cursor: grabbing !important; }
   background: rgba(20,26,36,.95); border: 2px solid var(--stitch);
   border-radius: 999px; padding: 8px 20px; font-weight: 800; color: #ffe9a8;
   display: none; z-index: 200; box-shadow: 0 8px 30px rgba(0,0,0,.5);
+  white-space: nowrap;
+}
+#toast .undo-btn {
+  margin-left: 12px;
+  border: none; background: none; cursor: pointer;
+  font: 800 1em 'Nunito', sans-serif;
+  color: #ffd95e; text-decoration: underline;
 }
 
 /* view mode */
@@ -781,7 +793,10 @@ body.viewmode .viewbar { display: flex; }
       <button id="modeOwned" class="on" title="Cards you have">✓ Have</button>
       <button id="modeWanted" title="Cards on your wishlist">☆ Need</button>
     </div>
-    <button class="btn" id="pileBtn" style="margin-bottom:8px">🂠 Browse as a pile</button>
+    <div style="display:flex; gap:6px; margin-bottom:8px">
+      <button class="btn" id="pileBtn" style="flex:1">🂠 Browse as a pile</button>
+      <button class="btn" id="fillBtn" style="flex:1" title="Adds every search result to the binder in order, using the Have/Need toggle">📥 Add all</button>
+    </div>
     <div class="search-hint" id="hint">Click a card, then click pockets — the same card can be placed as many times as you like.</div>
     <div class="results" id="results"></div>
   </div>
@@ -818,6 +833,7 @@ body.viewmode .viewbar { display: flex; }
       <button class="btn edit-only" id="addPages">+ Add spread</button>
       <button class="btn edit-only" id="delPages">Remove last spread</button>
       <button class="btn edit-only" id="settingsBtn">⚙ Appearance</button>
+      <button class="btn" id="needBtn">📋 Need list</button>
     </div>
     <div id="binderSettings">
       <label>Pockets:
@@ -841,6 +857,15 @@ body.viewmode .viewbar { display: flex; }
   <button id="bannerCancel" title="Cancel">✕</button>
 </div>
 <div id="toast"></div>
+
+<div id="needmodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 style="font: 700 1.4rem 'Fredoka', sans-serif; margin-bottom: 10px;">📋 Need list</h2>
+    <div id="needlist" style="text-align:left; font: 700 .9rem 'Nunito', sans-serif; max-height: 50vh; overflow-y: auto; margin: 4px 0 10px;"></div>
+    <button id="needcopy" class="authaction">Copy list</button>
+  </div>
+</div>
 
 <div id="authmodal" class="modal" hidden>
   <div class="modal-card">
@@ -932,12 +957,36 @@ function imgUrl(path, q) { return ASSETS + path + '/' + q + '.webp'; }
 
 // ---------- toast ----------
 let toastTimer;
-function toast(msg) {
+function toast(msg, undoable) {
   const t = document.getElementById('toast');
   t.textContent = msg;
+  if (undoable) {
+    const b = document.createElement('button');
+    b.className = 'undo-btn';
+    b.textContent = 'Undo';
+    b.addEventListener('click', () => {
+      restoreSnap();
+      t.style.display = 'none';
+      clearTimeout(toastTimer);
+    });
+    t.appendChild(b);
+  }
   t.style.display = 'block';
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.style.display = 'none', 2200);
+  toastTimer = setTimeout(() => t.style.display = 'none', undoable ? 6000 : 2200);
+}
+
+// et-trins undo: snapshot af aktive binders sider foer destruktive aendringer
+let undoSnap = null;
+function snapshot() {
+  if (viewBinder) return;
+  undoSnap = { idx: store.active, pages: JSON.stringify(store.binders[store.active].pages) };
+}
+function restoreSnap() {
+  if (!undoSnap || viewBinder || !store.binders[undoSnap.idx]) return;
+  store.binders[undoSnap.idx].pages = JSON.parse(undoSnap.pages);
+  undoSnap = null;
+  save(); renderBinder();
 }
 
 // ---------- søgning ----------
@@ -947,6 +996,7 @@ const $results = document.getElementById('results');
 const $hint = document.getElementById('hint');
 let searchTimer, searchSeq = 0;
 let lastResults = []; // til bunke-visning
+let allResults = [];  // ukapped — til 'Add all'
 
 async function loadSets() {
   try {
@@ -993,6 +1043,7 @@ const MAX_RESULTS = 300;
 function renderResults(cards) {
   $results.innerHTML = '';
   lastResults = [];
+  allResults = cards.map(c => ({ id: c.id, n: c.name, img: c.image ? c.image.replace(ASSETS, '') : null }));
   const shown = cards.slice(0, MAX_RESULTS);
   $hint.textContent = cards.length
     ? (cards.length > MAX_RESULTS ? `Showing ${MAX_RESULTS} of ${cards.length} — narrow your search.` : `${cards.length} cards found.`)
@@ -1141,8 +1192,10 @@ function renderPage(grid, pageIdx) {
         rm.title = 'Remove card';
         rm.addEventListener('click', e => {
           e.stopPropagation();
+          snapshot();
           binder().pages[pageIdx][slot] = null;
           save(); renderBinder();
+          toast('Removed ' + card.n, true);
         });
         div.appendChild(rm);
         const own = document.createElement('button');
@@ -1171,8 +1224,9 @@ function pocketClick(pageIdx, slot) {
   const pages = binder().pages;
   if (placing) {
     const existing = pages[pageIdx][slot];
-    if (existing && !confirm('The pocket already holds ' + existing.n + '. Replace it with ' + placing.n + '?')) return;
+    if (existing) snapshot();
     pages[pageIdx][slot] = { ...placing, o: placeMode === 'owned' }; // kopi — samme kort ubegrænset
+    if (existing) toast('Replaced ' + existing.n, true);
     lastPlaced = { page: pageIdx, slot };
     save(); renderBinder();
     return;
@@ -1212,10 +1266,10 @@ document.getElementById('addPages').addEventListener('click', () => {
 document.getElementById('delPages').addEventListener('click', () => {
   const pages = binder().pages;
   if (pages.length <= 2) { toast('The binder needs at least one spread'); return; }
-  const last2 = pages.slice(-2).flat();
-  if (last2.some(c => c) && !confirm('The last spread contains cards — remove anyway?')) return;
+  snapshot();
   pages.splice(-2, 2);
   save(); renderBinder();
+  toast('Spread removed', true);
 });
 
 // ---------- bindere (flere) ----------
@@ -1411,8 +1465,9 @@ function endDrag(x, y) {
     moveCard(from, { page: t.page, slot: t.slot }); // flyt/byt
   } else {
     const existing = pages[t.page][t.slot];
-    if (existing && !confirm('The pocket already holds ' + existing.n + '. Replace it with ' + card.n + '?')) return;
+    if (existing) snapshot();
     pages[t.page][t.slot] = { ...card, o: placeMode === 'owned' }; // dubletter altid tilladt
+    if (existing) toast('Replaced ' + existing.n, true);
     lastPlaced = { page: t.page, slot: t.slot };
     save(); renderBinder();
   }
@@ -1532,8 +1587,8 @@ function firstFreeSlot() {
 }
 
 document.getElementById('pileBtn').addEventListener('click', () => {
-  if (!lastResults.length) { toast('Search first — then you can browse the pile'); return; }
-  pile = { cards: lastResults.slice(), i: 0 };
+  if (!allResults.length) { toast('Search first — then you can browse the pile'); return; }
+  pile = { cards: allResults.slice(), i: 0 };
   $pileOverlay.classList.add('open');
   renderPile();
 });
@@ -1733,6 +1788,64 @@ authmodal.addEventListener('click', e => {
   if (e.target === authmodal || e.target.closest('.modal-close')) authmodal.hidden = true;
 });
 api('/api/me').then(j => { me = j.username; updateAuthUI(); if (me) loadServerStore(); }).catch(() => {});
+
+// ---------- Add all (fyld binderen med soegeresultatet) ----------
+document.getElementById('fillBtn').addEventListener('click', () => {
+  if (viewBinder) return;
+  if (!allResults.length) { toast('Search first — then add the results'); return; }
+  snapshot();
+  let first = null;
+  for (const c of allResults) { // ponytail: firstFreeSlot-scan pr. kort, fint op til nogle hundrede
+    const t = firstFreeSlot();
+    binder().pages[t.page][t.slot] = { ...c, o: placeMode === 'owned' };
+    if (!first) first = t;
+  }
+  save();
+  spread = Math.floor((first.page + 1) / 2);
+  renderBinder();
+  toast(allResults.length + ' cards added as "' + (placeMode === 'owned' ? 'have' : 'need') + '"', true);
+});
+
+// ---------- Need list ----------
+const needmodal = document.getElementById('needmodal');
+let needLines = [];
+document.getElementById('needBtn').addEventListener('click', () => {
+  const counts = new Map();
+  for (const c of binder().pages.flat()) {
+    if (c && c.o === false) {
+      const k = c.id;
+      if (!counts.has(k)) counts.set(k, { n: c.n, count: 0 });
+      counts.get(k).count++;
+    }
+  }
+  const list = document.getElementById('needlist');
+  list.innerHTML = '';
+  needLines = [];
+  if (!counts.size) {
+    list.textContent = 'Nothing missing — binder complete 🎉';
+  } else {
+    for (const [id, v] of counts) {
+      const line = v.n + ' (' + id + ')' + (v.count > 1 ? ' ×' + v.count : '');
+      needLines.push(line);
+      const div = document.createElement('div');
+      div.textContent = line;
+      list.appendChild(div);
+    }
+  }
+  document.getElementById('needcopy').style.display = counts.size ? '' : 'none';
+  needmodal.hidden = false;
+});
+document.getElementById('needcopy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(needLines.join('\n'));
+    toast('Need list copied 📋');
+  } catch (e) {
+    prompt('Copy the list:', needLines.join('; '));
+  }
+});
+needmodal.addEventListener('click', e => {
+  if (e.target === needmodal || e.target.closest('.modal-close')) needmodal.hidden = true;
+});
 
 // ---------- init ----------
 checkHash();

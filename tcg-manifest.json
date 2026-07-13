@@ -1,0 +1,12 @@
+{
+  "name": "TCG Binder",
+  "short_name": "TCG Binder",
+  "start_url": "/tcg",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1b2430",
+  "theme_color": "#1b2430",
+  "icons": [
+    { "src": "/tcg-icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
