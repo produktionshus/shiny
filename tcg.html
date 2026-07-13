@@ -257,6 +257,75 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
 .swatch.on { border-color: #ffd95e; box-shadow: 0 0 0 2px rgba(255,217,94,.5); }
 body.viewmode #binderSettings { display: none; }
 
+/* ===== Bunke-visning: bladr gennem soegeresultater som fysisk bunke ===== */
+#pileOverlay {
+  position: fixed; inset: 0;
+  background: rgba(8,12,18,.9);
+  display: none;
+  flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 14px;
+  z-index: 300;
+  touch-action: none;
+}
+#pileOverlay.open { display: flex; }
+#pileStack {
+  position: relative;
+  width: min(74vw, calc(46vh * 63 / 88), 380px);
+  aspect-ratio: 63/88;
+}
+.pile-back {
+  position: absolute; inset: 0;
+  border-radius: 16px;
+  background: linear-gradient(155deg, #2a3140, #1a1f2a);
+  border: 1px solid rgba(255,255,255,.15);
+  box-shadow: 0 14px 30px rgba(0,0,0,.5);
+}
+.pile-back.b1 { transform: rotate(-5deg) translate(-9px, 7px); }
+.pile-back.b2 { transform: rotate(3.5deg) translate(8px, 4px); }
+.pile-back.b3 { transform: rotate(-1.5deg) translate(-2px, 10px); }
+#pileCard {
+  position: absolute; inset: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 30px 70px rgba(0,0,0,.7);
+  cursor: grab;
+  touch-action: none;
+  background: #1c2230;
+}
+#pileCard.anim { transition: transform .22s ease, opacity .22s ease; }
+#pileCard.enter { animation: pileEnter .2s ease-out; }
+@keyframes pileEnter {
+  from { transform: scale(.9) translateY(12px); opacity: .4; }
+  to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+#pileCard img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+#pileCard .cardless {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; padding: 16px; text-align: center;
+  font: 800 1.1rem 'Fredoka', sans-serif; color: #cbbf9f;
+}
+#pileCounter { font: 600 .9rem 'Fredoka', sans-serif; color: #ffe9a8; opacity: .85; }
+#pileName {
+  font: 600 1.05rem 'Fredoka', sans-serif; color: #ffe9a8;
+  text-shadow: 0 2px 8px rgba(0,0,0,.8);
+  max-width: 80vw; text-align: center;
+}
+#pileHint { font-size: .78rem; color: #cbbf9f; opacity: .75; }
+#pileBtns { display: flex; gap: 10px; align-items: center; }
+#pileToast {
+  position: fixed; left: 50%; top: 16px; transform: translateX(-50%);
+  background: rgba(20,26,36,.95); border: 2px solid var(--stitch);
+  border-radius: 999px; padding: 7px 18px;
+  font-weight: 800; color: #ffe9a8;
+  display: none; z-index: 350;
+}
+#pileClose {
+  position: fixed; top: 14px; right: 18px;
+  font-size: 1.3rem;
+  background: none; border: none; color: #ffe9a8; cursor: pointer;
+}
+
 .rings {
   position: absolute;
   left: 50%; top: 0; bottom: 0;
@@ -576,6 +645,7 @@ body.viewmode .viewbar { display: flex; }
       <button id="modeOwned" class="on" title="Kort du har">✓ Har</button>
       <button id="modeWanted" title="Kort på din ønskeliste">☆ Mangler</button>
     </div>
+    <button class="btn" id="pileBtn" style="margin-bottom:8px">🂠 Gennemse som bunke</button>
     <div class="search-hint" id="hint">Klik på et kort og klik derefter på lommer — samme kort kan placeres så mange gange du vil.</div>
     <div class="results" id="results"></div>
   </div>
@@ -630,6 +700,25 @@ body.viewmode .viewbar { display: flex; }
   <button id="bannerCancel" title="Annullér">✕</button>
 </div>
 <div id="toast"></div>
+
+<div id="pileOverlay">
+  <button id="pileClose" title="Luk (Esc)">✕</button>
+  <div id="pileCounter"></div>
+  <div id="pileStack">
+    <div class="pile-back b3"></div>
+    <div class="pile-back b1"></div>
+    <div class="pile-back b2"></div>
+    <div id="pileCard"></div>
+  </div>
+  <div id="pileName"></div>
+  <div id="pileBtns">
+    <button class="navbtn" id="pilePrev" title="Forrige (←)">◀</button>
+    <button class="btn primary" id="pileAdd" title="Læg i binder (↑)">▲ Læg i binder</button>
+    <button class="navbtn" id="pileNext" title="Næste (→)">▶</button>
+  </div>
+  <div id="pileHint">Swipe ←/→ for at bladre · swipe ↑ for at lægge i første ledige lomme · Esc lukker</div>
+  <div id="pileToast"></div>
+</div>
 
 <div id="zoomOverlay">
   <div id="zoomCard">
@@ -704,6 +793,7 @@ const $set = document.getElementById('setSelect');
 const $results = document.getElementById('results');
 const $hint = document.getElementById('hint');
 let searchTimer, searchSeq = 0;
+let lastResults = []; // til bunke-visning
 
 async function loadSets() {
   try {
@@ -749,12 +839,14 @@ async function doSearch() {
 const MAX_RESULTS = 300;
 function renderResults(cards) {
   $results.innerHTML = '';
+  lastResults = [];
   const shown = cards.slice(0, MAX_RESULTS);
   $hint.textContent = cards.length
     ? (cards.length > MAX_RESULTS ? `Viser ${MAX_RESULTS} af ${cards.length} — indsnævr søgningen.` : `${cards.length} kort fundet.`)
     : 'Ingen kort fundet.';
   for (const c of shown) {
     const card = { id: c.id, n: c.name, img: c.image ? c.image.replace(ASSETS, '') : null };
+    lastResults.push(card);
     const div = document.createElement('div');
     div.className = 'result';
     div.title = c.name + ' · ' + c.id;
@@ -1236,6 +1328,129 @@ $sizeSelect.addEventListener('change', () => {
 $darkPages.addEventListener('change', () => {
   binder().dark = $darkPages.checked;
   save(); renderBinder();
+});
+
+// ---------- bunke-visning ----------
+const $pileOverlay = document.getElementById('pileOverlay');
+const $pileCard = document.getElementById('pileCard');
+let pile = null; // { cards, i }
+
+function firstFreeSlot() {
+  const pages = binder().pages;
+  for (let pi = 0; pi < pages.length; pi++)
+    for (let si = 0; si < pages[pi].length; si++)
+      if (!pages[pi][si]) return { page: pi, slot: si };
+  const n = slotsOf(binder()); // fuld: nyt opslag
+  pages.push(emptyPage(n), emptyPage(n));
+  return { page: pages.length - 2, slot: 0 };
+}
+
+document.getElementById('pileBtn').addEventListener('click', () => {
+  if (!lastResults.length) { toast('Søg først — så kan bunken gennemses'); return; }
+  pile = { cards: lastResults.slice(), i: 0 };
+  $pileOverlay.classList.add('open');
+  renderPile();
+});
+function closePile() { pile = null; $pileOverlay.classList.remove('open'); }
+document.getElementById('pileClose').addEventListener('click', closePile);
+$pileOverlay.addEventListener('click', e => { if (e.target === $pileOverlay) closePile(); });
+
+function renderPile() {
+  const c = pile.cards[pile.i];
+  $pileCard.className = 'enter';
+  $pileCard.style.transform = '';
+  $pileCard.style.opacity = '';
+  if (c.img) {
+    $pileCard.innerHTML = '<img src="' + imgUrl(c.img, 'low') + '" alt="">';
+    const hi = new Image(); // hoej oploesning ovenpaa
+    const idx = pile.i;
+    hi.onload = () => {
+      if (pile && pile.i === idx) $pileCard.querySelector('img').src = hi.src;
+    };
+    hi.src = imgUrl(c.img, 'high');
+  } else {
+    $pileCard.innerHTML = '<div class="cardless">' + c.n + '</div>';
+  }
+  document.getElementById('pileCounter').textContent = (pile.i + 1) + ' / ' + pile.cards.length;
+  document.getElementById('pileName').textContent = c.n;
+}
+
+let pileToastTimer;
+function pileToast(msg) {
+  const t = document.getElementById('pileToast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(pileToastTimer);
+  pileToastTimer = setTimeout(() => t.style.display = 'none', 1600);
+}
+
+function flyOut(dx, dy, rot, done) {
+  $pileCard.className = 'anim';
+  $pileCard.style.transform = 'translate(' + dx + '%,' + dy + '%) rotate(' + rot + 'deg)';
+  $pileCard.style.opacity = '0';
+  setTimeout(done, 210);
+}
+function pileNext() {
+  if (pile.i >= pile.cards.length - 1) { pileToast('Sidste kort i bunken'); springBack(); return; }
+  flyOut(-140, -6, -14, () => { pile.i++; renderPile(); });
+}
+function pilePrev() {
+  if (pile.i <= 0) { pileToast('Første kort i bunken'); springBack(); return; }
+  flyOut(140, -6, 14, () => { pile.i--; renderPile(); });
+}
+function pileAddCard() {
+  const c = pile.cards[pile.i];
+  const t = firstFreeSlot();
+  binder().pages[t.page][t.slot] = { ...c, o: placeMode === 'owned' };
+  lastPlaced = t;
+  spread = Math.floor(t.page / 2);
+  save(); renderBinder();
+  pileToast(c.n + ' → side ' + (t.page + 1) + ', lomme ' + (t.slot + 1) + ' ✔');
+  flyOut(0, -150, 3, () => {
+    if (pile.i < pile.cards.length - 1) pile.i++;
+    renderPile();
+  });
+}
+function springBack() {
+  $pileCard.className = 'anim';
+  $pileCard.style.transform = '';
+  $pileCard.style.opacity = '';
+}
+document.getElementById('pileNext').addEventListener('click', pileNext);
+document.getElementById('pilePrev').addEventListener('click', pilePrev);
+document.getElementById('pileAdd').addEventListener('click', pileAddCard);
+
+// swipe paa kortet
+$pileCard.addEventListener('pointerdown', e => {
+  if (!pile) return;
+  e.preventDefault();
+  const sx = e.clientX, sy = e.clientY;
+  let dx = 0, dy = 0;
+  $pileCard.className = ''; // ingen transition mens man traekker
+  function onMove(ev) {
+    dx = ev.clientX - sx; dy = ev.clientY - sy;
+    $pileCard.style.transform =
+      'translate(' + dx + 'px,' + dy + 'px) rotate(' + (dx / 14) + 'deg)';
+  }
+  function onUp() {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    if (dy < -90 && Math.abs(dx) < 120) pileAddCard();
+    else if (dx < -90) pileNext();
+    else if (dx > 90) pilePrev();
+    else springBack();
+  }
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+});
+
+// tastatur
+document.addEventListener('keydown', e => {
+  if (!pile) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); pileNext(); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); pilePrev(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); pileAddCard(); }
+  else if (e.key === 'Escape') closePile();
 });
 
 // ---------- init ----------
