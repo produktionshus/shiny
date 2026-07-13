@@ -911,7 +911,7 @@ function load() {
   } catch (e) {}
   return { active: 0, binders: [newBinderObj('My binder')] };
 }
-function save() { localStorage.setItem(LS_KEY, JSON.stringify(store)); }
+function save() { localStorage.setItem(LS_KEY, JSON.stringify(store)); pushStore(); }
 function newBinderObj(name) {
   return { name, cols: 3, rows: 3, color: 'blue', dark: true, pages: [emptyPage(9), emptyPage(9)] };
 }
@@ -1651,6 +1651,39 @@ async function api(path, opts = {}) {
 function updateAuthUI() {
   authbtn.textContent = me ? '👤 ' + me + ' · log out' : '👤 Log in';
 }
+
+let pushTimer = null;
+function pushStore() {
+  if (!me) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => {
+    api('/api/tcg', { method: 'PUT', body: JSON.stringify({ store }) })
+      .catch(() => {}); // offline: localStorage har det; naeste save proever igen
+  }, 800);
+}
+
+async function loadServerStore() {
+  try {
+    const j = await api('/api/tcg');
+    if (j.store && Array.isArray(j.store.binders) && j.store.binders.length) {
+      // ponytail: serveren vinder — last write wins paa tvaers af enheder
+      store = j.store;
+      for (const b of store.binders) {
+        if (!b.cols) b.cols = 3;
+        if (!b.rows) b.rows = 3;
+        if (!b.color) b.color = 'blue';
+        if (b.dark === undefined) b.dark = true;
+      }
+      store.active = Math.min(store.active || 0, store.binders.length - 1);
+      localStorage.setItem(LS_KEY, JSON.stringify(store));
+      spread = 0;
+      renderBinderSelect(); renderBinder();
+      toast('Binders synced from your account ✔');
+    } else {
+      pushStore(); // konto uden data endnu: skub lokal samling op
+    }
+  } catch (e) { /* offline: localStorage daekker */ }
+}
 authbtn.addEventListener('click', async () => {
   if (me) {
     await api('/api/logout', { method: 'POST' }).catch(() => {});
@@ -1676,6 +1709,7 @@ async function doAuth(endpoint) {
     updateAuthUI();
     authmodal.hidden = true;
     document.getElementById('apass').value = '';
+    loadServerStore();
   } catch (e) {
     aerr.textContent = AUTH_ERR[e.message] || e.message;
   }
@@ -1688,7 +1722,7 @@ document.getElementById('apass').addEventListener('keydown', e => {
 authmodal.addEventListener('click', e => {
   if (e.target === authmodal || e.target.closest('.modal-close')) authmodal.hidden = true;
 });
-api('/api/me').then(j => { me = j.username; updateAuthUI(); }).catch(() => {});
+api('/api/me').then(j => { me = j.username; updateAuthUI(); if (me) loadServerStore(); }).catch(() => {});
 
 // ---------- init ----------
 checkHash();

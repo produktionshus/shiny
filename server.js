@@ -28,9 +28,17 @@ db.exec(`
 try { db.exec('ALTER TABLE users ADD COLUMN share_token TEXT'); } catch (e) { /* column exists */ }
 try { db.exec('ALTER TABLE users ADD COLUMN friends TEXT'); } catch (e) { /* column exists */ }
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS tcg_binders (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id),
+    data TEXT NOT NULL,
+    updated TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
 const app = express();
 app.set('trust proxy', 1); // Railway sits behind a proxy
-app.use(express.json({ limit: '64kb' }));
+app.use(express.json({ limit: '512kb' })); // TCG-bindere er større blobs end shiny-samlinger
 app.use(cookieSession({
   name: 'shinysession',
   secret: SESSION_SECRET,
@@ -101,6 +109,37 @@ app.put('/api/collection', requireLogin, (req, res) => {
               ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated = CURRENT_TIMESTAMP`)
     .run(req.session.userId, JSON.stringify(collected));
   res.json({ ok: true, count: collected.length });
+});
+
+// ===== TCG binders (whole store as one JSON blob per user; last write wins) =====
+function validTcgStore(st) {
+  if (!st || typeof st !== 'object' || !Array.isArray(st.binders)) return false;
+  if (st.binders.length < 1 || st.binders.length > 30) return false;
+  if (!Number.isInteger(st.active) || st.active < 0 || st.active >= st.binders.length) return false;
+  const okCard = c => c === null || (c && typeof c === 'object'
+    && typeof c.id === 'string' && c.id.length <= 40
+    && typeof c.n === 'string' && c.n.length <= 80
+    && (c.img == null || (typeof c.img === 'string' && c.img.length <= 120)));
+  return st.binders.every(b => b && typeof b === 'object'
+    && typeof b.name === 'string' && b.name.length <= 60
+    && [2, 3, 4].includes(b.cols) && [2, 3, 4].includes(b.rows)
+    && typeof b.color === 'string' && b.color.length <= 10
+    && Array.isArray(b.pages) && b.pages.length <= 100
+    && b.pages.every(p => Array.isArray(p) && p.length <= 16 && p.every(okCard)));
+}
+
+app.get('/api/tcg', requireLogin, (req, res) => {
+  const row = db.prepare('SELECT data FROM tcg_binders WHERE user_id = ?').get(req.session.userId);
+  res.json({ store: row ? JSON.parse(row.data) : null });
+});
+
+app.put('/api/tcg', requireLogin, (req, res) => {
+  const { store } = req.body || {};
+  if (!validTcgStore(store)) return res.status(400).json({ error: 'invalid_store' });
+  db.prepare(`INSERT INTO tcg_binders (user_id, data, updated) VALUES (?, ?, CURRENT_TIMESTAMP)
+              ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated = CURRENT_TIMESTAMP`)
+    .run(req.session.userId, JSON.stringify(store));
+  res.json({ ok: true });
 });
 
 // ===== admin (enabled only when ADMIN_KEY env is set; key sent as X-Admin-Key header) =====
