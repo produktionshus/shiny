@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="da">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -190,7 +190,7 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
 
 .page {
   position: relative;
-  width: min(38vw, calc(var(--cols, 3) * 150px + 30px));
+  width: min(41vw, calc((100vh - 260px) * 0.716 * var(--cols, 3) / var(--rows, 3)));
   background: linear-gradient(180deg, var(--page) 0%, var(--page-edge) 100%);
   padding: 14px 12px 30px;
 }
@@ -380,7 +380,7 @@ body.viewmode #binderSettings { display: none; }
 /* mangler-kort: mål man ikke har endnu */
 .pocket.wanted img { filter: grayscale(.85) brightness(.75); }
 .pocket.wanted::before {
-  content: 'MANGLER';
+  content: 'NEED';
   position: absolute; left: 50%; bottom: 8px;
   transform: translateX(-50%);
   background: rgba(160,30,40,.9);
@@ -617,42 +617,42 @@ body.viewmode .viewbar { display: flex; }
 
 <header>
   <h1>🗂️ TCG Binder</h1>
-  <div class="subtitle">Byg og fremvis dine Pokémon TCG-bindere digitalt</div>
+  <div class="subtitle">Build and show off your Pokémon TCG binders digitally</div>
 </header>
 
 <div class="toolbar">
-  <select id="binderSelect" title="Vælg binder"></select>
-  <input id="binderName" placeholder="Bindernavn" size="14">
-  <button class="btn" id="newBinder">+ Ny binder</button>
-  <button class="btn" id="delBinder">Slet binder</button>
-  <button class="btn primary" id="shareBtn">🔗 Del binder</button>
+  <select id="binderSelect" title="Choose binder"></select>
+  <input id="binderName" placeholder="Binder name" size="14">
+  <button class="btn" id="newBinder">+ New binder</button>
+  <button class="btn" id="delBinder">Delete binder</button>
+  <button class="btn primary" id="shareBtn">🔗 Share binder</button>
 </div>
 
 <div class="viewbar">
   <span id="viewTitle"></span>
-  <button class="btn primary" id="importBtn">Gem som min binder</button>
-  <button class="btn" id="exitView">Til mine bindere</button>
+  <button class="btn primary" id="importBtn">Save as my binder</button>
+  <button class="btn" id="exitView">Back to my binders</button>
 </div>
 
 <div class="layout">
   <div class="search-panel">
-    <h2>Find kort</h2>
+    <h2>Find cards</h2>
     <div class="search-row">
-      <input id="q" placeholder="Søg kortnavn, fx Mew…" autocomplete="off">
-      <select id="setSelect"><option value="">Alle sæt (søg på navn)</option></select>
+      <input id="q" placeholder="Search card name, e.g. Mew…" autocomplete="off">
+      <select id="setSelect"><option value="">All sets (search by name)</option></select>
     </div>
     <div class="place-mode">
-      <button id="modeOwned" class="on" title="Kort du har">✓ Har</button>
-      <button id="modeWanted" title="Kort på din ønskeliste">☆ Mangler</button>
+      <button id="modeOwned" class="on" title="Cards you have">✓ Have</button>
+      <button id="modeWanted" title="Cards on your wishlist">☆ Need</button>
     </div>
-    <button class="btn" id="pileBtn" style="margin-bottom:8px">🂠 Gennemse som bunke</button>
-    <div class="search-hint" id="hint">Klik på et kort og klik derefter på lommer — samme kort kan placeres så mange gange du vil.</div>
+    <button class="btn" id="pileBtn" style="margin-bottom:8px">🂠 Browse as a pile</button>
+    <div class="search-hint" id="hint">Click a card, then click pockets — the same card can be placed as many times as you like.</div>
     <div class="results" id="results"></div>
   </div>
 
   <div class="binder-col">
     <div class="binder-wrap">
-      <button class="navbtn" id="prev" title="Forrige opslag">◀</button>
+      <button class="navbtn" id="prev" title="Previous spread">◀</button>
       <div class="binder">
         <div class="spread">
           <div class="page left">
@@ -666,7 +666,7 @@ body.viewmode .viewbar { display: flex; }
           <div class="rings"><div class="ring"></div><div class="ring"></div><div class="ring"></div></div>
         </div>
       </div>
-      <button class="navbtn" id="next" title="Næste opslag">▶</button>
+      <button class="navbtn" id="next" title="Next spread">▶</button>
     </div>
     <div class="spread-label" id="spreadLabel"></div>
     <div class="progress-wrap" id="progressWrap" style="display:none">
@@ -674,12 +674,12 @@ body.viewmode .viewbar { display: flex; }
       <div class="progress-bar"><div id="progressFill"></div></div>
     </div>
     <div class="binder-controls">
-      <button class="btn edit-only" id="addPages">+ Tilføj opslag</button>
-      <button class="btn edit-only" id="delPages">Fjern sidste opslag</button>
-      <button class="btn edit-only" id="settingsBtn">⚙ Udseende</button>
+      <button class="btn edit-only" id="addPages">+ Add spread</button>
+      <button class="btn edit-only" id="delPages">Remove last spread</button>
+      <button class="btn edit-only" id="settingsBtn">⚙ Appearance</button>
     </div>
     <div id="binderSettings">
-      <label>Lommer:
+      <label>Pockets:
         <select id="sizeSelect">
           <option value="2x2">4 (2×2)</option>
           <option value="3x3">9 (3×3)</option>
@@ -687,22 +687,22 @@ body.viewmode .viewbar { display: flex; }
           <option value="4x4">16 (4×4)</option>
         </select>
       </label>
-      <label>Farve: <span id="swatches"></span></label>
-      <label><input type="checkbox" id="darkPages"> Sorte sider</label>
+      <label>Color: <span id="swatches"></span></label>
+      <label><input type="checkbox" id="darkPages"> Black pages</label>
     </div>
-    <div id="inspectZone">🔍 Slip kortet her for at se det tæt på</div>
+    <div id="inspectZone">🔍 Drop the card here to take a closer look</div>
   </div>
 </div>
 
 <div id="placeBanner">
   <img id="bannerImg" alt="">
   <span id="bannerText"></span>
-  <button id="bannerCancel" title="Annullér">✕</button>
+  <button id="bannerCancel" title="Cancel">✕</button>
 </div>
 <div id="toast"></div>
 
 <div id="pileOverlay">
-  <button id="pileClose" title="Luk (Esc)">✕</button>
+  <button id="pileClose" title="Close (Esc)">✕</button>
   <div id="pileCounter"></div>
   <div id="pileStack">
     <div class="pile-back b3"></div>
@@ -712,11 +712,11 @@ body.viewmode .viewbar { display: flex; }
   </div>
   <div id="pileName"></div>
   <div id="pileBtns">
-    <button class="navbtn" id="pilePrev" title="Forrige (←)">◀</button>
-    <button class="btn primary" id="pileAdd" title="Læg i binder (↑)">▲ Læg i binder</button>
-    <button class="navbtn" id="pileNext" title="Næste (→)">▶</button>
+    <button class="navbtn" id="pilePrev" title="Previous (←)">◀</button>
+    <button class="btn primary" id="pileAdd" title="Add to binder (↑)">▲ Add to binder</button>
+    <button class="navbtn" id="pileNext" title="Next (→)">▶</button>
   </div>
-  <div id="pileHint">Swipe ←/→ for at bladre · swipe ↑ for at lægge i første ledige lomme · Esc lukker</div>
+  <div id="pileHint">Swipe ←/→ to browse · swipe ↑ to add to the first empty pocket · Esc closes</div>
   <div id="pileToast"></div>
 </div>
 
@@ -727,8 +727,8 @@ body.viewmode .viewbar { display: flex; }
   </div>
   <div id="zoomName"></div>
   <div id="zoomActions">
-    <button class="btn primary" id="zoomPlace">Læg i binder</button>
-    <button class="btn" id="zoomClose">Luk</button>
+    <button class="btn primary" id="zoomPlace">Add to binder</button>
+    <button class="btn" id="zoomClose">Close</button>
   </div>
 </div>
 
@@ -804,7 +804,7 @@ async function loadSets() {
       o.textContent = s.name + ' (' + (s.cardCount?.official ?? s.cardCount?.total ?? '?') + ')';
       $set.appendChild(o);
     }
-  } catch (e) { $hint.textContent = 'Kunne ikke hente sæt-listen.'; }
+  } catch (e) { $hint.textContent = 'Could not load the set list.'; }
 }
 
 function scheduleSearch() {
@@ -817,9 +817,9 @@ $set.addEventListener('change', doSearch);
 async function doSearch() {
   const q = $q.value.trim();
   const setId = $set.value;
-  if (!q && !setId) { $results.innerHTML = ''; $hint.textContent = 'Søg på navn eller vælg et sæt.'; return; }
+  if (!q && !setId) { $results.innerHTML = ''; $hint.textContent = 'Search by name or choose a set.'; return; }
   const seq = ++searchSeq;
-  $hint.textContent = 'Søger…';
+  $hint.textContent = 'Searching…';
   try {
     let cards;
     if (setId) {
@@ -832,7 +832,7 @@ async function doSearch() {
     if (seq !== searchSeq) return; // forældet svar
     renderResults(cards);
   } catch (e) {
-    if (seq === searchSeq) $hint.textContent = 'Søgning fejlede — prøv igen.';
+    if (seq === searchSeq) $hint.textContent = 'Search failed — try again.';
   }
 }
 
@@ -842,8 +842,8 @@ function renderResults(cards) {
   lastResults = [];
   const shown = cards.slice(0, MAX_RESULTS);
   $hint.textContent = cards.length
-    ? (cards.length > MAX_RESULTS ? `Viser ${MAX_RESULTS} af ${cards.length} — indsnævr søgningen.` : `${cards.length} kort fundet.`)
-    : 'Ingen kort fundet.';
+    ? (cards.length > MAX_RESULTS ? `Showing ${MAX_RESULTS} of ${cards.length} — narrow your search.` : `${cards.length} cards found.`)
+    : 'No cards found.';
   for (const c of shown) {
     const card = { id: c.id, n: c.name, img: c.image ? c.image.replace(ASSETS, '') : null };
     lastResults.push(card);
@@ -865,7 +865,7 @@ function renderResults(cards) {
       const z = document.createElement('button');
       z.className = 'zoom';
       z.textContent = '🔍';
-      z.title = 'Se kortet tæt på';
+      z.title = 'Take a closer look';
       z.addEventListener('click', e => { e.stopPropagation(); openZoom(card); });
       div.appendChild(z);
     }
@@ -883,7 +883,7 @@ function selectCard(card, el) {
   const b = document.getElementById('placeBanner');
   document.getElementById('bannerImg').src = card.img ? imgUrl(card.img, 'low') : '';
   document.getElementById('bannerImg').style.display = card.img ? '' : 'none';
-  document.getElementById('bannerText').textContent = card.n + ' — klik på lommer for at placere (Esc afslutter)';
+  document.getElementById('bannerText').textContent = card.n + ' — click pockets to place (Esc to finish)';
   b.style.display = 'flex';
   renderBinder();
 }
@@ -914,16 +914,17 @@ function renderBinder() {
   document.querySelectorAll('.page').forEach(pg => {
     pg.classList.toggle('dark', !!bb.dark);
     pg.style.setProperty('--cols', bb.cols || 3);
+    pg.style.setProperty('--rows', bb.rows || 3);
   });
   const pL = spread * 2, pR = pL + 1;
   renderPage($gridL, pL);
   renderPage($gridR, pR);
-  document.getElementById('numL').textContent = 'Side ' + (pL + 1);
-  document.getElementById('numR').textContent = pR < pageCount() ? 'Side ' + (pR + 1) : '';
+  document.getElementById('numL').textContent = 'Page ' + (pL + 1);
+  document.getElementById('numR').textContent = pR < pageCount() ? 'Page ' + (pR + 1) : '';
   document.getElementById('prev').disabled = spread === 0;
   document.getElementById('next').disabled = spread >= maxSpread();
   document.getElementById('spreadLabel').textContent =
-    binder().name + ' · opslag ' + (spread + 1) + ' af ' + (maxSpread() + 1);
+    binder().name + ' · spread ' + (spread + 1) + ' of ' + (maxSpread() + 1);
   renderProgress();
 }
 
@@ -933,7 +934,7 @@ function renderProgress() {
   const wrap = document.getElementById('progressWrap');
   if (!cards.length) { wrap.style.display = 'none'; return; }
   wrap.style.display = 'flex';
-  document.getElementById('progressText').textContent = owned + ' af ' + cards.length + ' samlet';
+  document.getElementById('progressText').textContent = owned + ' of ' + cards.length + ' collected';
   document.getElementById('progressFill').style.width = Math.round(100 * owned / cards.length) + '%';
 }
 
@@ -961,12 +962,12 @@ function renderPage(grid, pageIdx) {
       } else {
         div.innerHTML = '<div class="name-only">' + card.n + '</div>';
       }
-      div.title = card.n + (card.o === false ? ' (mangler)' : '');
+      div.title = card.n + (card.o === false ? ' (need)' : '');
       if (card.img) {
         const z = document.createElement('button');
         z.className = 'ptool zoom';
         z.textContent = '🔍';
-        z.title = 'Se kortet tæt på';
+        z.title = 'Take a closer look';
         z.addEventListener('click', e => { e.stopPropagation(); openZoom(card); });
         div.appendChild(z);
       }
@@ -974,7 +975,7 @@ function renderPage(grid, pageIdx) {
         const rm = document.createElement('button');
         rm.className = 'ptool rm';
         rm.textContent = '✕';
-        rm.title = 'Fjern kort';
+        rm.title = 'Remove card';
         rm.addEventListener('click', e => {
           e.stopPropagation();
           binder().pages[pageIdx][slot] = null;
@@ -984,7 +985,7 @@ function renderPage(grid, pageIdx) {
         const own = document.createElement('button');
         own.className = 'ptool own';
         own.textContent = card.o === false ? '☆' : '✓';
-        own.title = card.o === false ? 'Markér som "har"' : 'Markér som "mangler"';
+        own.title = card.o === false ? 'Mark as "have"' : 'Mark as "need"';
         own.addEventListener('click', e => {
           e.stopPropagation();
           card.o = card.o === false ? true : false;
@@ -1007,7 +1008,7 @@ function pocketClick(pageIdx, slot) {
   const pages = binder().pages;
   if (placing) {
     const existing = pages[pageIdx][slot];
-    if (existing && !confirm('Lommen indeholder allerede ' + existing.n + '. Erstat med ' + placing.n + '?')) return;
+    if (existing && !confirm('The pocket already holds ' + existing.n + '. Replace it with ' + placing.n + '?')) return;
     pages[pageIdx][slot] = { ...placing, o: placeMode === 'owned' }; // kopi — samme kort ubegrænset
     lastPlaced = { page: pageIdx, slot };
     save(); renderBinder();
@@ -1021,7 +1022,7 @@ function pocketClick(pageIdx, slot) {
   }
   if (pages[pageIdx][slot]) {
     picked = { page: pageIdx, slot };
-    toast('Kort løftet — klik på en anden lomme for at flytte/bytte');
+    toast('Card picked up — click another pocket to move or swap');
     renderBinder();
   }
 }
@@ -1046,9 +1047,9 @@ document.getElementById('addPages').addEventListener('click', () => {
 });
 document.getElementById('delPages').addEventListener('click', () => {
   const pages = binder().pages;
-  if (pages.length <= 2) { toast('Binderen skal have mindst ét opslag'); return; }
+  if (pages.length <= 2) { toast('The binder needs at least one spread'); return; }
   const last2 = pages.slice(-2).flat();
-  if (last2.some(c => c) && !confirm('Sidste opslag indeholder kort — fjern alligevel?')) return;
+  if (last2.some(c => c) && !confirm('The last spread contains cards — remove anyway?')) return;
   pages.splice(-2, 2);
   save(); renderBinder();
 });
@@ -1074,20 +1075,20 @@ $binderSelect.addEventListener('change', () => {
   save(); renderBinderSelect(); renderBinder();
 });
 $binderName.addEventListener('change', () => {
-  store.binders[store.active].name = $binderName.value.trim() || 'Uden navn';
+  store.binders[store.active].name = $binderName.value.trim() || 'Untitled';
   save(); renderBinderSelect(); renderBinder();
 });
 document.getElementById('newBinder').addEventListener('click', () => {
-  const name = prompt('Navn på ny binder:', 'Binder ' + (store.binders.length + 1));
+  const name = prompt('Name of new binder:', 'Binder ' + (store.binders.length + 1));
   if (name === null) return;
-  store.binders.push(newBinderObj(name.trim() || 'Uden navn'));
+  store.binders.push(newBinderObj(name.trim() || 'Untitled'));
   store.active = store.binders.length - 1;
   spread = 0;
   save(); renderBinderSelect(); renderBinder();
 });
 document.getElementById('delBinder').addEventListener('click', () => {
-  if (store.binders.length === 1) { toast('Du skal have mindst én binder'); return; }
-  if (!confirm('Slet "' + binder().name + '"?')) return;
+  if (store.binders.length === 1) { toast('You need at least one binder'); return; }
+  if (!confirm('Delete "' + binder().name + '"?')) return;
   store.binders.splice(store.active, 1);
   store.active = 0;
   spread = 0;
@@ -1104,15 +1105,15 @@ function decodeBinder(s) {
   const json = decodeURIComponent(escape(atob(b64)));
   const d = JSON.parse(json);
   if (d.v !== 1 || !Array.isArray(d.p)) throw new Error('bad payload');
-  return { name: String(d.n || 'Delt binder'), pages: d.p, cols: d.c || 3, rows: d.r || 3, color: d.col || 'blue', dark: !!d.d };
+  return { name: String(d.n || 'Shared binder'), pages: d.p, cols: d.c || 3, rows: d.r || 3, color: d.col || 'blue', dark: !!d.d };
 }
 document.getElementById('shareBtn').addEventListener('click', async () => {
   const url = location.origin + location.pathname + '#b=' + encodeBinder(binder());
   try {
     await navigator.clipboard.writeText(url);
-    toast('Delelink kopieret 📋');
+    toast('Share link copied 📋');
   } catch (e) {
-    prompt('Kopiér linket:', url);
+    prompt('Copy the link:', url);
   }
 });
 
@@ -1123,16 +1124,16 @@ function checkHash() {
   try {
     viewBinder = decodeBinder(m[1]);
     document.body.classList.add('viewmode');
-    document.getElementById('viewTitle').textContent = '👀 Fremvisning: ' + viewBinder.name;
+    document.getElementById('viewTitle').textContent = '👀 Viewing: ' + viewBinder.name;
     spread = 0;
-  } catch (e) { toast('Ugyldigt delelink'); }
+  } catch (e) { toast('Invalid share link'); }
 }
 document.getElementById('importBtn').addEventListener('click', () => {
   store.binders.push({ name: viewBinder.name, pages: viewBinder.pages, cols: viewBinder.cols, rows: viewBinder.rows, color: viewBinder.color, dark: viewBinder.dark });
   store.active = store.binders.length - 1;
   save();
   exitViewMode();
-  toast('Binder gemt hos dig ✔');
+  toast('Binder saved to your collection ✔');
 });
 document.getElementById('exitView').addEventListener('click', exitViewMode);
 function exitViewMode() {
@@ -1229,7 +1230,7 @@ function endDrag(x, y) {
     moveCard(from, { page: t.page, slot: t.slot }); // flyt/byt
   } else {
     const existing = pages[t.page][t.slot];
-    if (existing && !confirm('Lommen indeholder allerede ' + existing.n + '. Erstat med ' + card.n + '?')) return;
+    if (existing && !confirm('The pocket already holds ' + existing.n + '. Replace it with ' + card.n + '?')) return;
     pages[t.page][t.slot] = { ...card, o: placeMode === 'owned' }; // dubletter altid tilladt
     lastPlaced = { page: t.page, slot: t.slot };
     save(); renderBinder();
@@ -1243,7 +1244,7 @@ const $zoomImg = document.getElementById('zoomImg');
 let zoomedCard = null;
 
 function openZoom(card, from) {
-  if (!card.img) { toast('Intet billede af dette kort'); return; }
+  if (!card.img) { toast('No image for this card'); return; }
   zoomedCard = card;
   $zoomImg.src = imgUrl(card.img, 'low');
   const hi = new Image(); // høj opløsning lægges ovenpå når hentet
@@ -1350,7 +1351,7 @@ function firstFreeSlot() {
 }
 
 document.getElementById('pileBtn').addEventListener('click', () => {
-  if (!lastResults.length) { toast('Søg først — så kan bunken gennemses'); return; }
+  if (!lastResults.length) { toast('Search first — then you can browse the pile'); return; }
   pile = { cards: lastResults.slice(), i: 0 };
   $pileOverlay.classList.add('open');
   renderPile();
@@ -1395,11 +1396,11 @@ function flyOut(dx, dy, rot, done) {
   setTimeout(done, 210);
 }
 function pileNext() {
-  if (pile.i >= pile.cards.length - 1) { pileToast('Sidste kort i bunken'); springBack(); return; }
+  if (pile.i >= pile.cards.length - 1) { pileToast('Last card in the pile'); springBack(); return; }
   flyOut(-140, -6, -14, () => { pile.i++; renderPile(); });
 }
 function pilePrev() {
-  if (pile.i <= 0) { pileToast('Første kort i bunken'); springBack(); return; }
+  if (pile.i <= 0) { pileToast('First card in the pile'); springBack(); return; }
   flyOut(140, -6, 14, () => { pile.i--; renderPile(); });
 }
 function pileAddCard() {
@@ -1409,7 +1410,7 @@ function pileAddCard() {
   lastPlaced = t;
   spread = Math.floor(t.page / 2);
   save(); renderBinder();
-  pileToast(c.n + ' → side ' + (t.page + 1) + ', lomme ' + (t.slot + 1) + ' ✔');
+  pileToast(c.n + ' → page ' + (t.page + 1) + ', pocket ' + (t.slot + 1) + ' ✔');
   flyOut(0, -150, 3, () => {
     if (pile.i < pile.cards.length - 1) pile.i++;
     renderPile();
