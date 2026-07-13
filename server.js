@@ -142,6 +142,15 @@ app.put('/api/tcg', requireLogin, (req, res) => {
   res.json({ ok: true });
 });
 
+// public read-only view of a user's TCG binders (same share token as the shiny collection)
+app.get('/api/tcg/shared/:token', (req, res) => {
+  const user = db.prepare('SELECT id, username FROM users WHERE share_token = ?')
+    .get(String(req.params.token));
+  if (!user) return res.status(404).json({ error: 'not_found' });
+  const row = db.prepare('SELECT data FROM tcg_binders WHERE user_id = ?').get(user.id);
+  res.json({ username: user.username, store: row ? JSON.parse(row.data) : null });
+});
+
 // ===== admin (enabled only when ADMIN_KEY env is set; key sent as X-Admin-Key header) =====
 const crypto = require('crypto');
 function requireAdmin(req, res, next) {

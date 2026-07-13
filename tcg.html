@@ -376,6 +376,37 @@ body.viewmode #binderSettings { display: none; }
   background: rgba(255,255,255,.55);
   border-color: rgba(150,130,90,.5);
 }
+.viewbar select {
+  font: 700 .9rem 'Nunito', sans-serif;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,217,94,.4);
+  background: rgba(0,0,0,.35);
+  color: #ffe9a8;
+}
+.viewbar select option { background: #1b2430; }
+.friendrow {
+  display: flex; gap: 8px; align-items: center;
+  margin: 7px 0;
+  font: 700 .95rem 'Nunito', sans-serif;
+}
+.friendrow span { flex: 1; text-align: left; }
+.friendrow button {
+  font: 700 .8rem 'Fredoka', sans-serif;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.3);
+  background: rgba(0,0,0,.08);
+  color: var(--ink);
+  cursor: pointer;
+}
+.friendrow button:hover { background: rgba(0,0,0,.16); }
+#frienderr {
+  color: #a01818;
+  font: 700 .82rem 'Nunito', sans-serif;
+  min-height: 1.2em;
+  margin-top: 4px;
+}
 #aerr {
   color: #a01818;
   font: 700 .82rem 'Nunito', sans-serif;
@@ -772,12 +803,14 @@ body.viewmode .viewbar { display: flex; }
   <input id="binderName" placeholder="Binder name" size="14">
   <button class="btn" id="newBinder">+ New binder</button>
   <button class="btn" id="delBinder">Delete binder</button>
+  <button class="btn" id="friendsBtn">👥 Friends</button>
   <button class="btn" id="authbtn">👤 Log in</button>
   <button class="btn primary" id="shareBtn">🔗 Share binder</button>
 </div>
 
 <div class="viewbar">
   <span id="viewTitle"></span>
+  <select id="viewBinderSelect" style="display:none" title="Choose binder"></select>
   <button class="btn primary" id="importBtn">Save as my binder</button>
   <button class="btn" id="exitView">Back to my binders</button>
 </div>
@@ -864,6 +897,20 @@ body.viewmode .viewbar { display: flex; }
     <h2 style="font: 700 1.4rem 'Fredoka', sans-serif; margin-bottom: 10px;">📋 Need list</h2>
     <div id="needlist" style="text-align:left; font: 700 .9rem 'Nunito', sans-serif; max-height: 50vh; overflow-y: auto; margin: 4px 0 10px;"></div>
     <button id="needcopy" class="authaction">Copy list</button>
+  </div>
+</div>
+
+<div id="friendsmodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 style="font: 700 1.4rem 'Fredoka', sans-serif; margin-bottom: 6px;">👥 Friends</h2>
+    <p style="font: 600 .82rem 'Nunito', sans-serif; opacity:.75; margin-bottom: 8px;">
+      Shared with the shiny binder's compare list — one circle, one list.</p>
+    <div id="friendrows"></div>
+    <input id="friendinput" placeholder="Paste a friend's share link or code…" autocomplete="off">
+    <div id="frienderr"></div>
+    <button id="friendadd" class="authaction">Add friend</button>
+    <button id="mysharelink" class="authaction secondary">🔗 Copy my share link</button>
   </div>
 </div>
 
@@ -1356,6 +1403,8 @@ document.getElementById('importBtn').addEventListener('click', () => {
 document.getElementById('exitView').addEventListener('click', exitViewMode);
 function exitViewMode() {
   viewBinder = null;
+  viewStore = null;
+  document.getElementById('viewBinderSelect').style.display = 'none';
   history.replaceState(null, '', location.pathname);
   document.body.classList.remove('viewmode');
   spread = 0;
@@ -1741,8 +1790,11 @@ async function loadServerStore() {
       }
       store.active = Math.min(store.active || 0, store.binders.length - 1);
       localStorage.setItem(LS_KEY, JSON.stringify(store));
-      spread = 0;
-      renderBinderSelect(); renderBinder();
+      renderBinderSelect();
+      if (!viewBinder) { // roer ikke visningen hvis man staar i en vens binder
+        spread = 0;
+        renderBinder();
+      }
       toast('Binders synced from your account ✔');
     } else {
       pushStore(); // konto uden data endnu: skub lokal samling op
@@ -1847,11 +1899,133 @@ needmodal.addEventListener('click', e => {
   if (e.target === needmodal || e.target.closest('.modal-close')) needmodal.hidden = true;
 });
 
+// ---------- friends: se hinandens bindere live via konto ----------
+const friendsmodal = document.getElementById('friendsmodal');
+const $viewBinderSelect = document.getElementById('viewBinderSelect');
+const FRIEND_COLORS = ['#e8554d', '#3a7bd5', '#38a169', '#b07be0', '#e0a13a', '#d54a8c'];
+let friends = [];
+let viewStore = null; // en vens fulde binder-saet
+
+function migrateBinders(binders) {
+  for (const b of binders) {
+    if (!b.cols) b.cols = 3;
+    if (!b.rows) b.rows = 3;
+    if (!b.color) b.color = 'blue';
+    if (b.dark === undefined) b.dark = true;
+  }
+}
+
+document.getElementById('friendsBtn').addEventListener('click', async () => {
+  if (!me) { toast('Log in to use the friends list'); return; }
+  try { friends = (await api('/api/friends')).friends; } catch (e) { friends = []; }
+  renderFriends();
+  document.getElementById('frienderr').textContent = '';
+  friendsmodal.hidden = false;
+});
+
+function renderFriends() {
+  const box = document.getElementById('friendrows');
+  box.innerHTML = '';
+  if (!friends.length) {
+    box.textContent = 'No friends added yet.';
+    box.style.opacity = .7;
+    return;
+  }
+  box.style.opacity = 1;
+  for (const f of friends) {
+    const row = document.createElement('div');
+    row.className = 'friendrow';
+    const name = document.createElement('span');
+    name.textContent = f.name;
+    row.appendChild(name);
+    const view = document.createElement('button');
+    view.textContent = 'View binders';
+    view.addEventListener('click', () => { friendsmodal.hidden = true; openFriend(f.token, f.name); });
+    row.appendChild(view);
+    const rm = document.createElement('button');
+    rm.textContent = '✕';
+    rm.title = 'Remove friend';
+    rm.addEventListener('click', async () => {
+      friends = friends.filter(x => x !== f);
+      await api('/api/friends', { method: 'PUT', body: JSON.stringify({ friends }) }).catch(() => {});
+      renderFriends();
+    });
+    row.appendChild(rm);
+    box.appendChild(row);
+  }
+}
+
+document.getElementById('friendadd').addEventListener('click', async () => {
+  const inp = document.getElementById('friendinput');
+  const err = document.getElementById('frienderr');
+  err.textContent = '';
+  const v = inp.value.trim();
+  const m = v.match(/(?:share|friend)=([\w-]+)/) || v.match(/^([\w-]{6,40})$/);
+  if (!m) { err.textContent = 'Paste a share link or code'; return; }
+  const token = m[1];
+  if (friends.some(f => f.token === token)) { err.textContent = 'Already added'; return; }
+  try {
+    const j = await api('/api/tcg/shared/' + token);
+    friends.push({ token, name: j.username, color: FRIEND_COLORS[friends.length % FRIEND_COLORS.length] });
+    await api('/api/friends', { method: 'PUT', body: JSON.stringify({ friends }) });
+    inp.value = '';
+    renderFriends();
+  } catch (e) { err.textContent = 'Not found — check the link'; }
+});
+
+document.getElementById('mysharelink').addEventListener('click', async () => {
+  try {
+    const j = await api('/api/share', { method: 'POST' });
+    const url = location.origin + '/tcg?friend=' + j.token;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('Your share link copied 📋');
+    } catch (e) { prompt('Copy your link:', url); }
+  } catch (e) { toast('Could not create a share link'); }
+});
+
+friendsmodal.addEventListener('click', e => {
+  if (e.target === friendsmodal || e.target.closest('.modal-close')) friendsmodal.hidden = true;
+});
+
+async function openFriend(token, name) {
+  try {
+    const j = await api('/api/tcg/shared/' + token);
+    if (!j.store || !Array.isArray(j.store.binders) || !j.store.binders.length) {
+      toast((name || j.username) + ' has no TCG binders yet');
+      return;
+    }
+    viewStore = j.store;
+    migrateBinders(viewStore.binders);
+    $viewBinderSelect.innerHTML = '';
+    viewStore.binders.forEach((b, i) => {
+      const o = document.createElement('option');
+      o.value = i;
+      o.textContent = b.name;
+      $viewBinderSelect.appendChild(o);
+    });
+    $viewBinderSelect.style.display = viewStore.binders.length > 1 ? '' : 'none';
+    viewBinder = viewStore.binders[0];
+    document.body.classList.add('viewmode');
+    document.getElementById('viewTitle').textContent = '👀 ' + j.username + "'s binders";
+    spread = -1; // start paa forsiden — fremvisning
+    renderBinder();
+  } catch (e) { toast('Could not load binders'); }
+}
+
+$viewBinderSelect.addEventListener('change', () => {
+  viewBinder = viewStore.binders[+$viewBinderSelect.value];
+  spread = -1;
+  renderBinder();
+});
+
 // ---------- init ----------
 checkHash();
 renderBinderSelect();
 renderBinder();
 loadSets();
+const friendParam = location.search.match(/[?&]friend=([\w-]+)/);
+if (friendParam) openFriend(friendParam[1]);
 </script>
 </body>
 </html>

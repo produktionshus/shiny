@@ -38,3 +38,4 @@ npm start          # kræver Node >= 24 (bruger indbygget node:sqlite)
 | PUT | `/api/collection` | `{collected: [dexId, …]}` (kræver login) |
 | GET | `/api/tcg` | `{store}` — TCG-bindere for brugeren (kræver login) |
 | PUT | `/api/tcg` | `{store: {active, binders: […]}}` (kræver login) |
+| GET | `/api/tcg/shared/:token` | `{username, store}` — offentlig read-only |
