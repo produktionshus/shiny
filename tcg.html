@@ -195,7 +195,7 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
   align-items: center;
   justify-content: center;
   gap: 14px;
-  width: min(calc((100vw - 540px) / 2), calc((100vh - 260px) * 0.716 * var(--cols, 3) / var(--rows, 3)));
+  width: min(calc((100vw - 540px) / 2), calc((100vh - 260px) * 0.716 * var(--cols, 3) / var(--rows, 3)), calc(var(--cols, 3) * 430px));
   aspect-ratio: 0.75;
   border-radius: 8px 14px 14px 8px;
   background: linear-gradient(155deg, var(--lt, #2b4d9c) 0%, var(--leather) 50%, var(--leather-dark) 100%);
@@ -239,7 +239,7 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
 
 .page {
   position: relative;
-  width: min(calc((100vw - 540px) / 2), calc((100vh - 260px) * 0.716 * var(--cols, 3) / var(--rows, 3)));
+  width: min(calc((100vw - 540px) / 2), calc((100vh - 260px) * 0.716 * var(--cols, 3) / var(--rows, 3)), calc(var(--cols, 3) * 430px));
   background: linear-gradient(180deg, var(--page) 0%, var(--page-edge) 100%);
   padding: 14px 12px 30px;
 }
@@ -1085,6 +1085,8 @@ function renderPage(grid, pageIdx) {
   grid.closest('.page').classList.toggle('inside', !page); // omslagets inderside
   if (!page) { grid.style.visibility = 'hidden'; return; }
   grid.style.visibility = '';
+  // low.webp er ~245px bred — skift til high naar lommerne er stoerre
+  const q = grid.clientWidth / (binder().cols || 3) > 260 ? 'high' : 'low';
   page.forEach((card, slot) => {
     const div = document.createElement('div');
     div.className = 'pocket';
@@ -1094,7 +1096,7 @@ function renderPage(grid, pageIdx) {
       if (card.o === false) div.classList.add('wanted');
       if (card.img) {
         const im = document.createElement('img');
-        im.src = imgUrl(card.img, 'low');
+        im.src = imgUrl(card.img, q);
         im.alt = card.n;
         if (lastPlaced && lastPlaced.page === pageIdx && lastPlaced.slot === slot) {
           im.classList.add('pop');
