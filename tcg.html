@@ -702,6 +702,16 @@ body.viewmode .viewbar { display: flex; }
 @media (max-width: 900px) {
   .layout { flex-direction: column; align-items: stretch; }
   #cover { width: 60vw; }
+  /* pileknapper oven paa binderen — ellers klippes de af overflow-x */
+  .binder-wrap { position: relative; }
+  .navbtn {
+    position: absolute; z-index: 40;
+    top: 50%; transform: translateY(-50%);
+    background: rgba(0,0,0,.6);
+  }
+  .navbtn:hover { transform: translateY(-50%) scale(1.08); }
+  #prev { left: 4px; }
+  #next { right: 4px; }
   .search-panel { position: static; flex: none; max-height: 45vh; order: 2; }
   .binder-col { order: 1; }
   .page { width: 44vw; }
