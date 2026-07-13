@@ -1045,10 +1045,16 @@ let searchTimer, searchSeq = 0;
 let lastResults = []; // til bunke-visning
 let allResults = [];  // ukapped — til 'Add all'
 
+let pocketSets = new Set(); // TCG Pocket (digital) — vises ikke blandt fysiske kort
 async function loadSets() {
   try {
-    const sets = await (await fetch(API + '/sets')).json();
+    const [sets, tcgp] = await Promise.all([
+      fetch(API + '/sets').then(r => r.json()),
+      fetch(API + '/series/tcgp').then(r => r.json()).catch(() => ({ sets: [] })),
+    ]);
+    pocketSets = new Set((tcgp.sets || []).map(x => x.id.toLowerCase()));
     for (const s of sets) {
+      if (pocketSets.has(s.id.toLowerCase())) continue; // kun rigtige kort
       const o = document.createElement('option');
       o.value = s.id;
       o.textContent = s.name + ' (' + (s.cardCount?.official ?? s.cardCount?.total ?? '?') + ')';
@@ -1078,6 +1084,7 @@ async function doSearch() {
       if (q) cards = cards.filter(c => c.name.toLowerCase().includes(q.toLowerCase()));
     } else {
       cards = await (await fetch(API + '/cards?name=' + encodeURIComponent(q))).json();
+      cards = cards.filter(c => !pocketSets.has(c.id.slice(0, c.id.lastIndexOf('-')).toLowerCase()));
     }
     if (seq !== searchSeq) return; // forældet svar
     renderResults(cards);
