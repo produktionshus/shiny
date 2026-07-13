@@ -642,6 +642,23 @@ body.viewmode #binderSettings { display: none; }
   text-shadow: 0 2px 8px rgba(0,0,0,.8);
   pointer-events: none;
 }
+#zoomInfo, #pileInfo {
+  position: fixed;
+  right: 24px; top: 50%;
+  transform: translateY(-50%);
+  width: 250px;
+  background: rgba(20,26,36,.92);
+  border: 1px solid rgba(255,217,94,.35);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font: 700 .85rem 'Nunito', sans-serif;
+  color: #f0e6d0;
+  text-align: left;
+}
+.zi-row { display: flex; gap: 10px; justify-content: space-between; margin: 5px 0; }
+.zi-row .zi-l { color: #ffd95e; font-family: 'Fredoka', sans-serif; font-weight: 600; flex: 0 0 auto; }
+.zi-row span:last-child { text-align: right; }
+@media (max-width: 900px) { #zoomInfo, #pileInfo { display: none !important; } } /* lille skaerm: kortet er pointen */
 #zoomActions {
   position: fixed; left: 50%; top: 24px; transform: translateX(-50%);
   display: flex; gap: 10px;
@@ -867,6 +884,7 @@ body.viewmode .viewbar { display: flex; }
       <button class="btn edit-only" id="delPages">Remove last spread</button>
       <button class="btn edit-only" id="settingsBtn">⚙ Appearance</button>
       <button class="btn" id="needBtn">📋 Need list</button>
+      <button class="btn" id="valueBtn" title="Estimated Cardmarket value of the cards in this binder">💰 Value</button>
     </div>
     <div id="binderSettings">
       <label>Pockets:
@@ -879,6 +897,13 @@ body.viewmode .viewbar { display: flex; }
       </label>
       <label>Color: <span id="swatches"></span></label>
       <label><input type="checkbox" id="darkPages"> Black pages</label>
+      <label><input type="checkbox" id="showPrices"> Show prices</label>
+      <label>Prices:
+        <select id="priceSourceSel">
+          <option value="cardmarket">Cardmarket (EU, €)</option>
+          <option value="tcgplayer">TCGplayer (NA, $)</option>
+        </select>
+      </label>
       <button class="btn" id="clearBinder">🧹 Clear binder</button>
     </div>
     <div id="inspectZone">🔍 Drop the card here to take a closer look</div>
@@ -937,6 +962,7 @@ body.viewmode .viewbar { display: flex; }
     <div id="pileCard"></div>
   </div>
   <div id="pileName"></div>
+  <div id="pileInfo" style="display:none"></div>
   <div id="pileBtns">
     <button class="navbtn" id="pilePrev" title="Previous (←)">◀</button>
     <button class="btn primary" id="pileAdd" title="Add to binder (↑)">▲ Add to binder</button>
@@ -952,6 +978,7 @@ body.viewmode .viewbar { display: flex; }
     <div class="glare"></div>
   </div>
   <div id="zoomName"></div>
+  <div id="zoomInfo" style="display:none"></div>
   <div id="zoomActions">
     <button class="btn primary" id="zoomPlace">Add to binder</button>
     <button class="btn" id="zoomClose">Close</button>
@@ -1169,6 +1196,7 @@ function pageCount() { return binder().pages.length; }
 function maxSpread() { return pageCount() / 2; } // sidste view: bagsidens inderside
 
 function renderBinder() {
+  updatePriceUI();
   spread = Math.max(-1, Math.min(spread, maxSpread()));
   const bb = binder();
   const leather = BINDER_COLORS[bb.color] || BINDER_COLORS.blue;
@@ -1349,6 +1377,7 @@ function renderBinderSelect() {
   $binderName.value = store.binders[store.active].name;
 }
 $binderSelect.addEventListener('change', () => {
+  document.getElementById('valueBtn').textContent = '💰 Value';
   store.active = +$binderSelect.value;
   spread = 0;
   save(); renderBinderSelect(); renderBinder();
@@ -1543,6 +1572,126 @@ function endDrag(x, y) {
   }
 }
 
+// ---------- kort-detaljer & priser (TCGdex, cachet) ----------
+const detailCache = new Map();
+function getDetail(id) {
+  if (!detailCache.has(id)) {
+    detailCache.set(id, fetch(API + '/cards/' + id)
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null));
+  }
+  return detailCache.get(id);
+}
+function priceSource() { return store.priceSource === 'tcgplayer' ? 'tcgplayer' : 'cardmarket'; }
+function updatePriceUI() {
+  document.getElementById('valueBtn').style.display = store.showPrices ? '' : 'none';
+  document.getElementById('priceSourceSel').disabled = !store.showPrices;
+}
+function priceSourceName() { return priceSource() === 'tcgplayer' ? 'TCGplayer' : 'Cardmarket'; }
+function cardPrice(d) {
+  if (!d) return null;
+  const blocks = [];
+  if (d.pricing) blocks.push(d.pricing);
+  for (const v of d.variants_detailed || []) if (v.pricing) blocks.push(v.pricing);
+  if (priceSource() === 'tcgplayer') {
+    for (const b of blocks) {
+      const tp = b && b.tcgplayer;
+      if (tp) {
+        for (const k of ['normal', 'holofoil', 'reverse-holofoil']) {
+          if (tp[k] && typeof tp[k].marketPrice === 'number') return tp[k].marketPrice;
+        }
+        for (const k of Object.keys(tp)) { // enhver variant med markedspris
+          if (tp[k] && typeof tp[k].marketPrice === 'number') return tp[k].marketPrice;
+        }
+      }
+    }
+    return null;
+  }
+  for (const b of blocks) {
+    const cm = b && b.cardmarket;
+    if (cm) {
+      for (const k of ['trend', 'avg30', 'avg', 'trend-holo', 'avg30-holo', 'avg-holo', 'low']) {
+        if (typeof cm[k] === 'number') return cm[k];
+      }
+    }
+  }
+  return null;
+}
+function fmtPrice(x) {
+  const sym = priceSource() === 'tcgplayer' ? '$' : '€';
+  return sym + (x >= 100 ? Math.round(x) : x.toFixed(2));
+}
+
+async function fillInfo(panelId, card, stillCurrent) {
+  const panel = document.getElementById(panelId);
+  panel.style.display = '';
+  panel.textContent = 'Loading…';
+  const d = await getDetail(card.id);
+  if (!stillCurrent()) return; // bruger har lukket/skiftet
+  panel.textContent = '';
+  if (!d) { panel.textContent = 'No details available'; return; }
+  const rows = [];
+  if (d.set) {
+    const total = d.set.cardCount && d.set.cardCount.official;
+    rows.push(['Set', d.set.name + ' · ' + (d.localId || '?') + (total ? '/' + total : '')]);
+  }
+  if (d.rarity) rows.push(['Rarity', d.rarity]);
+  if (d.illustrator) rows.push(['Illustrator', d.illustrator]);
+  if (d.variants) {
+    const labels = { normal: 'Normal', reverse: 'Reverse', holo: 'Holo', firstEdition: '1st ed.' };
+    const v = Object.keys(labels).filter(k => d.variants[k]).map(k => labels[k]).join(', ');
+    if (v) rows.push(['Variants', v]);
+  }
+  if (store.showPrices) {
+    const price = cardPrice(d);
+    rows.push(['Price', price != null ? fmtPrice(price) + ' (' + priceSourceName() + ')' : '—']);
+  }
+  for (const [l, v] of rows) {
+    const row = document.createElement('div');
+    row.className = 'zi-row';
+    const lab = document.createElement('span');
+    lab.className = 'zi-l';
+    lab.textContent = l;
+    const val = document.createElement('span');
+    val.textContent = v;
+    row.append(lab, val);
+    panel.appendChild(row);
+  }
+}
+function fillZoomInfo(card) { return fillInfo('zoomInfo', card, () => zoomedCard === card); }
+
+// ---------- binder-vaerdi ----------
+let valueBusy = false;
+document.getElementById('valueBtn').addEventListener('click', async () => {
+  if (valueBusy) return;
+  const btn = document.getElementById('valueBtn');
+  const cards = binder().pages.flat().filter(c => c);
+  if (!cards.length) { toast('The binder is empty'); return; }
+  valueBusy = true;
+  const ids = [...new Set(cards.map(c => c.id))];
+  const queue = ids.slice();
+  const prices = new Map();
+  let done = 0;
+  btn.textContent = '💰 0/' + ids.length;
+  await Promise.all(Array.from({ length: 8 }, async () => { // ponytail: 8 samtidige opslag
+    while (queue.length) {
+      const id = queue.shift();
+      prices.set(id, cardPrice(await getDetail(id)));
+      btn.textContent = '💰 ' + (++done) + '/' + ids.length;
+    }
+  }));
+  let have = 0, need = 0, unpriced = 0;
+  for (const c of cards) {
+    const pr = prices.get(c.id);
+    if (pr == null) { unpriced++; continue; }
+    if (c.o === false) need += pr; else have += pr;
+  }
+  btn.textContent = '💰 ' + fmtPrice(have)
+    + (need ? ' · need ' + fmtPrice(need) : '')
+    + (unpriced ? ' · ' + unpriced + ' unpriced' : '');
+  valueBusy = false;
+});
+
 // ---------- kort-zoom med 3D-tilt ----------
 const $overlay = document.getElementById('zoomOverlay');
 const $zoomCard = document.getElementById('zoomCard');
@@ -1557,6 +1706,7 @@ function openZoom(card, from) {
   hi.onload = () => { if (zoomedCard === card) $zoomImg.src = hi.src; };
   hi.src = imgUrl(card.img, 'high');
   document.getElementById('zoomName').textContent = card.n;
+  fillZoomInfo(card);
   // "Læg i binder" kun for kort der ikke allerede ligger der
   document.getElementById('zoomPlace').style.display = (viewBinder || from) ? 'none' : '';
   $overlay.classList.add('open');
@@ -1564,6 +1714,7 @@ function openZoom(card, from) {
 }
 function closeZoom() {
   zoomedCard = null;
+  document.getElementById('zoomInfo').style.display = 'none';
   $overlay.classList.remove('open');
 }
 // vinkl kortets forside med musen som med et fysisk kort
@@ -1607,6 +1758,8 @@ for (const key of Object.keys(BINDER_COLORS)) {
 
 function renderSettings() {
   const b = binder();
+  document.getElementById('showPrices').checked = !!store.showPrices;
+  document.getElementById('priceSourceSel').value = priceSource();
   $sizeSelect.value = (b.cols || 3) + 'x' + (b.rows || 3);
   $darkPages.checked = !!b.dark;
   document.querySelectorAll('.swatch').forEach(sw =>
@@ -1652,6 +1805,18 @@ $darkPages.addEventListener('change', () => {
   save(); renderBinder();
 });
 
+document.getElementById('showPrices').addEventListener('change', e => {
+  store.showPrices = e.target.checked; // global, foelger kontoen via synk
+  updatePriceUI();
+  save();
+});
+
+document.getElementById('priceSourceSel').addEventListener('change', e => {
+  store.priceSource = e.target.value; // global, foelger kontoen via synk
+  document.getElementById('valueBtn').textContent = '💰 Value'; // gammel sum er i forkert valuta
+  save();
+});
+
 // ---------- bunke-visning ----------
 const $pileOverlay = document.getElementById('pileOverlay');
 const $pileCard = document.getElementById('pileCard');
@@ -1673,7 +1838,7 @@ document.getElementById('pileBtn').addEventListener('click', () => {
   $pileOverlay.classList.add('open');
   renderPile();
 });
-function closePile() { pile = null; $pileOverlay.classList.remove('open'); }
+function closePile() { pile = null; document.getElementById('pileInfo').style.display = 'none'; $pileOverlay.classList.remove('open'); }
 document.getElementById('pileClose').addEventListener('click', closePile);
 $pileOverlay.addEventListener('click', e => { if (e.target === $pileOverlay) closePile(); });
 
@@ -1695,6 +1860,7 @@ function renderPile() {
   }
   document.getElementById('pileCounter').textContent = (pile.i + 1) + ' / ' + pile.cards.length;
   document.getElementById('pileName').textContent = c.n;
+  fillInfo('pileInfo', c, () => pile && pile.cards[pile.i] === c);
 }
 
 let pileToastTimer;
