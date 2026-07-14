@@ -485,6 +485,12 @@ body.viewmode #binderSettings { display: none; }
   font-size: 1.3rem;
   background: none; border: none; color: #ffe9a8; cursor: pointer;
 }
+#packMusic {
+  position: fixed; top: 14px; left: 18px;
+  font-size: 1.3rem;
+  background: none; border: none; color: #ffe9a8; cursor: pointer;
+}
+#packMusic.off { opacity: .4; filter: grayscale(1); }
 
 /* ===== Pack opener (aabn en virtuel booster) ===== */
 #packOverlay {
@@ -1060,7 +1066,6 @@ body.viewmode .viewbar { display: flex; }
   <button class="btn" id="newBinder">+ New binder</button>
   <button class="btn" id="delBinder">Delete binder</button>
   <button class="btn" id="friendsBtn">👥 Friends</button>
-  <button class="btn" id="musicBtn" title="Background music: the Pokémon theme">🎵 Music</button>
   <button class="btn" id="authbtn">👤 Log in</button>
   <button class="btn primary" id="shareBtn">🔗 Share binder</button>
 </div>
@@ -1215,6 +1220,7 @@ body.viewmode .viewbar { display: flex; }
 
 <div id="packOverlay">
   <button id="packClose" title="Close (Esc)">✕</button>
+  <button id="packMusic" title="Background music: the Pokémon theme">🎵</button>
   <div id="packCounter"></div>
   <div id="packWrap">
     <div id="packTear"></div>
@@ -2594,10 +2600,10 @@ $viewBinderSelect.addEventListener('change', () => {
 
 // ---------- baggrundsmusik (Pokemon-temaet, chiptune fra theme.json) ----------
 const MUSIC_KEY = 'tcg-music-on';
-let musicOn = localStorage.getItem(MUSIC_KEY) === '1';
+let musicOn = localStorage.getItem(MUSIC_KEY) !== '0'; // til som standard — spiller kun i pack-mode
 let musicCtx = null, musicGain = null, musicTimer = null, musicNotes = null;
 let musicPos = 0, musicStartT = 0, musicLen = 0;
-const $musicBtn = document.getElementById('musicBtn');
+const $musicBtn = document.getElementById('packMusic');
 
 function musicNote(when, note, dur) {
   const o = musicCtx.createOscillator();
@@ -2629,21 +2635,21 @@ function musicTick() {
 }
 
 async function startMusic() {
+  if (musicTimer) return; // spiller allerede
   if (!musicNotes) {
     try {
       musicNotes = await (await fetch('theme.json')).json();
       musicLen = Math.max(...musicNotes.map(n => n[0] + n[2]));
     } catch (e) { toast('Could not load the music'); return; }
-    if (!musicOn) return; // slaaet fra mens den hentede
+    if (!musicOn || !pack) return; // slaaet fra / pack lukket mens den hentede
   }
   musicCtx = musicCtx || new (window.AudioContext || window.webkitAudioContext)();
   musicCtx.resume();
   musicGain = musicGain || musicCtx.createGain();
-  musicGain.gain.value = 0.5; // lav baggrundsvolume — noderne er selv daempede
+  musicGain.gain.value = 0.9; // baggrundsniveau — noderne er selv daempede
   musicGain.connect(musicCtx.destination);
   musicPos = 0;
   musicStartT = musicCtx.currentTime + 0.1;
-  clearInterval(musicTimer);
   musicTimer = setInterval(musicTick, 300);
   musicTick();
 }
@@ -2655,18 +2661,17 @@ function stopMusic() {
   musicGain = null;
 }
 
-function updateMusicBtn() { $musicBtn.textContent = musicOn ? '🎵 Music on' : '🎵 Music'; }
+function updateMusicBtn() {
+  $musicBtn.classList.toggle('off', !musicOn);
+  $musicBtn.title = musicOn ? 'Music off' : 'Music on';
+}
 $musicBtn.addEventListener('click', () => {
   musicOn = !musicOn;
   localStorage.setItem(MUSIC_KEY, musicOn ? '1' : '0');
   updateMusicBtn();
-  if (musicOn) startMusic(); else stopMusic();
+  if (musicOn && pack) startMusic(); else stopMusic();
 });
 updateMusicBtn();
-if (musicOn) { // autoplay er blokeret foer foerste gestus — start ved den
-  const kick = () => { if (musicOn && !musicTimer) startMusic(); };
-  document.addEventListener('pointerdown', kick, { once: true });
-}
 
 // ---------- pack opener (virtuel booster med aegte pools) ----------
 const $packOverlay = document.getElementById('packOverlay');
@@ -2790,6 +2795,7 @@ function startPack(pools) {
   document.getElementById('packCounter').textContent = pools.name;
   document.getElementById('packHint').textContent = 'Tap the pack to rip it open';
   $packOverlay.classList.add('open');
+  if (musicOn) startMusic(); // temaet spiller mens pakken er aaben
 }
 
 $packWrap.addEventListener('click', () => {
@@ -3151,6 +3157,7 @@ document.getElementById('packAgain').addEventListener('click', () => startPack(p
 function closePack() {
   const hadKeeps = pack && pack.kept.size;
   pack = null;
+  stopMusic();
   $packOverlay.classList.remove('open');
   if (hadKeeps) { // vis fangsten med det samme — ellers leder man i den forkerte binder
     const i = store.binders.findIndex(b => b.name === 'Pack pulls');
