@@ -465,25 +465,160 @@ body.viewmode #binderSettings { display: none; }
   height: 100%; padding: 16px; text-align: center;
   font: 800 1.1rem 'Fredoka', sans-serif; color: #cbbf9f;
 }
-#pileCounter { font: 600 .9rem 'Fredoka', sans-serif; color: #ffe9a8; opacity: .85; }
-#pileName {
+#pileCounter, #packCounter { font: 600 .9rem 'Fredoka', sans-serif; color: #ffe9a8; opacity: .85; }
+#pileName, #packName {
   font: 600 1.05rem 'Fredoka', sans-serif; color: #ffe9a8;
   text-shadow: 0 2px 8px rgba(0,0,0,.8);
   max-width: 80vw; text-align: center;
 }
-#pileHint { font-size: .78rem; color: #cbbf9f; opacity: .75; }
+#pileHint, #packHint { font-size: .78rem; color: #cbbf9f; opacity: .75; }
 #pileBtns { display: flex; gap: 10px; align-items: center; }
-#pileToast {
+#pileToast, #packToast {
   position: fixed; left: 50%; top: 16px; transform: translateX(-50%);
   background: rgba(20,26,36,.95); border: 2px solid var(--stitch);
   border-radius: 999px; padding: 7px 18px;
   font-weight: 800; color: #ffe9a8;
   display: none; z-index: 350;
 }
-#pileClose {
+#pileClose, #packClose {
   position: fixed; top: 14px; right: 18px;
   font-size: 1.3rem;
   background: none; border: none; color: #ffe9a8; cursor: pointer;
+}
+
+/* ===== Pack opener (aabn en virtuel booster) ===== */
+#packOverlay {
+  position: fixed; inset: 0;
+  background: rgba(8,12,18,.9);
+  display: none;
+  flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 14px;
+  z-index: 300;
+}
+#packOverlay.open { display: flex; }
+#packWrap {
+  position: relative;
+  width: min(58vw, calc(52vh * 5 / 8), 270px);
+  aspect-ratio: 5/8;
+  cursor: pointer;
+}
+#packWrap:hover:not(.rip) { animation: packWiggle .6s ease-in-out infinite; }
+@keyframes packWiggle { 0%, 100% { transform: rotate(-1.2deg); } 50% { transform: rotate(1.2deg); } }
+#packTear {
+  position: absolute; left: 0; right: 0; top: 0; height: 12%;
+  border-radius: 10px 10px 0 0;
+  border: 1px solid rgba(255,255,255,.22); border-bottom: none;
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.1) 0 3px, transparent 3px 7px),
+    linear-gradient(155deg, #3b4a6b, #232c44);
+  z-index: 2;
+}
+#packFoil {
+  position: absolute; left: 0; right: 0; top: 12%; bottom: 0;
+  border-radius: 0 0 12px 12px;
+  border: 1px solid rgba(255,255,255,.22);
+  border-top: 2px dashed rgba(255,255,255,.4);
+  background:
+    radial-gradient(120% 80% at 50% 18%, rgba(120,160,255,.28), transparent 60%),
+    linear-gradient(155deg, #2e3a5e 0%, #1b2340 45%, #2a1e4d 100%);
+  box-shadow: 0 24px 50px rgba(0,0,0,.6);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  overflow: hidden;
+}
+#packFoil .pack-shine {
+  position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.28) 42%, transparent 55%);
+  background-size: 300% 300%;
+  animation: holoSlide 4s linear infinite;
+  pointer-events: none;
+}
+#packLogo { width: 84%; max-height: 45%; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,.6)); }
+#packSetName {
+  font: 800 1rem 'Fredoka', sans-serif; color: #ffe9a8;
+  text-shadow: 0 2px 8px rgba(0,0,0,.8);
+  padding: 0 10px; text-align: center;
+}
+#packWrap.rip { pointer-events: none; animation: none; }
+#packWrap.rip #packTear { animation: tearOff .5s ease-in forwards; }
+@keyframes tearOff { to { transform: translate(70%, -160%) rotate(26deg); opacity: 0; } }
+#packWrap.rip #packFoil { animation: packDrop .45s ease-in .3s forwards; }
+@keyframes packDrop { to { transform: translateY(75vh) rotate(-7deg); opacity: 0; } }
+#packStack {
+  position: relative;
+  width: min(74vw, calc(46vh * 63 / 88), 380px);
+  aspect-ratio: 63/88;
+  perspective: 1100px;
+}
+#packCard {
+  position: absolute; inset: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 30px 70px rgba(0,0,0,.7);
+  background: #1c2230;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  will-change: transform;
+  touch-action: none;
+}
+#packCard.anim { transition: transform .22s ease, opacity .22s ease; }
+#packCard.flip { animation: packFlip .32s ease-out; }
+@keyframes packFlip {
+  from { transform: perspective(900px) rotateY(88deg); }
+  to   { transform: perspective(900px) rotateY(0); }
+}
+#packCard img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+#packMeta { font: 600 .85rem 'Nunito', sans-serif; color: #cbbf9f; min-height: 1.2em; }
+/* sparkle burst + konfetti ved gode pulls (portet fra shiny-binderen) */
+.burst { position: fixed; z-index: 400; pointer-events: none; }
+.burst span {
+  position: absolute;
+  left: 0; top: 0;
+  font-size: 15px;
+  text-shadow: 0 0 6px rgba(255,220,90,.9);
+  animation: sparklefly .8s ease-out forwards;
+}
+@keyframes sparklefly {
+  0%   { transform: translate(-50%,-50%) scale(.3); opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.4) rotate(var(--rot)); opacity: 0; }
+}
+.celebrate { position: fixed; inset: 0; z-index: 400; pointer-events: none; overflow: hidden; }
+.celebrate .cf {
+  position: absolute; top: -6vh;
+  animation: cffall linear forwards;
+}
+@keyframes cffall {
+  to { transform: translateY(115vh) rotate(var(--rot)); opacity: .7; }
+}
+#packBtns { display: flex; gap: 10px; align-items: center; }
+#packSummary { display: none; flex-direction: column; align-items: center; gap: 12px; }
+#packGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  width: min(92vw, 560px);
+}
+.pack-sum {
+  position: relative;
+  aspect-ratio: 63/88;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  background: #1c2230;
+}
+.pack-sum img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pack-sum .noimg {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; padding: 4px; text-align: center;
+  font: 700 .6rem 'Nunito', sans-serif; color: #cbbf9f;
+}
+.pack-sum.kept { border-color: #ffd75e; }
+.pack-sum.kept::after {
+  content: '⭐';
+  position: absolute; top: 2px; right: 3px;
+  font-size: .8rem;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.8));
 }
 
 .rings {
@@ -633,7 +768,7 @@ body.viewmode #binderSettings { display: none; }
   will-change: transform;
 }
 #zoomCard img { width: 100%; height: 100%; display: block; }
-#zoomCard .holo {
+#zoomCard .holo, #packCard .holo {
   position: absolute; inset: 0;
   pointer-events: none;
   background: linear-gradient(
@@ -653,7 +788,7 @@ body.viewmode #binderSettings { display: none; }
   opacity: 0;
   transition: opacity .25s;
 }
-#zoomCard.holo-on .holo { opacity: .5; }
+#zoomCard.holo-on .holo, #packCard.holo-on .holo { opacity: .5; }
 /* daempet holo i lommerne ved hover */
 .pocket .holo-sheen {
   position: absolute; inset: 0;
@@ -681,7 +816,7 @@ body.viewmode #binderSettings { display: none; }
   50% { background-position: 100% 100%; }
   100% { background-position: 0% 0%; }
 }
-#zoomCard .glare {
+#zoomCard .glare, #packCard .glare {
   position: absolute; inset: 0;
   background: radial-gradient(circle at var(--gx,50%) var(--gy,50%), rgba(255,255,255,.35) 0%, transparent 55%);
   pointer-events: none;
@@ -897,6 +1032,7 @@ body.viewmode .viewbar { display: flex; }
     <div style="display:flex; gap:6px; margin-bottom:8px">
       <button class="btn" id="pileBtn" style="flex:1">🂠 Browse as a pile</button>
       <button class="btn" id="fillBtn" style="flex:1" title="Adds every search result to the binder in order, using the Have/Need toggle">📥 Add all</button>
+      <button class="btn" id="packBtn" style="flex:1" title="Open a virtual booster pack from the chosen set">🎁 Pack</button>
     </div>
     <div class="search-hint" id="hint">Click a card, then click pockets — the same card can be placed as many times as you like.</div>
     <div class="results" id="results"></div>
@@ -1021,6 +1157,40 @@ body.viewmode .viewbar { display: flex; }
   </div>
   <div id="pileHint">Swipe ←/→ to browse · swipe ↑ to add to the first empty pocket · Esc closes</div>
   <div id="pileToast"></div>
+</div>
+
+<div id="packOverlay">
+  <button id="packClose" title="Close (Esc)">✕</button>
+  <div id="packCounter"></div>
+  <div id="packWrap">
+    <div id="packTear"></div>
+    <div id="packFoil">
+      <div class="pack-shine"></div>
+      <img id="packLogo" alt="">
+      <div id="packSetName"></div>
+    </div>
+  </div>
+  <div id="packStack" style="display:none">
+    <div class="pile-back b3"></div>
+    <div class="pile-back b1"></div>
+    <div class="pile-back b2"></div>
+    <div id="packCard"></div>
+  </div>
+  <div id="packName"></div>
+  <div id="packMeta"></div>
+  <div id="packBtns" style="display:none">
+    <button class="btn primary" id="packKeep">⭐ Keep</button>
+    <button class="btn" id="packNextBtn">Next ▶</button>
+  </div>
+  <div id="packSummary">
+    <div id="packGrid"></div>
+    <div style="display:flex; gap:10px">
+      <button class="btn primary" id="packAgain">🎁 Open another</button>
+      <button class="btn" id="packDone">Close</button>
+    </div>
+  </div>
+  <div id="packHint"></div>
+  <div id="packToast"></div>
 </div>
 
 <div id="zoomOverlay">
@@ -2365,6 +2535,391 @@ $viewBinderSelect.addEventListener('change', () => {
   viewBinder = viewStore.binders[+$viewBinderSelect.value];
   spread = -1;
   renderBinder();
+});
+
+// ---------- pack opener (virtuel booster med aegte pools) ----------
+const $packOverlay = document.getElementById('packOverlay');
+const $packCard = document.getElementById('packCard');
+const $packWrap = document.getElementById('packWrap');
+const wowSound = new Audio('wow.mp3');       // secret hit
+wowSound.volume = 0.6;
+const packSparkleSound = new Audio('sparkle.mp3'); // rare/reverse — samme lyd som shiny-binderen
+packSparkleSound.volume = 0.5;
+const packPoolCache = new Map(); // setId -> pools
+let pack = null; // { pools, cards, i, kept: Set }
+
+const packBrief = c => ({ id: c.id, n: c.name, img: c.image ? c.image.replace(ASSETS, '') : null });
+
+async function loadPackPools(setId) {
+  if (packPoolCache.has(setId)) return packPoolCache.get(setId);
+  const enc = encodeURIComponent(setId);
+  const [set, commons, uncommons] = await Promise.all([
+    fetch(API + '/sets/' + enc).then(r => r.json()),
+    fetch(API + '/cards?set.id=eq:' + enc + '&rarity=eq:Common').then(r => r.json()),
+    fetch(API + '/cards?set.id=eq:' + enc + '&rarity=eq:Uncommon').then(r => r.json()),
+  ]);
+  const cu = new Set([...commons, ...uncommons].map(c => c.id));
+  const official = (set.cardCount && set.cardCount.official) || Infinity;
+  const rest = (set.cards || []).filter(c => !cu.has(c.id));
+  const isSecret = c => parseInt(c.localId, 10) > official; // secret rares nummereres over saettets officielle antal
+  const pools = {
+    name: set.name,
+    logo: set.logo ? set.logo + '.webp' : null,
+    all: (set.cards || []).map(packBrief),
+    commons: commons.map(packBrief),
+    uncommons: uncommons.map(packBrief),
+    rares: rest.filter(c => !isSecret(c)).map(packBrief),
+    secrets: rest.filter(isSecret).map(packBrief),
+  };
+  packPoolCache.set(setId, pools);
+  return pools;
+}
+
+function packDraw(pool, fallback, used) {
+  let cands = pool.filter(c => !used.has(c.id));
+  if (!cands.length) cands = fallback.filter(c => !used.has(c.id));
+  if (!cands.length) cands = fallback; // bittesmaa saet: dublet frem for crash
+  const c = { ...cands[Math.floor(Math.random() * cands.length)] };
+  used.add(c.id);
+  return c;
+}
+
+function buildPack(pools) {
+  const used = new Set();
+  const cards = [];
+  for (let i = 0; i < 4; i++) cards.push(packDraw(pools.commons, pools.all, used));
+  for (let i = 0; i < 3; i++) cards.push(packDraw(pools.uncommons, pools.all, used));
+  const rev = packDraw([...pools.commons, ...pools.uncommons, ...pools.rares], pools.all, used);
+  rev.rev = true;
+  cards.push(rev);
+  cards.push(packDraw(pools.rares, pools.all, used));
+  // ponytail: hit-slottet er 1:8 for et secret-kort (IR/SIR/HR/UR under et) — grov SV-tilnaermelse, ellers endnu en rare
+  const gotSecret = pools.secrets.length && Math.random() < 1 / 8;
+  const hit = packDraw(gotSecret ? pools.secrets : pools.rares, pools.all, used);
+  if (gotSecret) hit.hit = true;
+  cards.push(hit);
+  return cards;
+}
+
+document.getElementById('packBtn').addEventListener('click', async () => {
+  if (viewBinder) { toast('Go back to your own binders to open packs'); return; }
+  const setId = $set.value;
+  if (!setId) { toast('Choose a set first — packs come from a set'); return; }
+  const btn = document.getElementById('packBtn');
+  btn.disabled = true;
+  try {
+    startPack(await loadPackPools(setId));
+  } catch (e) { toast('Could not load the set — try again'); }
+  btn.disabled = false;
+});
+
+function startPack(pools) {
+  pack = { pools, cards: buildPack(pools), i: -1, kept: new Set() };
+  const logo = document.getElementById('packLogo');
+  logo.style.display = pools.logo ? '' : 'none';
+  if (pools.logo) logo.src = pools.logo;
+  document.getElementById('packSetName').textContent = pools.name;
+  $packWrap.classList.remove('rip');
+  $packWrap.style.display = '';
+  document.getElementById('packStack').style.display = 'none';
+  document.getElementById('packSummary').style.display = 'none';
+  document.getElementById('packBtns').style.display = 'none';
+  document.getElementById('packName').textContent = '';
+  document.getElementById('packMeta').textContent = '';
+  document.getElementById('packCounter').textContent = pools.name;
+  document.getElementById('packHint').textContent = 'Tap the pack to rip it open';
+  $packOverlay.classList.add('open');
+}
+
+$packWrap.addEventListener('click', () => {
+  if (!pack || pack.i >= 0) return;
+  $packWrap.classList.add('rip');
+  setTimeout(() => {
+    if (!pack) return; // lukket midt i rivet
+    $packWrap.style.display = 'none';
+    document.getElementById('packStack').style.display = '';
+    document.getElementById('packBtns').style.display = '';
+    document.getElementById('packHint').textContent = 'Tap for the next card · swipe ↑ to keep — the best is saved for last';
+    packNext();
+  }, 700);
+});
+
+function renderPackCard() {
+  const c = pack.cards[pack.i];
+  $packCard.className = '';
+  void $packCard.offsetWidth; // genstart flip-animationen
+  $packCard.className = 'flip';
+  $packCard.innerHTML = '';
+  if (c.img) {
+    const im = document.createElement('img');
+    im.src = imgUrl(c.img, 'low');
+    im.alt = c.n;
+    $packCard.appendChild(im);
+    const hi = new Image();
+    const idx = pack.i;
+    hi.onload = () => { if (pack && pack.i === idx) im.src = hi.src; };
+    hi.src = imgUrl(c.img, 'high');
+  } else {
+    $packCard.innerHTML = '<div class="cardless">' + c.n + '</div>';
+  }
+  // holo + glare foelger pointeren som i zoom-visningen
+  const holo = document.createElement('div');
+  holo.className = 'holo';
+  const glare = document.createElement('div');
+  glare.className = 'glare';
+  $packCard.append(holo, glare);
+  $packCard.style.transform = '';
+  $packCard.style.opacity = '';
+  $packCard.style.setProperty('--gx', '50%');
+  $packCard.style.setProperty('--gy', '50%');
+  $packCard.classList.toggle('holo-on', !!(c.hit || c.rev));
+  if (!c.hit && !c.rev) {
+    getDetail(c.id).then(d => { // aegte holo-kort faar ogsaa effekten
+      if (pack && pack.cards[pack.i] === c && d && d.variants && d.variants.holo) $packCard.classList.add('holo-on');
+    });
+  }
+  if (c.hit) {
+    wowSound.currentTime = 0;
+    wowSound.play().catch(() => {});
+    sparkleBurst($packCard);
+    packCelebrate();
+  } else if (c.rev || pack.i === pack.cards.length - 1) { // rare-slottet og reverse: lille fejring
+    packSparkleSound.currentTime = 0;
+    packSparkleSound.play().catch(() => {});
+    sparkleBurst($packCard);
+  }
+  document.getElementById('packCounter').textContent = 'Card ' + (pack.i + 1) + ' / ' + pack.cards.length;
+  document.getElementById('packName').textContent = c.n + (c.rev ? ' · reverse ✨' : '');
+  document.getElementById('packKeep').textContent = pack.kept.has(pack.i) ? '✓ Kept' : '⭐ Keep';
+  fillPackMeta(c);
+}
+
+async function fillPackMeta(c) {
+  const el = document.getElementById('packMeta');
+  el.textContent = '…';
+  const d = await getDetail(c.id);
+  if (!pack || pack.cards[pack.i] !== c) return;
+  const bits = [];
+  if (d && d.rarity) {
+    const m = RARITY_ODDS[d.rarity];
+    bits.push(m ? d.rarity + ' (' + m[0] + ')' : d.rarity);
+  }
+  if (store.showPrices && d) {
+    const pr = cardPrice(d);
+    if (pr != null) bits.push(fmtPrice(pr));
+  }
+  el.textContent = bits.join(' · ');
+}
+
+function packNext() {
+  if (!pack) return;
+  if (pack.i >= pack.cards.length - 1) { showPackSummary(); return; }
+  pack.i++;
+  renderPackCard();
+}
+document.getElementById('packNextBtn').addEventListener('click', packNext);
+
+// tap = naeste kort · swipe op = keep · swipe venstre = naeste (som bunke-visningen)
+let packDragging = false;
+$packCard.addEventListener('pointerdown', e => {
+  if (!pack || pack.i < 0) return;
+  e.preventDefault();
+  const sx = e.clientX, sy = e.clientY;
+  let dx = 0, dy = 0, moved = false;
+  function onMove(ev) {
+    dx = ev.clientX - sx; dy = ev.clientY - sy;
+    if (Math.abs(dx) + Math.abs(dy) > 8) { moved = true; packDragging = true; }
+    if (moved) {
+      $packCard.classList.remove('anim', 'flip'); // ingen transition mens man traekker — holo-on bliver
+      $packCard.style.transform = 'translate(' + dx + 'px,' + dy + 'px) rotate(' + (dx / 14) + 'deg)';
+    }
+  }
+  function onUp() {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
+    packDragging = false;
+    if (!moved) { packNext(); return; }
+    if (dy < -90 && Math.abs(dx) < 120) packKeepSwipe();
+    else if (dx < -90) packNext();
+    else packSpringBack();
+  }
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+});
+
+function packSpringBack() {
+  $packCard.classList.remove('flip');
+  $packCard.classList.add('anim');
+  $packCard.style.transform = '';
+}
+
+function packKeepSwipe() {
+  keepCard(pack.i);
+  $packCard.classList.remove('flip');
+  $packCard.classList.add('anim');
+  $packCard.style.transform = 'translate(0,-150%) rotate(3deg)';
+  $packCard.style.opacity = '0';
+  setTimeout(packNext, 220); // renderPackCard nulstiller transform/opacity
+}
+
+// vinkl kortet med pointeren som i zoom-visningen
+$packOverlay.addEventListener('pointermove', e => {
+  if (!pack || pack.i < 0 || packDragging) return;
+  if (document.getElementById('packStack').style.display === 'none') return;
+  const r = $packCard.getBoundingClientRect();
+  const px = Math.max(-.4, Math.min(1.4, (e.clientX - r.left) / r.width));
+  const py = Math.max(-.4, Math.min(1.4, (e.clientY - r.top) / r.height));
+  $packCard.style.transform = 'rotateX(' + ((.5 - py) * 30) + 'deg) rotateY(' + ((px - .5) * 36) + 'deg)';
+  $packCard.style.setProperty('--gx', (px * 100) + '%');
+  $packCard.style.setProperty('--gy', (py * 100) + '%');
+});
+
+// sparkle burst + konfetti-regn (portet fra shiny-binderen)
+function sparkleBurst(el) {
+  const r = el.getBoundingClientRect();
+  const holder = document.createElement('div');
+  holder.className = 'burst';
+  holder.style.left = (r.left + r.width / 2) + 'px';
+  holder.style.top = (r.top + r.height / 2) + 'px';
+  for (let i = 0; i < 10; i++) {
+    const s = document.createElement('span');
+    s.textContent = ['✨', '⭐', '✦'][i % 3];
+    const ang = (i / 10) * 2 * Math.PI + Math.random() * 0.6;
+    const dist = 45 + Math.random() * 50;
+    s.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
+    s.style.setProperty('--dy', Math.sin(ang) * dist + 'px');
+    s.style.setProperty('--rot', (Math.random() * 180 - 90) + 'deg');
+    s.style.animationDelay = (Math.random() * 0.12) + 's';
+    holder.appendChild(s);
+  }
+  document.body.appendChild(holder);
+  setTimeout(() => holder.remove(), 1100);
+}
+
+function packCelebrate() {
+  const c = document.createElement('div');
+  c.className = 'celebrate';
+  const icons = ['✨', '⭐', '🎊', '🎉', '💛', '✦'];
+  for (let i = 0; i < 40; i++) {
+    const s = document.createElement('span');
+    s.className = 'cf';
+    s.textContent = icons[i % icons.length];
+    s.style.left = Math.random() * 100 + 'vw';
+    s.style.fontSize = (12 + Math.random() * 18) + 'px';
+    s.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+    s.style.animationDuration = (1.8 + Math.random() * 1.5) + 's';
+    s.style.animationDelay = (Math.random() * 0.6) + 's';
+    c.appendChild(s);
+  }
+  document.body.appendChild(c);
+  setTimeout(() => c.remove(), 3600);
+}
+
+// pulls gemmes i en dedikeret "Pack pulls"-binder (oprettes ved foerste keep)
+function packPullsBinderIndex() {
+  let i = store.binders.findIndex(b => b.name === 'Pack pulls');
+  if (i < 0) {
+    if (store.binders.length >= 30) return store.active; // serverens binder-loft: brug aktiv binder
+    store.binders.push({ ...newBinderObj('Pack pulls'), color: 'purple' });
+    i = store.binders.length - 1;
+    renderBinderSelect();
+  }
+  return i;
+}
+
+function keepCard(idx) {
+  if (pack.kept.has(idx)) return;
+  pack.kept.add(idx);
+  const c = pack.cards[idx];
+  const b = store.binders[packPullsBinderIndex()];
+  let t = null;
+  outer: for (let pi = 0; pi < b.pages.length; pi++)
+    for (let si = 0; si < b.pages[pi].length; si++)
+      if (!b.pages[pi][si]) { t = { page: pi, slot: si }; break outer; }
+  if (!t) {
+    const n = slotsOf(b);
+    b.pages.push(emptyPage(n), emptyPage(n));
+    t = { page: b.pages.length - 2, slot: 0 };
+  }
+  b.pages[t.page][t.slot] = { id: c.id, n: c.n, img: c.img, o: true };
+  save();
+  if (b === store.binders[store.active]) renderBinder();
+  packToast(c.n + ' → Pack pulls ✔');
+}
+
+let packToastTimer;
+function packToast(msg) {
+  const t = document.getElementById('packToast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(packToastTimer);
+  packToastTimer = setTimeout(() => t.style.display = 'none', 1600);
+}
+
+document.getElementById('packKeep').addEventListener('click', () => {
+  if (!pack || pack.i < 0) return;
+  keepCard(pack.i);
+  document.getElementById('packKeep').textContent = '✓ Kept';
+});
+
+function showPackSummary() {
+  document.getElementById('packStack').style.display = 'none';
+  document.getElementById('packBtns').style.display = 'none';
+  document.getElementById('packName').textContent = '';
+  document.getElementById('packMeta').textContent = '';
+  document.getElementById('packCounter').textContent = pack.pools.name + ' — your pack';
+  document.getElementById('packHint').textContent = 'Tap cards to keep them in your "Pack pulls" binder';
+  const grid = document.getElementById('packGrid');
+  grid.innerHTML = '';
+  pack.cards.forEach((c, idx) => {
+    const div = document.createElement('div');
+    div.className = 'pack-sum' + (pack.kept.has(idx) ? ' kept' : '');
+    if (c.img) {
+      div.innerHTML = '<img src="' + imgUrl(c.img, 'low') + '" alt="">';
+    } else {
+      div.innerHTML = '<div class="noimg">' + c.n + '</div>';
+    }
+    div.addEventListener('click', () => {
+      keepCard(idx);
+      div.classList.add('kept');
+    });
+    grid.appendChild(div);
+  });
+  document.getElementById('packSummary').style.display = 'flex';
+}
+
+document.getElementById('packAgain').addEventListener('click', () => startPack(pack.pools));
+
+function closePack() {
+  const hadKeeps = pack && pack.kept.size;
+  pack = null;
+  $packOverlay.classList.remove('open');
+  if (hadKeeps) { // vis fangsten med det samme — ellers leder man i den forkerte binder
+    const i = store.binders.findIndex(b => b.name === 'Pack pulls');
+    if (i >= 0 && i !== store.active) {
+      store.active = i;
+      save();
+      renderBinderSelect();
+      spread = 0;
+      renderBinder();
+    }
+    toast('Your pulls are in the "Pack pulls" binder');
+  }
+}
+document.getElementById('packClose').addEventListener('click', closePack);
+document.getElementById('packDone').addEventListener('click', closePack);
+document.addEventListener('keydown', e => {
+  if (!pack) return;
+  if (e.key === 'Escape') { closePack(); return; }
+  if (pack.i < 0) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); packNext(); }
+  else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    keepCard(pack.i);
+    document.getElementById('packKeep').textContent = '✓ Kept';
+  }
 });
 
 // ---------- init ----------
