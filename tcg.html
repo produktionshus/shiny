@@ -588,7 +588,60 @@ body.viewmode #binderSettings { display: none; }
   animation: cffall linear forwards;
 }
 @keyframes cffall {
-  to { transform: translateY(115vh) rotate(var(--rot)); opacity: .7; }
+  to { transform: translate(var(--drift, 0px), 115vh) rotate(var(--rot)); opacity: .7; }
+}
+.celebrate .msg {
+  position: absolute; left: 50%; top: 34%;
+  transform: translate(-50%, -50%);
+  font: 700 clamp(1.6rem, 5vw, 3rem) 'Fredoka', sans-serif;
+  color: #ffd95e;
+  text-shadow: 0 3px 0 #8a5a00, 0 8px 30px rgba(0,0,0,.6), 0 0 40px rgba(255,217,94,.7);
+  white-space: nowrap;
+  animation: celebmsg 2.8s ease forwards;
+}
+@keyframes celebmsg {
+  0%   { transform: translate(-50%,-50%) scale(.2); opacity: 0; }
+  12%  { transform: translate(-50%,-50%) scale(1.15); opacity: 1; }
+  20%  { transform: translate(-50%,-50%) scale(1); }
+  80%  { opacity: 1; }
+  100% { transform: translate(-50%,-60%) scale(1); opacity: 0; }
+}
+#packCard.flash { animation: packGoldflash .9s ease-out; }
+@keyframes packGoldflash {
+  0%   { filter: brightness(1.8) saturate(1.4); box-shadow: 0 0 34px 10px rgba(255,215,80,.95); }
+  100% { filter: none; box-shadow: 0 30px 70px rgba(0,0,0,.7); }
+}
+/* sidste kort ligger med bagsiden opad — traek det af */
+#packCover {
+  position: absolute; inset: 0;
+  z-index: 5;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 44%, #fff 0 4.5%, #1a1f2a 4.5% 8%, transparent 8%),
+    linear-gradient(180deg, #b8433d 0 41%, #1a1f2a 41% 47%, #e9edf5 47% 100%);
+  border: 1px solid rgba(255,255,255,.18);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: 12%;
+  cursor: grab;
+  touch-action: none;
+}
+#packCover .pc-txt {
+  font: 600 .9rem 'Fredoka', sans-serif;
+  color: #1a1f2a;
+  background: rgba(255,255,255,.75);
+  border-radius: 999px;
+  padding: 5px 14px;
+  animation: pcNudge 1.6s ease-in-out infinite;
+}
+@keyframes pcNudge { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(7px); } }
+#packValue {
+  font: 700 1rem 'Fredoka', sans-serif;
+  color: #cbbf9f;
+  min-height: 1.3em;
+}
+#packValue.gold {
+  color: #ffd95e;
+  text-shadow: 0 0 18px rgba(255,217,94,.8);
 }
 #packBtns { display: flex; gap: 10px; align-items: center; }
 #packSummary { display: none; flex-direction: column; align-items: center; gap: 12px; }
@@ -1007,6 +1060,7 @@ body.viewmode .viewbar { display: flex; }
   <button class="btn" id="newBinder">+ New binder</button>
   <button class="btn" id="delBinder">Delete binder</button>
   <button class="btn" id="friendsBtn">👥 Friends</button>
+  <button class="btn" id="musicBtn" title="Background music: the Pokémon theme">🎵 Music</button>
   <button class="btn" id="authbtn">👤 Log in</button>
   <button class="btn primary" id="shareBtn">🔗 Share binder</button>
 </div>
@@ -1184,6 +1238,7 @@ body.viewmode .viewbar { display: flex; }
   </div>
   <div id="packSummary">
     <div id="packGrid"></div>
+    <div id="packValue"></div>
     <div style="display:flex; gap:10px">
       <button class="btn primary" id="packAgain">🎁 Open another</button>
       <button class="btn" id="packDone">Close</button>
@@ -2537,6 +2592,82 @@ $viewBinderSelect.addEventListener('change', () => {
   renderBinder();
 });
 
+// ---------- baggrundsmusik (Pokemon-temaet, chiptune fra theme.json) ----------
+const MUSIC_KEY = 'tcg-music-on';
+let musicOn = localStorage.getItem(MUSIC_KEY) === '1';
+let musicCtx = null, musicGain = null, musicTimer = null, musicNotes = null;
+let musicPos = 0, musicStartT = 0, musicLen = 0;
+const $musicBtn = document.getElementById('musicBtn');
+
+function musicNote(when, note, dur) {
+  const o = musicCtx.createOscillator();
+  o.type = 'triangle';
+  o.frequency.value = 440 * Math.pow(2, (note - 69) / 12);
+  const g = musicCtx.createGain();
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(0.09, when + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.008, when + dur);
+  o.connect(g);
+  g.connect(musicGain);
+  o.start(when);
+  o.stop(when + dur + 0.05);
+}
+
+function musicTick() {
+  const ahead = musicCtx.currentTime + 0.7;
+  while (musicPos < musicNotes.length) {
+    const [t, note, dur] = musicNotes[musicPos];
+    const when = musicStartT + t / 1000;
+    if (when > ahead) break;
+    if (when >= musicCtx.currentTime - 0.05) musicNote(when, note, Math.max(0.08, Math.min(dur, 1200) / 1000));
+    musicPos++;
+  }
+  if (musicPos >= musicNotes.length) { // forfra med lille pause
+    musicStartT += musicLen / 1000 + 2;
+    musicPos = 0;
+  }
+}
+
+async function startMusic() {
+  if (!musicNotes) {
+    try {
+      musicNotes = await (await fetch('theme.json')).json();
+      musicLen = Math.max(...musicNotes.map(n => n[0] + n[2]));
+    } catch (e) { toast('Could not load the music'); return; }
+    if (!musicOn) return; // slaaet fra mens den hentede
+  }
+  musicCtx = musicCtx || new (window.AudioContext || window.webkitAudioContext)();
+  musicCtx.resume();
+  musicGain = musicGain || musicCtx.createGain();
+  musicGain.gain.value = 0.5; // lav baggrundsvolume — noderne er selv daempede
+  musicGain.connect(musicCtx.destination);
+  musicPos = 0;
+  musicStartT = musicCtx.currentTime + 0.1;
+  clearInterval(musicTimer);
+  musicTimer = setInterval(musicTick, 300);
+  musicTick();
+}
+
+function stopMusic() {
+  clearInterval(musicTimer);
+  musicTimer = null;
+  if (musicGain) musicGain.disconnect(); // planlagte noder dør med forbindelsen
+  musicGain = null;
+}
+
+function updateMusicBtn() { $musicBtn.textContent = musicOn ? '🎵 Music on' : '🎵 Music'; }
+$musicBtn.addEventListener('click', () => {
+  musicOn = !musicOn;
+  localStorage.setItem(MUSIC_KEY, musicOn ? '1' : '0');
+  updateMusicBtn();
+  if (musicOn) startMusic(); else stopMusic();
+});
+updateMusicBtn();
+if (musicOn) { // autoplay er blokeret foer foerste gestus — start ved den
+  const kick = () => { if (musicOn && !musicTimer) startMusic(); };
+  document.addEventListener('pointerdown', kick, { once: true });
+}
+
 // ---------- pack opener (virtuel booster med aegte pools) ----------
 const $packOverlay = document.getElementById('packOverlay');
 const $packCard = document.getElementById('packCard');
@@ -2549,6 +2680,31 @@ function playFx(audio) { // frisk klon pr. afspilning: to gode kort i traek maa 
   const a = audio.cloneNode();
   a.volume = audio.volume;
   a.play().catch(() => {});
+}
+
+let packACtx = null;
+function playRip() { // syntetiseret papir-riv: stoej-burst med stigende bandpass
+  try {
+    packACtx = packACtx || new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = packACtx, now = ctx.currentTime, dur = 0.3;
+    const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = 0.8;
+    f.frequency.setValueAtTime(1200, now);
+    f.frequency.exponentialRampToValueAtTime(4200, now + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.45, now);
+    g.gain.exponentialRampToValueAtTime(0.01, now + dur);
+    src.connect(f);
+    f.connect(g);
+    g.connect(ctx.destination);
+    src.start(now);
+  } catch (e) { /* ingen lyd: pyt */ }
 }
 const packPoolCache = new Map(); // setId -> pools
 let pack = null; // { pools, cards, i, kept: Set }
@@ -2638,6 +2794,7 @@ function startPack(pools) {
 
 $packWrap.addEventListener('click', () => {
   if (!pack || pack.i >= 0) return;
+  playRip();
   $packWrap.classList.add('rip');
   setTimeout(() => {
     if (!pack) return; // lukket midt i rivet
@@ -2683,18 +2840,81 @@ function renderPackCard() {
       if (pack && pack.cards[pack.i] === c && d && d.variants && d.variants.holo) $packCard.classList.add('holo-on');
     });
   }
+  document.getElementById('packCounter').textContent = 'Card ' + (pack.i + 1) + ' / ' + pack.cards.length;
+  if (pack.i === pack.cards.length - 1) {
+    // sidste kort: bagsiden opad — traek det af for at afsloere (fejringen venter)
+    const cover = document.createElement('div');
+    cover.id = 'packCover';
+    cover.innerHTML = '<div class="pc-txt">Slide down to reveal ▼</div>';
+    $packCard.appendChild(cover);
+    attachCoverDrag(cover, c);
+    document.getElementById('packName').textContent = '???';
+    document.getElementById('packMeta').textContent = '';
+    document.getElementById('packBtns').style.display = 'none';
+    document.getElementById('packHint').textContent = 'The last card is the big one…';
+  } else {
+    celebrateCard(c);
+    document.getElementById('packName').textContent = c.n + (c.rev ? ' · reverse ✨' : '');
+    document.getElementById('packKeep').textContent = pack.kept.has(pack.i) ? '✓ Kept' : '⭐ Keep';
+    fillPackMeta(c);
+  }
+}
+
+function celebrateCard(c) {
   if (c.hit) {
     playFx(wowSound);
     sparkleBurst($packCard);
-    packCelebrate();
+    packCelebrate('SECRET RARE!');
+    $packCard.classList.add('flash');
+    if (navigator.vibrate) navigator.vibrate([60, 40, 120]);
   } else if (c.rev || pack.i === pack.cards.length - 1) { // rare-slottet og reverse: lille fejring
     playFx(packSparkleSound);
     sparkleBurst($packCard);
+    if (navigator.vibrate) navigator.vibrate(30);
   }
-  document.getElementById('packCounter').textContent = 'Card ' + (pack.i + 1) + ' / ' + pack.cards.length;
+}
+
+function attachCoverDrag(cover, c) {
+  cover.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    e.stopPropagation(); // kortets tap/swipe-gestus maa ikke hoppe til summary
+    const sy = e.clientY;
+    let dy = 0;
+    const h = cover.getBoundingClientRect().height;
+    function onMove(ev) {
+      dy = Math.max(0, ev.clientY - sy);
+      cover.style.transform = 'translateY(' + dy + 'px)';
+    }
+    function onUp() {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      if (dy > h * 0.35) {
+        cover.style.transition = 'transform .25s ease-in, opacity .25s';
+        cover.style.transform = 'translateY(130%)';
+        cover.style.opacity = '0';
+        setTimeout(() => cover.remove(), 260);
+        revealLast(c);
+      } else {
+        cover.style.transition = 'transform .2s';
+        cover.style.transform = '';
+        setTimeout(() => { cover.style.transition = ''; }, 210);
+      }
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  });
+}
+
+function revealLast(c) {
+  if (!pack) return;
   document.getElementById('packName').textContent = c.n + (c.rev ? ' · reverse ✨' : '');
+  document.getElementById('packBtns').style.display = '';
   document.getElementById('packKeep').textContent = pack.kept.has(pack.i) ? '✓ Kept' : '⭐ Keep';
+  document.getElementById('packHint').textContent = 'Tap the card for the summary';
   fillPackMeta(c);
+  celebrateCard(c);
 }
 
 async function fillPackMeta(c) {
@@ -2801,23 +3021,38 @@ function sparkleBurst(el) {
   setTimeout(() => holder.remove(), 1100);
 }
 
-function packCelebrate() {
+function packCelebrate(msg) {
   const c = document.createElement('div');
   c.className = 'celebrate';
+  if (msg) {
+    const m = document.createElement('div');
+    m.className = 'msg';
+    m.textContent = '✨ ' + msg + ' ✨';
+    c.appendChild(m);
+  }
   const icons = ['✨', '⭐', '🎊', '🎉', '💛', '✦'];
-  for (let i = 0; i < 40; i++) {
+  const colors = ['#ffd75e', '#ff5e8a', '#5ec8ff', '#7dff8a', '#c77dff', '#ffa94d'];
+  for (let i = 0; i < 90; i++) {
     const s = document.createElement('span');
     s.className = 'cf';
-    s.textContent = icons[i % icons.length];
+    if (i % 2) { // papirstrimler mellem emojierne
+      s.style.background = colors[i % colors.length];
+      s.style.width = (5 + Math.random() * 5) + 'px';
+      s.style.height = (10 + Math.random() * 9) + 'px';
+      s.style.borderRadius = '2px';
+    } else {
+      s.textContent = icons[i % icons.length];
+      s.style.fontSize = (12 + Math.random() * 18) + 'px';
+    }
     s.style.left = Math.random() * 100 + 'vw';
-    s.style.fontSize = (12 + Math.random() * 18) + 'px';
-    s.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
-    s.style.animationDuration = (1.8 + Math.random() * 1.5) + 's';
-    s.style.animationDelay = (Math.random() * 0.6) + 's';
+    s.style.setProperty('--rot', (Math.random() * 1440 - 720) + 'deg');
+    s.style.setProperty('--drift', (Math.random() * 30 - 15) + 'vw');
+    s.style.animationDuration = (2 + Math.random() * 2) + 's';
+    s.style.animationDelay = (Math.random() * 0.8) + 's';
     c.appendChild(s);
   }
   document.body.appendChild(c);
-  setTimeout(() => c.remove(), 3600);
+  setTimeout(() => c.remove(), 5200);
 }
 
 // pulls gemmes i en dedikeret "Pack pulls"-binder (oprettes ved foerste keep)
@@ -2891,6 +3126,24 @@ function showPackSummary() {
     grid.appendChild(div);
   });
   document.getElementById('packSummary').style.display = 'flex';
+  // pakkens samlede vaerdi — gambling-suset
+  const myPack = pack;
+  const valEl = document.getElementById('packValue');
+  valEl.className = '';
+  valEl.textContent = '…';
+  Promise.all(myPack.cards.map(c => getDetail(c.id))).then(details => {
+    if (pack !== myPack) return;
+    let sum = 0, unpriced = 0;
+    for (const d of details) {
+      const p = cardPrice(d);
+      if (p == null) unpriced++; else sum += p;
+    }
+    const PACK_PRICE = 4; // ponytail: ~booster-retail i baade € og $
+    valEl.textContent = 'Pack value: ' + fmtPrice(sum)
+      + (unpriced ? ' (' + unpriced + ' unpriced)' : '')
+      + (sum >= PACK_PRICE ? ' — beat the pack price! 💰' : '');
+    if (sum >= PACK_PRICE) valEl.className = 'gold';
+  });
 }
 
 document.getElementById('packAgain').addEventListener('click', () => startPack(pack.pools));
@@ -2916,7 +3169,7 @@ document.getElementById('packDone').addEventListener('click', closePack);
 document.addEventListener('keydown', e => {
   if (!pack) return;
   if (e.key === 'Escape') { closePack(); return; }
-  if (pack.i < 0) return;
+  if (pack.i < 0 || document.getElementById('packCover')) return; // daekket kort afsloeres kun med et traek
   if (e.key === 'ArrowRight') { e.preventDefault(); packNext(); }
   else if (e.key === 'ArrowUp') {
     e.preventDefault();
