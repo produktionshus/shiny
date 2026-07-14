@@ -655,6 +655,23 @@ body.viewmode #binderSettings { display: none; }
   text-shadow: 0 0 18px rgba(255,217,94,.8);
 }
 #packStats { font: 600 .8rem 'Nunito', sans-serif; color: #cbbf9f; opacity: .85; }
+/* /packs-landing: egen forside for pack-aabneren */
+#packLanding { display: none; flex-direction: column; align-items: center; gap: 16px; padding: 0 16px; }
+#packLandTitle {
+  font: 700 clamp(1.8rem, 6vw, 2.6rem) 'Fredoka', sans-serif;
+  color: #ffe9a8;
+  text-shadow: 0 3px 0 #8a5a00, 0 8px 30px rgba(0,0,0,.6);
+}
+#packSetSel {
+  width: min(86vw, 340px);
+  padding: 11px 13px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(150,130,90,.5);
+  background: rgba(255,255,255,.92);
+  font: 700 .95rem 'Nunito', sans-serif;
+}
+#packOpenBtn { font-size: 1.05rem; padding: 12px 26px; }
+#packLandStats { font: 600 .8rem 'Nunito', sans-serif; color: #cbbf9f; opacity: .85; max-width: 90vw; text-align: center; }
 #packBtns { display: flex; gap: 10px; align-items: center; }
 #packSummary { display: none; flex-direction: column; align-items: center; gap: 12px; }
 #packGrid {
@@ -1053,12 +1070,16 @@ body.viewmode .viewbar { display: flex; }
 .binder-switch a.active { color: #fff; box-shadow: inset 0 1px 2px rgba(255,255,255,.25); }
 .binder-switch a.go.active { background: linear-gradient(155deg, #8d2836, #5c1620); }
 .binder-switch a.tcg.active { background: linear-gradient(155deg, #2b4d9c, #16295a); }
+.binder-switch a.packs.active { background: linear-gradient(155deg, #6a3d9c, #3a1b5a); }
 .binder-switch a:not(.active):hover { background: rgba(255,255,255,.12); color: #fff; }
 @media (max-width: 700px) { .binder-switch { position: static; margin: 10px auto 0; width: max-content; } }
+/* i pack-mode ligger overlayet over alt — naven skal blive haengende ovenpaa */
+body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px; margin: 0; }
 </style>
 <nav class="binder-switch">
   <a class="go" href="/">✨ GO</a>
   <a class="tcg active" href="/tcg">🃏 TCG</a>
+  <a class="packs" href="/packs">🎁 Packs</a>
 </nav>
 
 <header>
@@ -1137,6 +1158,7 @@ body.viewmode .viewbar { display: flex; }
       <button class="btn edit-only" id="settingsBtn">⚙ Appearance</button>
       <button class="btn" id="needBtn">📋 Need list</button>
       <button class="btn" id="valueBtn" title="Estimated Cardmarket value of the cards in this binder">💰 Value</button>
+      <button class="btn" id="sendTcgBtn" style="display:none" title="Copy this pull binder into your real TCG binders">📤 Send copy to TCG</button>
     </div>
     <div id="binderSettings">
       <label>Pockets:
@@ -1226,6 +1248,13 @@ body.viewmode .viewbar { display: flex; }
 
 <div id="packOverlay">
   <button id="packClose" title="Close (Esc)">✕</button>
+  <div id="packLanding">
+    <div id="packLandTitle">🎁 Pack Opener</div>
+    <select id="packSetSel"><option value="">Choose a set…</option></select>
+    <button class="btn primary" id="packOpenBtn">🎁 Open a pack</button>
+    <button class="btn" id="packBindersBtn">📂 My pull binders</button>
+    <div id="packLandStats"></div>
+  </div>
   <div id="packCounter"></div>
   <div id="packWrap">
     <div id="packTear"></div>
@@ -1305,6 +1334,7 @@ function load() {
         if (!b.rows) b.rows = 3;
         if (!b.color) b.color = 'blue';
         if (b.dark === undefined) b.dark = true;
+        if (b.sim === undefined && b.name === 'Pack pulls') b.sim = true; // aeldre pulls flytter til sim-verdenen
       }
       return s;
     }
@@ -1319,6 +1349,18 @@ function emptyPage(n) { return Array(n).fill(null); }
 function slotsOf(b) { return (b.cols || 3) * (b.rows || 3); }
 function binder() { return viewBinder || store.binders[store.active]; }
 function imgUrl(path, q) { return ASSETS + path + '/' + q + '.webp'; }
+
+// sim/virkelighed: pulls (sim-bindere) lever kun paa /packs, rigtige bindere paa /tcg
+const packMode = location.pathname.replace(/\/+$/, '') === '/packs';
+function modeBinders() { return store.binders.map((b, i) => ({ b, i })).filter(x => !!x.b.sim === packMode); }
+function ensureModeActive() {
+  if (!modeBinders().length) {
+    store.binders.push(packMode
+      ? { ...newBinderObj('Pack pulls'), color: 'purple', sim: true }
+      : newBinderObj('My binder'));
+  }
+  if (!modeBinders().some(x => x.i === store.active)) store.active = modeBinders()[0].i;
+}
 
 // ---------- toast ----------
 let toastTimer;
@@ -1386,13 +1428,17 @@ async function loadSets() {
     ]);
     pocketSets = new Set((tcgp.sets || []).map(x => x.id.toLowerCase()));
     readyResolve();
+    const $packSel = document.getElementById('packSetSel');
     for (const s of sets) {
       if (pocketSets.has(s.id.toLowerCase())) continue; // kun rigtige kort
       const o = document.createElement('option');
       o.value = s.id;
       o.textContent = s.name + ' (' + (s.cardCount?.official ?? s.cardCount?.total ?? '?') + ')';
       $set.appendChild(o);
+      $packSel.appendChild(o.cloneNode(true));
     }
+    const lastPackSet = localStorage.getItem('tcg-pack-set');
+    if (lastPackSet) $packSel.value = lastPackSet;
   } catch (e) { $hint.textContent = 'Could not load the set list.'; }
   readyResolve(); // moenster-fallback filtrerer selv uden listen
 }
@@ -1675,13 +1721,13 @@ const $binderName = document.getElementById('binderName');
 
 function renderBinderSelect() {
   $binderSelect.innerHTML = '';
-  store.binders.forEach((b, i) => {
+  for (const { b, i } of modeBinders()) { // kun binderne der hoerer til denne verden
     const o = document.createElement('option');
     o.value = i;
     o.textContent = b.name;
     if (i === store.active) o.selected = true;
     $binderSelect.appendChild(o);
-  });
+  }
   $binderName.value = store.binders[store.active].name;
 }
 $binderSelect.addEventListener('change', () => {
@@ -1696,7 +1742,9 @@ $binderName.addEventListener('change', () => {
 });
 document.getElementById('newBinder').addEventListener('click', () => {
   // ingen prompt() — den er blokeret naar appen koerer fra iOS-hjemmeskaerm
-  store.binders.push(newBinderObj('Binder ' + (store.binders.length + 1)));
+  const nb = newBinderObj('Binder ' + (store.binders.length + 1));
+  if (packMode) { nb.sim = true; nb.color = 'purple'; } // nye bindere hoerer til verdenen man staar i
+  store.binders.push(nb);
   store.active = store.binders.length - 1;
   spread = 0;
   save(); renderBinderSelect(); renderBinder();
@@ -1704,10 +1752,11 @@ document.getElementById('newBinder').addEventListener('click', () => {
   $binderName.select();
 });
 document.getElementById('delBinder').addEventListener('click', () => {
-  if (store.binders.length === 1) { toast('You need at least one binder'); return; }
+  if (modeBinders().length === 1) { toast('You need at least one binder'); return; }
   const at = store.active;
   const removed = store.binders.splice(at, 1)[0];
   store.active = 0;
+  ensureModeActive();
   spread = 0;
   undoFn = () => {
     store.binders.splice(at, 0, removed);
@@ -2321,8 +2370,10 @@ async function loadServerStore() {
         if (!b.rows) b.rows = 3;
         if (!b.color) b.color = 'blue';
         if (b.dark === undefined) b.dark = true;
+        if (b.sim === undefined && b.name === 'Pack pulls') b.sim = true;
       }
       store.active = Math.min(store.active || 0, store.binders.length - 1);
+      ensureModeActive();
       localStorage.setItem(LS_KEY, JSON.stringify(store));
       renderBinderSelect();
       if (!viewBinder) { // roer ikke visningen hvis man staar i en vens binder
@@ -2835,19 +2886,28 @@ function buildPack(pools, pity) {
   return cards;
 }
 
-document.getElementById('packBtn').addEventListener('click', async () => {
-  if (viewBinder) { toast('Go back to your own binders to open packs'); return; }
-  const setId = $set.value;
-  if (!setId) { toast('Choose a set first — packs come from a set'); return; }
+async function openPackFlow(setId, btn) {
   primeMusicAudio(); // synkront i gestussen — efter await er den doed paa iOS
-  loadFx('wow.mp3', 0.6); // forudindlaes effektlydene mens pakken bygges
-  loadFx('sparkle.mp3', 0.5);
-  const btn = document.getElementById('packBtn');
+  loadFx('wow.mp3'); // forudindlaes effektlydene mens pakken bygges
+  loadFx('sparkle.mp3');
+  localStorage.setItem('tcg-pack-set', setId);
   btn.disabled = true;
   try {
     startPack(await loadPackPools(setId));
-  } catch (e) { toast('Could not load the set — try again'); }
+  } catch (e) { (packMode ? packToast : toast)('Could not load the set — try again'); }
   btn.disabled = false;
+}
+
+document.getElementById('packBtn').addEventListener('click', e => {
+  if (viewBinder) { toast('Go back to your own binders to open packs'); return; }
+  if (!$set.value) { toast('Choose a set first — packs come from a set'); return; }
+  openPackFlow($set.value, e.currentTarget);
+});
+
+document.getElementById('packOpenBtn').addEventListener('click', e => {
+  const setId = document.getElementById('packSetSel').value;
+  if (!setId) { packToast('Choose a set first'); return; }
+  openPackFlow(setId, e.currentTarget);
 });
 
 function startPack(pools) {
@@ -2857,6 +2917,8 @@ function startPack(pools) {
   if (cards[cards.length - 1].hit) { st.secrets++; st.dry = 0; } else st.dry++;
   save();
   pack = { pools, cards, i: -1, kept: new Set() };
+  document.getElementById('packLanding').style.display = 'none';
+  document.getElementById('packClose').style.display = '';
   const logo = document.getElementById('packLogo');
   logo.style.display = pools.logo ? '' : 'none';
   if (pools.logo) logo.src = pools.logo;
@@ -3146,12 +3208,12 @@ function packCelebrate(msg) {
   setTimeout(() => c.remove(), 5200);
 }
 
-// pulls gemmes i en dedikeret "Pack pulls"-binder (oprettes ved foerste keep)
+// pulls gemmes i en dedikeret sim-binder "Pack pulls" (oprettes ved foerste keep)
 function packPullsBinderIndex() {
-  let i = store.binders.findIndex(b => b.name === 'Pack pulls');
+  let i = store.binders.findIndex(b => b.sim && b.name === 'Pack pulls');
   if (i < 0) {
     if (store.binders.length >= 30) return store.active; // serverens binder-loft: brug aktiv binder
-    store.binders.push({ ...newBinderObj('Pack pulls'), color: 'purple' });
+    store.binders.push({ ...newBinderObj('Pack pulls'), color: 'purple', sim: true });
     i = store.binders.length - 1;
     renderBinderSelect();
   }
@@ -3257,26 +3319,68 @@ function renderPackStats() {
   if (st.secrets) bits.push(st.secrets + ' secret' + (st.secrets === 1 ? '' : 's') + ' (1:' + Math.round(st.packs / st.secrets) + ')');
   if (st.best) bits.push('best: ' + st.best.n + ' ' + fmtPrice(st.best.p));
   bits.push('guaranteed ✨ in ' + Math.max(1, PITY - st.dry) + ' pack' + (PITY - st.dry === 1 ? '' : 's'));
-  document.getElementById('packStats').textContent = bits.join(' · ');
+  const line = bits.join(' · ');
+  document.getElementById('packStats').textContent = line;
+  document.getElementById('packLandStats').textContent = line;
 }
 
 document.getElementById('packAgain').addEventListener('click', () => startPack(pack.pools));
+
+// landing → sim-binderne bag overlayet
+document.getElementById('packBindersBtn').addEventListener('click', () => {
+  $packOverlay.classList.remove('open');
+  renderBinderSelect();
+  renderBinder();
+});
+
+// promover en sim-binder til virkeligheden: kopi ind blandt TCG-binderne
+document.getElementById('sendTcgBtn').addEventListener('click', () => {
+  if (viewBinder) return;
+  if (store.binders.length >= 30) { toast('Binder limit reached (30) — delete one first'); return; }
+  const src = binder();
+  const copy = JSON.parse(JSON.stringify(src));
+  copy.sim = false; // eksplicit falsk — navne-migrationen maa ikke trække den tilbage til sim
+  store.binders.push(copy);
+  save();
+  toast('Copy of "' + src.name + '" sent to your 🃏 TCG binders ✔');
+});
+
+function showPackLanding() {
+  pack = null;
+  $packWrap.style.display = 'none';
+  document.getElementById('packStack').style.display = 'none';
+  document.getElementById('packSummary').style.display = 'none';
+  document.getElementById('packBtns').style.display = 'none';
+  document.getElementById('packClose').style.display = 'none'; // landingen ER siden
+  document.getElementById('packCounter').textContent = '';
+  document.getElementById('packName').textContent = '';
+  document.getElementById('packMeta').textContent = '';
+  document.getElementById('packHint').textContent = '';
+  document.getElementById('packLanding').style.display = 'flex';
+  renderPackStats();
+  $packOverlay.classList.add('open');
+}
 
 function closePack() {
   const hadKeeps = pack && pack.kept.size;
   pack = null;
   stopMusic();
-  $packOverlay.classList.remove('open');
-  if (hadKeeps) { // vis fangsten med det samme — ellers leder man i den forkerte binder
-    const i = store.binders.findIndex(b => b.name === 'Pack pulls');
-    if (i >= 0 && i !== store.active) {
-      store.active = i;
-      save();
-      renderBinderSelect();
-      spread = 0;
-      renderBinder();
+  if (packMode) {
+    if (hadKeeps) { // vis fangsten med det samme i sim-binderen
+      const i = store.binders.findIndex(b => b.sim && b.name === 'Pack pulls');
+      if (i >= 0 && i !== store.active) {
+        store.active = i;
+        save();
+        renderBinderSelect();
+        spread = 0;
+        renderBinder();
+      }
     }
-    toast('Your pulls are in the "Pack pulls" binder');
+    showPackLanding();
+    if (hadKeeps) packToast('Pulls saved — see them under 📂 My pull binders');
+  } else {
+    $packOverlay.classList.remove('open');
+    if (hadKeeps) toast('Your pulls live in the 🎁 Packs app'); // sim-bindere vises ikke paa /tcg
   }
 }
 document.getElementById('packClose').addEventListener('click', closePack);
@@ -3294,6 +3398,17 @@ document.addEventListener('keydown', e => {
 });
 
 // ---------- init ----------
+if (packMode) {
+  document.body.classList.add('packmode');
+  document.querySelector('.binder-switch a.tcg').classList.remove('active');
+  document.querySelector('.binder-switch a.packs').classList.add('active');
+  document.title = 'Pack Opener · Pokémon';
+  document.querySelector('header h1').textContent = '🎁 Packs';
+  document.querySelector('header .subtitle').textContent = 'Open virtual boosters — your pulls live in their own binders';
+  document.getElementById('sendTcgBtn').style.display = '';
+  showPackLanding();
+}
+ensureModeActive();
 checkHash();
 renderBinderSelect();
 renderBinder();

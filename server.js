@@ -233,6 +233,9 @@ app.get('/api/shared/:token', (req, res) => {
   res.json({ username: user.username, collected: row ? JSON.parse(row.data) : [] });
 });
 
+// pack-aabneren er sin egen app men deler motor (og konto) med TCG-binderen
+app.get('/packs', (req, res) => res.sendFile(path.join(__dirname, 'tcg.html')));
+
 app.use(express.static(__dirname, { extensions: ['html'] }));
 
 app.listen(PORT, () => console.log(`Shiny-binderen kører på port ${PORT}, db: ${DB_PATH}`));
