@@ -696,15 +696,57 @@ body.viewmode #binderSettings { display: none; }
   color: #ffe9a8;
   text-shadow: 0 3px 0 #8a5a00, 0 8px 30px rgba(0,0,0,.6);
 }
-#packSetSel {
-  width: min(86vw, 340px);
-  padding: 11px 13px;
+#packSetBtn { min-width: min(86vw, 340px); }
+#packOpenBtn { font-size: 1.05rem; padding: 12px 26px; }
+/* grafisk saet-vaelger */
+#setPicker {
+  position: fixed; inset: 0; z-index: 340;
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(8,12,18,.97);
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+#setPicker.open { display: flex; }
+#setPickerHead {
+  display: flex; gap: 10px; align-items: center;
+  width: 100%; max-width: 900px; margin: 0 auto;
+}
+#setPickerHead h2 { font: 700 1.2rem 'Fredoka', sans-serif; color: #ffe9a8; white-space: nowrap; }
+#setPickerSearch {
+  flex: 1; min-width: 0;
+  padding: 9px 13px;
   border-radius: 10px;
   border: 1.5px solid rgba(150,130,90,.5);
   background: rgba(255,255,255,.92);
-  font: 700 .95rem 'Nunito', sans-serif;
+  font: 700 16px 'Nunito', sans-serif; /* 16px: iOS zoomer ellers */
 }
-#packOpenBtn { font-size: 1.05rem; padding: 12px 26px; }
+#setPickerClose { background: none; border: none; color: #ffe9a8; font-size: 1.5rem; cursor: pointer; padding: 4px 8px; }
+#setGrid {
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  width: 100%; max-width: 900px; margin: 0 auto;
+  align-content: start;
+}
+.set-tile {
+  background: rgba(255,255,255,.06);
+  border: 1.5px solid rgba(255,255,255,.12);
+  border-radius: 12px;
+  padding: 12px 10px 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  cursor: pointer;
+}
+.set-tile:hover { border-color: var(--stitch); background: rgba(255,255,255,.1); }
+.set-tile img { height: 48px; max-width: 100%; object-fit: contain; filter: drop-shadow(0 2px 6px rgba(0,0,0,.5)); }
+.set-tile .st-nologo {
+  height: 48px;
+  display: flex; align-items: center;
+  font: 800 .95rem 'Fredoka', sans-serif; color: #ffe9a8; text-align: center;
+}
+.set-tile .st-name { font: 700 .8rem 'Nunito', sans-serif; color: #f0e6d0; text-align: center; }
+.set-tile .st-meta { font: 600 .72rem 'Nunito', sans-serif; color: #cbbf9f; opacity: .85; }
 #packLandStats { font: 600 .8rem 'Nunito', sans-serif; color: #cbbf9f; opacity: .85; max-width: 90vw; text-align: center; }
 #packBtns { display: flex; gap: 10px; align-items: center; }
 #packSummary { display: none; flex-direction: column; align-items: center; gap: 12px; }
@@ -1285,7 +1327,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   <button id="packClose" title="Close (Esc)">✕</button>
   <div id="packLanding">
     <div id="packLandTitle">🎁 Pack Opener</div>
-    <select id="packSetSel"><option value="">Choose a set…</option></select>
+    <button class="btn" id="packSetBtn">📚 Choose a set…</button>
     <button class="btn primary" id="packOpenBtn">🎁 Open a pack</button>
     <button class="btn" id="packBindersBtn">📂 My pull binders</button>
     <div id="packLandStats"></div>
@@ -1323,6 +1365,15 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   <button id="packMusic" title="Background music: the Pokémon theme">🎵</button>
   <div id="packHint"></div>
   <div id="packToast"></div>
+</div>
+
+<div id="setPicker">
+  <div id="setPickerHead">
+    <h2>📚 Choose a set</h2>
+    <input id="setPickerSearch" placeholder="Search sets…" autocomplete="off">
+    <button id="setPickerClose" aria-label="Close">✕</button>
+  </div>
+  <div id="setGrid"></div>
 </div>
 
 <div id="zoomOverlay">
@@ -1463,17 +1514,13 @@ async function loadSets() {
     ]);
     pocketSets = new Set((tcgp.sets || []).map(x => x.id.toLowerCase()));
     readyResolve();
-    const $packSel = document.getElementById('packSetSel');
     for (const s of sets) {
       if (pocketSets.has(s.id.toLowerCase())) continue; // kun rigtige kort
       const o = document.createElement('option');
       o.value = s.id;
       o.textContent = s.name + ' (' + (s.cardCount?.official ?? s.cardCount?.total ?? '?') + ')';
       $set.appendChild(o);
-      $packSel.appendChild(o.cloneNode(true));
     }
-    const lastPackSet = localStorage.getItem('tcg-pack-set');
-    if (lastPackSet) $packSel.value = lastPackSet;
   } catch (e) { $hint.textContent = 'Could not load the set list.'; }
   readyResolve(); // moenster-fallback filtrerer selv uden listen
 }
@@ -2928,7 +2975,13 @@ async function openPackFlow(setId, btn) {
   localStorage.setItem('tcg-pack-set', setId);
   btn.disabled = true;
   try {
-    startPack(await loadPackPools(setId));
+    const pools = await loadPackPools(setId);
+    if (pools.all.length < 10 || !pools.all.some(c => c.img)) {
+      // fx W Promotional: saet uden kort-grafik kan ikke aabnes som pakke
+      (packMode ? packToast : toast)('That set has no card images — pick another');
+    } else {
+      startPack(pools);
+    }
   } catch (e) { (packMode ? packToast : toast)('Could not load the set — try again'); }
   btn.disabled = false;
 }
@@ -2939,10 +2992,90 @@ document.getElementById('packBtn').addEventListener('click', e => {
   openPackFlow($set.value, e.currentTarget);
 });
 
+// ---------- grafisk saet-vaelger (kun /packs-landing) ----------
+let allSetsMeta = null;
+let chosenSetId = localStorage.getItem('tcg-pack-set') || '';
+
+function quarterOf(d) { // "2023-08-11" -> "2023 · Q3"
+  return d ? d.slice(0, 4) + ' · Q' + (Math.floor((+d.slice(5, 7) - 1) / 3) + 1) : '';
+}
+
+async function loadSetsMeta() {
+  if (allSetsMeta) return allSetsMeta;
+  const r = await fetch('https://api.tcgdex.net/v2/graphql', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: '{ sets { id name releaseDate logo cardCount { official total } } }' }),
+  });
+  const sets = (await r.json()).data.sets;
+  if (pocketReady) await pocketReady;
+  allSetsMeta = sets
+    .filter(s => !pocketSets.has(s.id.toLowerCase()) && !/^(a\d+[a-z]?|b\d+[a-z]?|p-a)$/i.test(s.id)) // ikke TCG Pocket
+    .filter(s => s.cardCount && s.cardCount.total >= 10) // en pakke er 10 kort — mindre saet (fx W Promotional) er ugyldige
+    .sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || '')); // nyeste foerst
+  return allSetsMeta;
+}
+
+function renderSetGrid(filter) {
+  const grid = document.getElementById('setGrid');
+  grid.innerHTML = '';
+  const f = (filter || '').trim().toLowerCase();
+  for (const s of allSetsMeta) {
+    if (f && !s.name.toLowerCase().includes(f)) continue;
+    const tile = document.createElement('div');
+    tile.className = 'set-tile';
+    if (s.logo) {
+      const im = document.createElement('img');
+      im.loading = 'lazy';
+      im.src = s.logo + '.webp';
+      im.alt = s.name;
+      tile.appendChild(im);
+    } else {
+      const d = document.createElement('div');
+      d.className = 'st-nologo';
+      d.textContent = s.name;
+      tile.appendChild(d);
+    }
+    const name = document.createElement('div');
+    name.className = 'st-name';
+    name.textContent = s.name;
+    const meta = document.createElement('div');
+    meta.className = 'st-meta';
+    const count = s.cardCount.official || s.cardCount.total;
+    meta.textContent = count + ' cards' + (s.releaseDate ? ' · ' + quarterOf(s.releaseDate) : '');
+    tile.append(name, meta);
+    tile.addEventListener('click', () => chooseSet(s));
+    grid.appendChild(tile);
+  }
+  if (!grid.children.length) grid.textContent = 'No sets match.';
+}
+
+function chooseSet(s) {
+  chosenSetId = s.id;
+  localStorage.setItem('tcg-pack-set', s.id);
+  localStorage.setItem('tcg-pack-set-name', s.name);
+  document.getElementById('packSetBtn').textContent = '📚 ' + s.name;
+  document.getElementById('setPicker').classList.remove('open');
+}
+
+document.getElementById('packSetBtn').addEventListener('click', async () => {
+  document.getElementById('setPicker').classList.add('open');
+  const grid = document.getElementById('setGrid');
+  if (!allSetsMeta) {
+    grid.textContent = 'Loading sets…';
+    try { await loadSetsMeta(); } catch (e) { grid.textContent = 'Could not load the set list — close and try again'; return; }
+  }
+  renderSetGrid(document.getElementById('setPickerSearch').value);
+});
+document.getElementById('setPickerClose').addEventListener('click', () => document.getElementById('setPicker').classList.remove('open'));
+document.getElementById('setPickerSearch').addEventListener('input', e => { if (allSetsMeta) renderSetGrid(e.target.value); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('setPicker').classList.remove('open');
+});
+
 document.getElementById('packOpenBtn').addEventListener('click', e => {
-  const setId = document.getElementById('packSetSel').value;
-  if (!setId) { packToast('Choose a set first'); return; }
-  openPackFlow(setId, e.currentTarget);
+  if (!chosenSetId) { packToast('Choose a set first'); return; }
+  openPackFlow(chosenSetId, e.currentTarget);
 });
 
 function startPack(pools) {
@@ -3545,6 +3678,8 @@ if (packMode) {
   document.querySelector('header h1').textContent = '🎁 Packs';
   document.querySelector('header .subtitle').textContent = 'Open virtual boosters — your pulls live in their own binders';
   document.getElementById('sendTcgBtn').style.display = '';
+  const lastSetName = localStorage.getItem('tcg-pack-set-name');
+  if (lastSetName && chosenSetId) document.getElementById('packSetBtn').textContent = '📚 ' + lastSetName;
   showPackLanding();
 }
 ensureModeActive();
