@@ -2700,14 +2700,30 @@ updateMusicBtn();
 const $packOverlay = document.getElementById('packOverlay');
 const $packCard = document.getElementById('packCard');
 const $packWrap = document.getElementById('packWrap');
-const wowSound = new Audio('wow.mp3');       // secret hit
-wowSound.volume = 0.6;
-const packSparkleSound = new Audio('sparkle.mp3'); // rare/reverse — samme lyd som shiny-binderen
-packSparkleSound.volume = 0.5;
-function playFx(audio) { // frisk klon pr. afspilning: to gode kort i traek maa ikke stjaele lyden fra hinanden
-  const a = audio.cloneNode();
-  a.volume = audio.volume;
-  a.play().catch(() => {});
+// effektlyde afspilles som WebAudio-buffere gennem musicDest: <audio>.play() paa
+// iOS kraever en frisk gestus, og fejringer fyrer ofte efter et fetch — for sent.
+// Grafen er laast op een gang af primeMusicAudio, saa buffere spiller altid.
+const fxBuffers = new Map();
+function loadFx(url) {
+  if (!fxBuffers.has(url)) {
+    fxBuffers.set(url, fetch(url)
+      .then(r => r.arrayBuffer())
+      .then(b => new Promise((res, rej) => musicCtx.decodeAudioData(b, res, rej)))
+      .catch(() => null));
+  }
+  return fxBuffers.get(url);
+}
+function playFx(url, vol) {
+  loadFx(url).then(buf => {
+    if (!buf || !musicDest) return;
+    const src = musicCtx.createBufferSource();
+    src.buffer = buf;
+    const g = musicCtx.createGain();
+    g.gain.value = vol;
+    src.connect(g);
+    g.connect(musicDest);
+    src.start();
+  });
 }
 
 function playRip() { // syntetiseret papir-riv: stoej-burst med stigende bandpass
@@ -2794,6 +2810,8 @@ document.getElementById('packBtn').addEventListener('click', async () => {
   const setId = $set.value;
   if (!setId) { toast('Choose a set first — packs come from a set'); return; }
   primeMusicAudio(); // synkront i gestussen — efter await er den doed paa iOS
+  loadFx('wow.mp3', 0.6); // forudindlaes effektlydene mens pakken bygges
+  loadFx('sparkle.mp3', 0.5);
   const btn = document.getElementById('packBtn');
   btn.disabled = true;
   try {
@@ -2871,7 +2889,7 @@ function renderPackCard() {
       if (d.variants && d.variants.holo) $packCard.classList.add('holo-on'); // aegte holo-kort faar ogsaa effekten
       if (!last && d.rarity && !/^(Common|Uncommon)$/i.test(d.rarity)) {
         // godt kort udenfor hit-slottet — fx double rare i rare-slottet — fortjener ogsaa lyd
-        playFx(packSparkleSound);
+        playFx('sparkle.mp3', 0.5);
         sparkleBurst($packCard);
         if (navigator.vibrate) navigator.vibrate(30);
       }
@@ -2899,13 +2917,13 @@ function renderPackCard() {
 
 function celebrateCard(c) {
   if (c.hit) {
-    playFx(wowSound);
+    playFx('wow.mp3', 0.6);
     sparkleBurst($packCard);
     packCelebrate('SECRET RARE!');
     $packCard.classList.add('flash');
     if (navigator.vibrate) navigator.vibrate([60, 40, 120]);
   } else if (c.rev || pack.i === pack.cards.length - 1) { // rare-slottet og reverse: lille fejring
-    playFx(packSparkleSound);
+    playFx('sparkle.mp3', 0.5);
     sparkleBurst($packCard);
     if (navigator.vibrate) navigator.vibrate(30);
   }
