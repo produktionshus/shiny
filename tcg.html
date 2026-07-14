@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>TCG Binder · Pokémon</title>
 <link rel="manifest" href="/tcg-manifest.json">
 <meta name="theme-color" content="#1b2430">
@@ -474,20 +474,22 @@ body.viewmode #binderSettings { display: none; }
 #pileHint, #packHint { font-size: .78rem; color: #cbbf9f; opacity: .75; }
 #pileBtns { display: flex; gap: 10px; align-items: center; }
 #pileToast, #packToast {
-  position: fixed; left: 50%; top: 16px; transform: translateX(-50%);
+  position: fixed; left: 50%; top: calc(16px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
   background: rgba(20,26,36,.95); border: 2px solid var(--stitch);
   border-radius: 999px; padding: 7px 18px;
   font-weight: 800; color: #ffe9a8;
   display: none; z-index: 350;
 }
-#pileClose, #packClose {
-  position: fixed; top: 14px; right: 18px;
-  font-size: 1.3rem;
+#pileClose, #packClose { /* safe-area: standalone-PWA laegger indholdet under statusbaren */
+  position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); right: calc(18px + env(safe-area-inset-right, 0px));
+  font-size: 1.6rem;
+  padding: 6px 10px;
   background: none; border: none; color: #ffe9a8; cursor: pointer;
 }
 #packMusic {
-  position: fixed; top: 14px; left: 18px;
-  font-size: 1.3rem;
+  position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); left: calc(18px + env(safe-area-inset-left, 0px));
+  font-size: 1.6rem;
+  padding: 6px 10px;
   background: none; border: none; color: #ffe9a8; cursor: pointer;
 }
 #packMusic.off { opacity: .4; filter: grayscale(1); }
@@ -2603,7 +2605,22 @@ const MUSIC_KEY = 'tcg-music-on';
 let musicOn = localStorage.getItem(MUSIC_KEY) !== '0'; // til som standard — spiller kun i pack-mode
 let musicCtx = null, musicGain = null, musicTimer = null, musicNotes = null;
 let musicPos = 0, musicStartT = 0, musicLen = 0;
+let musicOut = null, musicDest = null;
 const $musicBtn = document.getElementById('packMusic');
+
+// iOS: AudioContext skal resumes SYNKRONT i en gestus, og WebAudio direkte til
+// destination respekterer lydloes-knappen. Alt routes derfor gennem et <audio>-
+// element via MediaStreamDestination — det spiller ogsaa paa lydloes.
+function primeMusicAudio() {
+  musicCtx = musicCtx || new (window.AudioContext || window.webkitAudioContext)();
+  musicCtx.resume();
+  if (!musicDest) {
+    musicDest = musicCtx.createMediaStreamDestination();
+    musicOut = new Audio();
+    musicOut.srcObject = musicDest.stream;
+  }
+  musicOut.play().catch(() => {});
+}
 
 function musicNote(when, note, dur) {
   const o = musicCtx.createOscillator();
@@ -2643,11 +2660,10 @@ async function startMusic() {
     } catch (e) { toast('Could not load the music'); return; }
     if (!musicOn || !pack) return; // slaaet fra / pack lukket mens den hentede
   }
-  musicCtx = musicCtx || new (window.AudioContext || window.webkitAudioContext)();
-  musicCtx.resume();
+  primeMusicAudio();
   musicGain = musicGain || musicCtx.createGain();
   musicGain.gain.value = 0.9; // baggrundsniveau — noderne er selv daempede
-  musicGain.connect(musicCtx.destination);
+  musicGain.connect(musicDest);
   musicPos = 0;
   musicStartT = musicCtx.currentTime + 0.1;
   musicTimer = setInterval(musicTick, 300);
@@ -2687,11 +2703,10 @@ function playFx(audio) { // frisk klon pr. afspilning: to gode kort i traek maa 
   a.play().catch(() => {});
 }
 
-let packACtx = null;
 function playRip() { // syntetiseret papir-riv: stoej-burst med stigende bandpass
   try {
-    packACtx = packACtx || new (window.AudioContext || window.webkitAudioContext)();
-    const ctx = packACtx, now = ctx.currentTime, dur = 0.3;
+    primeMusicAudio();
+    const ctx = musicCtx, now = ctx.currentTime, dur = 0.3;
     const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
     const d = buf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
@@ -2707,7 +2722,7 @@ function playRip() { // syntetiseret papir-riv: stoej-burst med stigende bandpas
     g.gain.exponentialRampToValueAtTime(0.01, now + dur);
     src.connect(f);
     f.connect(g);
-    g.connect(ctx.destination);
+    g.connect(musicDest);
     src.start(now);
   } catch (e) { /* ingen lyd: pyt */ }
 }
@@ -2771,6 +2786,7 @@ document.getElementById('packBtn').addEventListener('click', async () => {
   if (viewBinder) { toast('Go back to your own binders to open packs'); return; }
   const setId = $set.value;
   if (!setId) { toast('Choose a set first — packs come from a set'); return; }
+  primeMusicAudio(); // synkront i gestussen — efter await er den doed paa iOS
   const btn = document.getElementById('packBtn');
   btn.disabled = true;
   try {
