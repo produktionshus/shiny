@@ -2865,8 +2865,16 @@ function renderPackCard() {
   $packCard.style.setProperty('--gy', '50%');
   $packCard.classList.toggle('holo-on', !!(c.hit || c.rev));
   if (!c.hit && !c.rev) {
-    getDetail(c.id).then(d => { // aegte holo-kort faar ogsaa effekten
-      if (pack && pack.cards[pack.i] === c && d && d.variants && d.variants.holo) $packCard.classList.add('holo-on');
+    const last = pack.i === pack.cards.length - 1; // sidste kort fejres ved afsloeringen
+    getDetail(c.id).then(d => {
+      if (!pack || pack.cards[pack.i] !== c || !d) return;
+      if (d.variants && d.variants.holo) $packCard.classList.add('holo-on'); // aegte holo-kort faar ogsaa effekten
+      if (!last && d.rarity && !/^(Common|Uncommon)$/i.test(d.rarity)) {
+        // godt kort udenfor hit-slottet — fx double rare i rare-slottet — fortjener ogsaa lyd
+        playFx(packSparkleSound);
+        sparkleBurst($packCard);
+        if (navigator.vibrate) navigator.vibrate(30);
+      }
     });
   }
   document.getElementById('packCounter').textContent = 'Card ' + (pack.i + 1) + ' / ' + pack.cards.length;
