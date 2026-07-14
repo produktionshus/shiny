@@ -2185,9 +2185,11 @@ document.getElementById('needBtn').addEventListener('click', async () => {
       if (gen !== needGen) return;
       if (d && d.set && d.set.name) {
         // saet-side filtreret paa navn rammer kortniveau (praecist produkt-slug kraever Cardmarkets egne saetkoder)
-        const slug = d.set.name.replace(/&/g, ' ').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        const cmSetName = (/^ex\d+$/.test(d.set.id) ? 'EX ' : '') + d.set.name; // CM kalder ex-aeraens saet "EX …"
+        const slug = cmSetName.replace(/&/g, ' ').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        const cleanName = job.n.replace(/[^ -~]/g, '').trim() || job.n; // δ o.l. matcher ikke CM-navne
         job.cm.href = 'https://www.cardmarket.com/en/Pokemon/Products/Singles/' + slug
-          + '?searchString=' + encodeURIComponent(job.n);
+          + '?searchString=' + encodeURIComponent(cleanName);
       }
       const pid = tcgplayerProductId(d);
       if (pid) {
