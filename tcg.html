@@ -833,6 +833,63 @@ body.viewmode #binderSettings { display: none; }
 #packBadge { font: 800 .9rem 'Fredoka', sans-serif; min-height: 1.2em; }
 #packBadge.new { color: #ffd75e; text-shadow: 0 0 14px rgba(255,217,94,.9); }
 #packBadge.dup { color: #cbbf9f; opacity: .8; }
+/* duel-opsaetning med navne og scoreboard */
+#duelSetup { display: none; flex-direction: column; gap: 8px; align-items: center; }
+#duelSetup input {
+  width: min(70vw, 220px);
+  padding: 9px 13px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(150,130,90,.5);
+  background: rgba(255,255,255,.92);
+  font: 700 16px 'Nunito', sans-serif;
+}
+#duelScore { font: 700 .9rem 'Fredoka', sans-serif; color: #ffd75e; min-height: 1.2em; }
+/* pull-dex paa saet-fliserne */
+.st-dex { width: 100%; cursor: pointer; }
+.st-dexlabel { font: 700 .7rem 'Nunito', sans-serif; color: #ffd75e; text-align: center; }
+.st-dexbar { height: 4px; border-radius: 999px; background: rgba(255,255,255,.15); overflow: hidden; margin-top: 2px; }
+.st-dexbar div { height: 100%; background: linear-gradient(90deg, #b8860b, #ffd75e); }
+/* dex-browser: hele saettet, pullede i farve */
+#dexView {
+  position: fixed; inset: 0; z-index: 360;
+  display: none; flex-direction: column; gap: 12px;
+  background: rgba(8,12,18,.97);
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+#dexView.open { display: flex; }
+#dexHead { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 900px; margin: 0 auto; }
+#dexHead h2 { font: 700 1.1rem 'Fredoka', sans-serif; color: #ffe9a8; flex: 1; }
+#dexClose { background: none; border: none; color: #ffe9a8; font-size: 1.5rem; cursor: pointer; padding: 4px 8px; }
+#dexGrid {
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+  width: 100%; max-width: 900px; margin: 0 auto;
+  align-content: start;
+}
+.dex-card {
+  position: relative;
+  aspect-ratio: 63/88;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #1c2230;
+}
+.dex-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dex-card.miss img { filter: grayscale(1) brightness(.35); }
+.dex-card .dx-count {
+  position: absolute; top: 2px; right: 3px;
+  font: 800 .7rem 'Nunito', sans-serif;
+  color: #ffd75e;
+  background: rgba(0,0,0,.65);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+.dex-card .noimg {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; padding: 4px; text-align: center;
+  font: 700 .55rem 'Nunito', sans-serif; color: #cbbf9f;
+}
 #packBtns { display: flex; gap: 10px; align-items: center; }
 #packSummary { display: none; flex-direction: column; align-items: center; gap: 12px; }
 #packGrid {
@@ -1423,6 +1480,15 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <button class="btn" id="duelBtn" title="Two players, same set — highest pack value wins">⚔️ Duel</button>
     </div>
     <label id="autoKeepWrap"><input type="checkbox" id="autoKeep"> ⭐ Auto-keep secret pulls</label>
+    <div id="duelSetup">
+      <input id="duelN1" placeholder="Player 1" maxlength="14" autocomplete="off">
+      <input id="duelN2" placeholder="Player 2" maxlength="14" autocomplete="off">
+      <div id="duelScore"></div>
+      <div style="display:flex; gap:8px">
+        <button class="btn primary" id="duelStart">⚔️ Start duel</button>
+        <button class="btn" id="duelCancel">✕</button>
+      </div>
+    </div>
     <button class="btn" id="packBindersBtn">📂 My pull binders</button>
     <div id="pityWrap">
       <div id="pityLabel"></div>
@@ -1457,6 +1523,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   <div id="packBtns" style="display:none">
     <button class="btn primary" id="packKeep">⭐ Keep</button>
     <button class="btn" id="packNextBtn">Next ▶</button>
+    <button class="btn" id="packSkipBtn" style="display:none" title="Skip to the summary">⏩</button>
   </div>
   <div id="packSummary">
     <div id="packGrid"></div>
@@ -1464,6 +1531,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <div id="packStats"></div>
     <div style="display:flex; gap:10px">
       <button class="btn primary" id="packAgain">🎁 Open another</button>
+      <button class="btn" id="sharePullBtn">📸 Share</button>
       <button class="btn" id="packDone">Close</button>
     </div>
   </div>
@@ -1479,6 +1547,14 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <button id="setPickerClose" aria-label="Close">✕</button>
   </div>
   <div id="setGrid"></div>
+</div>
+
+<div id="dexView">
+  <div id="dexHead">
+    <h2 id="dexTitle"></h2>
+    <button id="dexClose" aria-label="Close">✕</button>
+  </div>
+  <div id="dexGrid"></div>
 </div>
 
 <div id="zoomOverlay">
@@ -3193,6 +3269,17 @@ function renderSetGrid(filter) {
     const count = s.cardCount.official || s.cardCount.total;
     meta.textContent = count + ' cards' + (s.releaseDate ? ' · ' + quarterOf(s.releaseDate) : '');
     tile.append(name, meta);
+    const dex = packStats().dex[s.id]; // pull-dex-fremskridt paa flisen
+    const pulled = dex ? Object.keys(dex).length : 0;
+    if (pulled) {
+      const dx = document.createElement('div');
+      dx.className = 'st-dex';
+      dx.title = 'Open the pull dex';
+      dx.innerHTML = '<div class="st-dexlabel">📇 ' + pulled + '/' + s.cardCount.total + '</div>'
+        + '<div class="st-dexbar"><div style="width:' + Math.min(100, pulled / s.cardCount.total * 100) + '%"></div></div>';
+      dx.addEventListener('click', e => { e.stopPropagation(); openDexView(s); });
+      tile.appendChild(dx);
+    }
     tile.addEventListener('click', () => chooseSet(s));
     grid.appendChild(tile);
   }
@@ -3227,6 +3314,39 @@ document.getElementById('packOpenBtn').addEventListener('click', e => {
   openPackFlow(chosenSetId, e.currentTarget);
 });
 
+// dex-browser: hele saettet med pullede kort i farve
+async function openDexView(s) {
+  const v = document.getElementById('dexView');
+  v.classList.add('open');
+  const grid = document.getElementById('dexGrid');
+  grid.textContent = 'Loading…';
+  document.getElementById('dexTitle').textContent = '📇 ' + s.name;
+  try {
+    const pools = await loadPackPools(s.id);
+    const dex = packStats().dex[s.id] || {};
+    grid.innerHTML = '';
+    document.getElementById('dexTitle').textContent =
+      '📇 ' + s.name + ' — ' + Object.keys(dex).length + '/' + pools.all.length + ' pulled';
+    for (const c of pools.all) {
+      const d = document.createElement('div');
+      const n = dex[c.id] || 0;
+      d.className = 'dex-card' + (n ? '' : ' miss');
+      d.title = c.n + (n ? ' · pulled ×' + n : ' · not pulled yet');
+      if (c.img) {
+        d.innerHTML = '<img loading="lazy" src="' + imgUrl(c.img, 'low') + '" alt="">'
+          + (n > 1 ? '<span class="dx-count">×' + n + '</span>' : '');
+      } else {
+        d.innerHTML = '<div class="noimg">' + c.n + '</div>';
+      }
+      grid.appendChild(d);
+    }
+  } catch (e) { grid.textContent = 'Could not load the set'; }
+}
+document.getElementById('dexClose').addEventListener('click', () => document.getElementById('dexView').classList.remove('open'));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('dexView').classList.remove('open');
+});
+
 document.getElementById('surpriseBtn').addEventListener('click', async () => {
   try {
     if (!allSetsMeta) await loadSetsMeta();
@@ -3241,10 +3361,32 @@ document.getElementById('bundleBtn').addEventListener('click', e => {
   openPackFlow(chosenSetId, e.currentTarget);
 });
 
-document.getElementById('duelBtn').addEventListener('click', e => {
+function duelKey(n) { return n[0] + '|' + n[1]; }
+function renderDuelScore() {
+  const n1 = document.getElementById('duelN1').value.trim() || 'Player 1';
+  const n2 = document.getElementById('duelN2').value.trim() || 'Player 2';
+  const sc = (packStats().duels || {})[duelKey([n1, n2])];
+  document.getElementById('duelScore').textContent = sc ? '🏆 ' + n1 + ' ' + sc.a + ' – ' + sc.b + ' ' + n2 : '';
+}
+document.getElementById('duelBtn').addEventListener('click', () => {
   if (!chosenSetId) { packToast('Choose a set first'); return; }
-  duel = { vals: [] };
-  packToast('⚔️ Player 1 — open your pack!');
+  const setup = document.getElementById('duelSetup');
+  setup.style.display = setup.style.display === 'flex' ? 'none' : 'flex';
+  document.getElementById('duelN1').value = localStorage.getItem('tcg-duel-n1') || '';
+  document.getElementById('duelN2').value = localStorage.getItem('tcg-duel-n2') || '';
+  renderDuelScore();
+});
+document.getElementById('duelN1').addEventListener('input', renderDuelScore);
+document.getElementById('duelN2').addEventListener('input', renderDuelScore);
+document.getElementById('duelCancel').addEventListener('click', () => document.getElementById('duelSetup').style.display = 'none');
+document.getElementById('duelStart').addEventListener('click', e => {
+  const n1 = document.getElementById('duelN1').value.trim() || 'Player 1';
+  const n2 = document.getElementById('duelN2').value.trim() || 'Player 2';
+  localStorage.setItem('tcg-duel-n1', n1);
+  localStorage.setItem('tcg-duel-n2', n2);
+  document.getElementById('duelSetup').style.display = 'none';
+  duel = { vals: [], names: [n1, n2] };
+  packToast('⚔️ ' + n1 + ' — open your pack!');
   openPackFlow(chosenSetId, e.currentTarget);
 });
 
@@ -3282,6 +3424,7 @@ function startPack(pools) {
   document.getElementById('packClose').style.display = '';
   document.getElementById('packBadge').textContent = '';
   document.getElementById('packAgain').textContent = '🎁 Open another';
+  document.getElementById('packSkipBtn').style.display = bundle ? '' : 'none'; // grinder-mode
   const logo = document.getElementById('packLogo');
   logo.style.display = pools.logo ? '' : 'none';
   if (pools.logo) logo.src = pools.logo;
@@ -3302,6 +3445,11 @@ function startPack(pools) {
 $packWrap.addEventListener('click', () => {
   if (!pack || pack.i >= 0) return;
   playRip();
+  if (pack.golden) { // golden fejres allerede ved rippet
+    packCelebrate('GOLDEN PACK!');
+    playFx('sparkle.mp3', 0.5);
+    if (navigator.vibrate) navigator.vibrate([40, 30, 80]);
+  }
   $packWrap.classList.add('rip');
   setTimeout(() => {
     if (!pack) return; // lukket midt i rivet
@@ -3629,6 +3777,62 @@ function packNext() {
   renderPackCard();
 }
 document.getElementById('packNextBtn').addEventListener('click', packNext);
+document.getElementById('packSkipBtn').addEventListener('click', () => { // bundle-grind: direkte til summary
+  if (!pack) return;
+  tensionEnd(true);
+  pack.i = pack.cards.length - 1;
+  showPackSummary();
+});
+
+// 📸 del pakkens bedste pull som billede
+function loadShareImg(src) {
+  return new Promise((res, rej) => {
+    const i = new Image();
+    i.crossOrigin = 'anonymous'; // tcgdex sender Access-Control-Allow-Origin: *
+    i.onload = () => res(i);
+    i.onerror = rej;
+    i.src = src;
+  });
+}
+document.getElementById('sharePullBtn').addEventListener('click', async () => {
+  if (!pack) return;
+  const c = pack.cards.find(x => x.hit) || pack.cards[pack.cards.length - 1];
+  if (!c.img) { packToast('No image to share'); return; }
+  try {
+    const img = await loadShareImg(imgUrl(c.img, 'high'));
+    const cv = document.createElement('canvas');
+    cv.width = 800;
+    cv.height = 1100;
+    const x = cv.getContext('2d');
+    const bg = x.createLinearGradient(0, 0, 800, 1100);
+    bg.addColorStop(0, '#2e3a5e');
+    bg.addColorStop(1, '#2a1e4d');
+    x.fillStyle = bg;
+    x.fillRect(0, 0, 800, 1100);
+    x.textAlign = 'center';
+    x.fillStyle = '#ffe9a8';
+    x.font = '700 44px Fredoka, sans-serif';
+    x.fillText('🎁 ' + pack.pools.name, 400, 80);
+    const w = 560, h = w * 88 / 63;
+    x.shadowColor = 'rgba(0,0,0,.6)';
+    x.shadowBlur = 40;
+    x.drawImage(img, (800 - w) / 2, 120, w, h);
+    x.shadowBlur = 0;
+    x.font = '700 34px Fredoka, sans-serif';
+    x.fillText(c.n + (c.hit ? ' ✨' : ''), 400, 1040);
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    const file = new File([blob], 'pull.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: c.n });
+    } else { // desktop: download
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'pull.png';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    }
+  } catch (e) { packToast('Could not create the share image'); }
+});
 
 // tap = naeste kort · swipe op = keep · swipe venstre = naeste (som bunke-visningen)
 let packDragging = false;
@@ -3843,14 +4047,20 @@ function showPackSummary() {
     if (st.valueStreak >= 3) awardBadge('streak-3');
     if (duel) { // ⚔️ to spillere, samme saet, hoejeste pakkevaerdi
       duel.vals.push(sum);
+      const [n1, n2] = duel.names;
       if (duel.vals.length === 1) {
-        document.getElementById('packAgain').textContent = '⚔️ Player 2 — open your pack';
-        packToast('Player 1: ' + fmtPrice(sum) + ' — Player 2, your turn!');
+        document.getElementById('packAgain').textContent = '⚔️ ' + n2 + ' — open your pack';
+        packToast(n1 + ': ' + fmtPrice(sum) + ' — ' + n2 + ', your turn!');
       } else {
         const [a, b] = duel.vals;
-        valEl.textContent += ' · P1 ' + fmtPrice(a) + ' vs P2 ' + fmtPrice(b);
-        packCelebrate(a === b ? "IT'S A DRAW!" : (a > b ? 'PLAYER 1 WINS!' : 'PLAYER 2 WINS!'));
+        valEl.textContent += ' · ' + n1 + ' ' + fmtPrice(a) + ' vs ' + n2 + ' ' + fmtPrice(b);
+        if (!st.duels) st.duels = {}; // scoreboard foelger navneparret
+        const sc = st.duels[duelKey(duel.names)] || (st.duels[duelKey(duel.names)] = { a: 0, b: 0 });
+        if (a > b) sc.a++; else if (b > a) sc.b++;
+        save();
+        packCelebrate(a === b ? "IT'S A DRAW!" : (a > b ? n1 : n2).toUpperCase() + ' WINS!');
         playFx('wow.mp3', 0.6);
+        packToast('🏆 ' + n1 + ' ' + sc.a + ' – ' + sc.b + ' ' + n2);
         duel = null;
       }
     }
@@ -4050,6 +4260,7 @@ if (packMode) {
   document.querySelector('.binder-switch a.tcg').classList.remove('active');
   document.querySelector('.binder-switch a.packs').classList.add('active');
   document.title = 'Pack Opener · Pokémon';
+  document.querySelector('link[rel="manifest"]').href = '/packs-manifest.json'; // egen PWA paa hjemmeskaermen
   document.querySelector('header h1').textContent = '🎁 Packs';
   document.querySelector('header .subtitle').textContent = 'Open virtual boosters — your pulls live in their own binders';
   document.getElementById('sendTcgBtn').style.display = '';

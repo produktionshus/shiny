@@ -1,0 +1,12 @@
+{
+  "name": "Pack Opener",
+  "short_name": "Packs",
+  "start_url": "/packs",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1b2430",
+  "theme_color": "#1b2430",
+  "icons": [
+    { "src": "/tcg-icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
