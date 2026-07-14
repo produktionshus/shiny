@@ -645,6 +645,40 @@ body.viewmode #binderSettings { display: none; }
   animation: pcNudge 1.6s ease-in-out infinite;
 }
 @keyframes pcNudge { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(7px); } }
+/* spaendings-triaden ved sidste kort: moerklaegning, gloed i spraekken, rystende dek */
+#packDim {
+  position: fixed; inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+#packStack { z-index: 2; } /* kortet staar i spotlight over moerket */
+#packGlow {
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 0;
+  background: linear-gradient(180deg, rgba(255,220,110,.95), rgba(255,220,110,0));
+  box-shadow: 0 0 34px rgba(255,215,80,.85);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 4; /* under coveret (5) — kun synlig i spraekken */
+  opacity: 0;
+}
+/* decket ryster af spaending mens sidste kort ligger daekket */
+#packStack.rumble { animation: deckRumble .5s linear infinite; }
+#packStack.rumble.hard { animation: deckRumbleHard .16s linear infinite; }
+@keyframes deckRumble {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  25% { transform: translate(1.5px, -1px) rotate(.3deg); }
+  50% { transform: translate(-1px, 1.5px) rotate(-.25deg); }
+  75% { transform: translate(1px, 1px) rotate(.2deg); }
+}
+@keyframes deckRumbleHard {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  25% { transform: translate(3px, -2px) rotate(.7deg); }
+  50% { transform: translate(-2.5px, 3px) rotate(-.6deg); }
+  75% { transform: translate(2px, 2.5px) rotate(.5deg); }
+}
 #packValue {
   font: 700 1rem 'Fredoka', sans-serif;
   color: #cbbf9f;
@@ -1247,6 +1281,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 </div>
 
 <div id="packOverlay">
+  <div id="packDim"></div>
   <button id="packClose" title="Close (Esc)">✕</button>
   <div id="packLanding">
     <div id="packLandTitle">🎁 Pack Opener</div>
@@ -2953,6 +2988,7 @@ $packWrap.addEventListener('click', () => {
 function renderPackCard() {
   const c = pack.cards[pack.i];
   playFlip();
+  document.getElementById('packStack').classList.remove('rumble', 'hard');
   $packCard.className = '';
   void $packCard.offsetWidth; // genstart flip-animationen
   $packCard.className = 'flip';
@@ -2996,10 +3032,14 @@ function renderPackCard() {
   document.getElementById('packCounter').textContent = 'Card ' + (pack.i + 1) + ' / ' + pack.cards.length;
   if (pack.i === pack.cards.length - 1) {
     // sidste kort: bagsiden opad — traek det af for at afsloere (fejringen venter)
+    const glow = document.createElement('div');
+    glow.id = 'packGlow';
+    $packCard.appendChild(glow);
     const cover = document.createElement('div');
     cover.id = 'packCover';
     cover.innerHTML = '<div class="pc-txt">Slide down to reveal ▼</div>';
     $packCard.appendChild(cover);
+    document.getElementById('packStack').classList.add('rumble'); // decket ryster af spaending
     attachCoverDrag(cover, c);
     document.getElementById('packName').textContent = '???';
     document.getElementById('packMeta').textContent = '';
@@ -3027,6 +3067,95 @@ function celebrateCard(c) {
   }
 }
 
+// ---- spaendingsmotor: alt bindes til hvor langt coveret er trukket (p = 0..1) ----
+let tense = null;
+function tensionStart() {
+  const dim = document.getElementById('packDim');
+  dim.style.transition = 'none';
+  tense = { lastBeat: 0, lastSpark: 0, o: null, g: null };
+  try {
+    tense.o = musicCtx.createOscillator();
+    tense.o.type = 'triangle';
+    tense.o.frequency.value = 70;
+    tense.g = musicCtx.createGain();
+    tense.g.gain.value = 0;
+    tense.o.connect(tense.g);
+    tense.g.connect(musicDest);
+    tense.o.start();
+    if (musicGain) musicGain.gain.setTargetAtTime(0.25, musicCtx.currentTime, 0.15); // duck temaet
+  } catch (e) { /* ingen lyd: visuel spaending bestaar */ }
+}
+function tensionUpdate(p, dy) {
+  if (!tense) return;
+  const now = performance.now();
+  if (tense.o) { // stigende tone
+    tense.o.frequency.setTargetAtTime(70 + p * 330, musicCtx.currentTime, 0.03);
+    tense.g.gain.setTargetAtTime(p * 0.1, musicCtx.currentTime, 0.05);
+  }
+  document.getElementById('packDim').style.opacity = (p * 0.75).toFixed(2); // moerklaegning
+  const glow = document.getElementById('packGlow'); // guldgloed i spraekken
+  if (glow) {
+    glow.style.height = dy + 'px';
+    glow.style.opacity = (0.3 + p * 0.7).toFixed(2);
+  }
+  document.getElementById('packStack').classList.toggle('hard', p > 0.4); // haardere ryst
+  if (now - tense.lastBeat > 900 - p * 620) { // accelererende hjerteslag
+    tense.lastBeat = now;
+    tensionBeat(p);
+  }
+  if (dy > 4 && now - tense.lastSpark > 260 - p * 190) { // gnist-dryp fra spraekken
+    tense.lastSpark = now;
+    tensionSpark(dy);
+  }
+}
+function tensionBeat(p) {
+  try {
+    const now = musicCtx.currentTime;
+    const o = musicCtx.createOscillator();
+    o.type = 'sine';
+    o.frequency.value = 55;
+    const g = musicCtx.createGain();
+    g.gain.setValueAtTime(0.22 + p * 0.2, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    o.connect(g);
+    g.connect(musicDest);
+    o.start(now);
+    o.stop(now + 0.2);
+  } catch (e) {}
+  if (navigator.vibrate) navigator.vibrate(Math.round(15 + p * 30));
+}
+function tensionSpark(dy) {
+  const r = $packCard.getBoundingClientRect();
+  const holder = document.createElement('div');
+  holder.className = 'burst';
+  holder.style.left = (r.left + Math.random() * r.width) + 'px';
+  holder.style.top = (r.top + dy) + 'px'; // ved cover-kanten
+  const s = document.createElement('span');
+  s.textContent = Math.random() < 0.5 ? '✨' : '✦';
+  s.style.setProperty('--dx', (Math.random() * 80 - 40) + 'px');
+  s.style.setProperty('--dy', (30 + Math.random() * 60) + 'px');
+  s.style.setProperty('--rot', (Math.random() * 180 - 90) + 'deg');
+  holder.appendChild(s);
+  document.body.appendChild(holder);
+  setTimeout(() => holder.remove(), 900);
+}
+function tensionEnd(revealed) {
+  const dim = document.getElementById('packDim');
+  dim.style.transition = 'opacity .45s';
+  dim.style.opacity = '0';
+  const stack = document.getElementById('packStack');
+  stack.classList.remove('hard');
+  if (revealed) stack.classList.remove('rumble');
+  if (tense && tense.o) {
+    try {
+      tense.g.gain.setTargetAtTime(0, musicCtx.currentTime, 0.04);
+      tense.o.stop(musicCtx.currentTime + 0.25);
+      if (musicGain) musicGain.gain.setTargetAtTime(0.9, musicCtx.currentTime, 0.3); // temaet op igen
+    } catch (e) {}
+  }
+  tense = null;
+}
+
 function attachCoverDrag(cover, c) {
   cover.addEventListener('pointerdown', e => {
     e.preventDefault();
@@ -3034,21 +3163,28 @@ function attachCoverDrag(cover, c) {
     const sy = e.clientY;
     let dy = 0;
     const h = cover.getBoundingClientRect().height;
+    const threshold = h * 0.35;
+    tensionStart();
     function onMove(ev) {
       dy = Math.max(0, ev.clientY - sy);
       cover.style.transform = 'translateY(' + dy + 'px)';
+      tensionUpdate(Math.min(1, dy / threshold), dy);
     }
     function onUp() {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onUp);
-      if (dy > h * 0.35) {
+      if (dy > threshold) {
+        tensionEnd(true);
         cover.style.transition = 'transform .25s ease-in, opacity .25s';
         cover.style.transform = 'translateY(130%)';
         cover.style.opacity = '0';
         setTimeout(() => cover.remove(), 260);
         revealLast(c);
       } else {
+        tensionEnd(false);
+        const glow = document.getElementById('packGlow');
+        if (glow) { glow.style.height = '0px'; glow.style.opacity = '0'; }
         cover.style.transition = 'transform .2s';
         cover.style.transform = '';
         setTimeout(() => { cover.style.transition = ''; }, 210);
@@ -3062,6 +3198,8 @@ function attachCoverDrag(cover, c) {
 
 function revealLast(c) {
   if (!pack) return;
+  const glow = document.getElementById('packGlow');
+  if (glow) glow.remove();
   document.getElementById('packName').textContent = c.n + (c.rev ? ' · reverse ✨' : '');
   document.getElementById('packBtns').style.display = '';
   document.getElementById('packKeep').textContent = pack.kept.has(pack.i) ? '✓ Kept' : '⭐ Keep';
@@ -3364,6 +3502,7 @@ function showPackLanding() {
 function closePack() {
   const hadKeeps = pack && pack.kept.size;
   pack = null;
+  tensionEnd(true); // Esc midt i traekket: sluk drone/moerke/ryst
   stopMusic();
   if (packMode) {
     if (hadKeeps) { // vis fangsten med det samme i sim-binderen
