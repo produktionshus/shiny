@@ -2171,7 +2171,7 @@ document.getElementById('needBtn').addEventListener('click', async () => {
       links.appendChild(cm);
       row.appendChild(links);
       list.appendChild(row);
-      jobs.push({ id, links });
+      jobs.push({ id, n: v.n, links, cm });
     }
   }
   document.getElementById('needcopy').style.display = counts.size ? '' : 'none';
@@ -2183,6 +2183,12 @@ document.getElementById('needBtn').addEventListener('click', async () => {
       const job = queue.shift();
       const d = await getDetail(job.id);
       if (gen !== needGen) return;
+      if (d && d.set && d.set.name) {
+        // saet-side filtreret paa navn rammer kortniveau (praecist produkt-slug kraever Cardmarkets egne saetkoder)
+        const slug = d.set.name.replace(/&/g, ' ').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        job.cm.href = 'https://www.cardmarket.com/en/Pokemon/Products/Singles/' + slug
+          + '?searchString=' + encodeURIComponent(job.n);
+      }
       const pid = tcgplayerProductId(d);
       if (pid) {
         const a = document.createElement('a');
