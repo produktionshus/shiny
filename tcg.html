@@ -217,6 +217,14 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
   border-radius: 10px;
   pointer-events: none;
 }
+#coverCard { /* sim-binderens dyreste pull pryder forsiden */
+  height: 52%;
+  aspect-ratio: 63/88;
+  object-fit: cover;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.55);
+  transform: rotate(-2deg);
+}
 #coverEmblem {
   width: 74px; height: 74px;
   border-radius: 50%;
@@ -748,6 +756,83 @@ body.viewmode #binderSettings { display: none; }
 .set-tile .st-name { font: 700 .8rem 'Nunito', sans-serif; color: #f0e6d0; text-align: center; }
 .set-tile .st-meta { font: 600 .72rem 'Nunito', sans-serif; color: #cbbf9f; opacity: .85; }
 #packLandStats { font: 600 .8rem 'Nunito', sans-serif; color: #cbbf9f; opacity: .85; max-width: 90vw; text-align: center; }
+#packLandRow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
+#autoKeepWrap { font: 600 .8rem 'Nunito', sans-serif; color: #cbbf9f; display: flex; gap: 6px; align-items: center; cursor: pointer; }
+/* pity-bar: fyldes op mod garanteret secret */
+#pityWrap { width: min(86vw, 340px); }
+#pityBar {
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,233,168,.3);
+  overflow: hidden;
+}
+#pityFill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #b8860b, #ffd75e, #fff3b0);
+  box-shadow: 0 0 10px rgba(255,215,80,.7);
+  transition: width .5s ease;
+}
+#pityLabel { font: 600 .72rem 'Nunito', sans-serif; color: #cbbf9f; opacity: .8; margin-bottom: 3px; text-align: center; }
+#packBadges { display: flex; gap: 8px; font-size: 1.25rem; justify-content: center; flex-wrap: wrap; }
+#packBadges span { cursor: help; filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+/* relive: seneste store hits */
+#reliveRow { display: flex; gap: 6px; overflow-x: auto; max-width: 90vw; padding: 2px; }
+.relive-card {
+  width: 46px;
+  aspect-ratio: 63/88;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 2px solid rgba(255,215,80,.6);
+  cursor: pointer;
+  flex: 0 0 auto;
+  background: #1c2230;
+}
+.relive-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* golden pack: 1:50 — hele pakken skinner */
+#packFoil.golden {
+  background:
+    radial-gradient(120% 80% at 50% 18%, rgba(255,240,170,.5), transparent 60%),
+    linear-gradient(155deg, #a8861f 0%, #7a5c10 45%, #b8952c 100%);
+  border-color: rgba(255,230,140,.8);
+  box-shadow: 0 24px 50px rgba(0,0,0,.6), 0 0 40px rgba(255,215,80,.55);
+}
+#packFoil.golden .pack-shine { opacity: 1; animation-duration: 2.2s; }
+/* hylden: vaelg din pakke */
+#packShelf { display: none; flex-direction: column; align-items: center; gap: 18px; }
+.shelf-hint { font: 600 .95rem 'Fredoka', sans-serif; color: #ffe9a8; }
+#shelfRow { display: flex; gap: 16px; }
+.shelf-pack {
+  position: relative;
+  width: min(24vw, 110px);
+  aspect-ratio: 5/8;
+  border-radius: 0 0 8px 8px;
+  border: 1px solid rgba(255,255,255,.22);
+  background:
+    radial-gradient(120% 80% at 50% 18%, rgba(120,160,255,.28), transparent 60%),
+    linear-gradient(155deg, #2e3a5e 0%, #1b2340 45%, #2a1e4d 100%);
+  box-shadow: 0 14px 30px rgba(0,0,0,.55);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.shelf-pack::before { /* crimp-top */
+  content: '';
+  position: absolute; left: -1px; right: -1px; bottom: 100%; height: 12px;
+  border-radius: 6px 6px 0 0;
+  border: 1px solid rgba(255,255,255,.22); border-bottom: none;
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.1) 0 2px, transparent 2px 5px),
+    linear-gradient(155deg, #3b4a6b, #232c44);
+}
+.shelf-pack img { width: 84%; object-fit: contain; filter: drop-shadow(0 3px 6px rgba(0,0,0,.6)); }
+.shelf-pack:hover { animation: packWiggle .6s ease-in-out infinite; }
+.shelf-pack.chosen { animation: shelfChoose .45s ease-in forwards; }
+@keyframes shelfChoose { to { transform: scale(1.6); opacity: 0; } }
+/* new/dublet-badge over kortnavnet */
+#packBadge { font: 800 .9rem 'Fredoka', sans-serif; min-height: 1.2em; }
+#packBadge.new { color: #ffd75e; text-shadow: 0 0 14px rgba(255,217,94,.9); }
+#packBadge.dup { color: #cbbf9f; opacity: .8; }
 #packBtns { display: flex; gap: 10px; align-items: center; }
 #packSummary { display: none; flex-direction: column; align-items: center; gap: 12px; }
 #packGrid {
@@ -1205,6 +1290,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <button class="navbtn" id="prev" title="Previous spread">◀</button>
       <div class="binder">
         <div id="cover">
+          <img id="coverCard" alt="" style="display:none">
           <div id="coverEmblem">✦</div>
           <div id="coverName"></div>
           <div id="coverHint">Click to open</div>
@@ -1327,10 +1413,28 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   <button id="packClose" title="Close (Esc)">✕</button>
   <div id="packLanding">
     <div id="packLandTitle">🎁 Pack Opener</div>
-    <button class="btn" id="packSetBtn">📚 Choose a set…</button>
-    <button class="btn primary" id="packOpenBtn">🎁 Open a pack</button>
+    <div id="packLandRow">
+      <button class="btn" id="packSetBtn">📚 Choose a set…</button>
+      <button class="btn" id="surpriseBtn" title="Random set">🎲</button>
+    </div>
+    <div id="packLandRow2" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center">
+      <button class="btn primary" id="packOpenBtn">🎁 Open a pack</button>
+      <button class="btn" id="bundleBtn" title="Open 5 packs back to back">🎁×5</button>
+      <button class="btn" id="duelBtn" title="Two players, same set — highest pack value wins">⚔️ Duel</button>
+    </div>
+    <label id="autoKeepWrap"><input type="checkbox" id="autoKeep"> ⭐ Auto-keep secret pulls</label>
     <button class="btn" id="packBindersBtn">📂 My pull binders</button>
+    <div id="pityWrap">
+      <div id="pityLabel"></div>
+      <div id="pityBar"><div id="pityFill"></div></div>
+    </div>
     <div id="packLandStats"></div>
+    <div id="packBadges"></div>
+    <div id="reliveRow"></div>
+  </div>
+  <div id="packShelf">
+    <div class="shelf-hint">Pick your pack from the shelf…</div>
+    <div id="shelfRow"></div>
   </div>
   <div id="packCounter"></div>
   <div id="packWrap">
@@ -1347,6 +1451,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <div class="pile-back b2"></div>
     <div id="packCard"></div>
   </div>
+  <div id="packBadge"></div>
   <div id="packName"></div>
   <div id="packMeta"></div>
   <div id="packBtns" style="display:none">
@@ -1643,6 +1748,13 @@ function renderBinder() {
   if (closed) {
     document.getElementById('coverName').textContent = bb.name;
     document.getElementById('spreadLabel').textContent = bb.name;
+    const flair = bb.sim // sim-binder: dyreste pull pryder forsiden
+      ? bb.pages.flat().filter(c => c && c.img && c.p != null).sort((a, b) => b.p - a.p)[0]
+      : null;
+    const cc = document.getElementById('coverCard');
+    cc.style.display = flair ? '' : 'none';
+    if (flair) cc.src = imgUrl(flair.img, 'low');
+    document.getElementById('coverEmblem').style.display = flair ? 'none' : '';
     renderProgress();
     return;
   }
@@ -2907,7 +3019,9 @@ function playRip() { // syntetiseret papir-riv: stoej-burst med stigende bandpas
   } catch (e) { /* ingen lyd: pyt */ }
 }
 const packPoolCache = new Map(); // setId -> pools
-let pack = null; // { pools, cards, i, kept: Set }
+let pack = null; // { pools, cards, i, kept: Set, golden, isNew }
+let duel = null;   // { vals: [] } — to spillere, samme saet
+let bundle = null; // { count, left, total, hits } — 5 pakker i traek
 
 const packBrief = c => ({ id: c.id, n: c.name, img: c.image ? c.image.replace(ASSETS, '') : null });
 
@@ -2924,6 +3038,7 @@ async function loadPackPools(setId) {
   const rest = (set.cards || []).filter(c => !cu.has(c.id));
   const isSecret = c => parseInt(c.localId, 10) > official; // secret rares nummereres over saettets officielle antal
   const pools = {
+    id: setId,
     name: set.name,
     logo: set.logo ? set.logo + '.webp' : null,
     all: (set.cards || []).map(packBrief),
@@ -2948,12 +3063,44 @@ function packDraw(pool, fallback, used) {
 const PITY = 10; // garanteret secret i hver 10. toerre pakke
 function packStats() {
   if (!store.packStats) store.packStats = { packs: 0, secrets: 0, dry: 0, best: null };
-  return store.packStats;
+  const st = store.packStats;
+  if (!st.dex) st.dex = {};       // setId -> { cardId: gange pullet } — pull-dexen
+  if (!st.badges) st.badges = {}; // achievements
+  if (!st.history) st.history = []; // seneste secrets til relive
+  if (st.golden === undefined) st.golden = 0;
+  if (st.valueStreak === undefined) st.valueStreak = 0;
+  return st;
 }
 
-function buildPack(pools, pity) {
+const BADGES = [
+  ['first-secret', '🌟', 'First secret pull'],
+  ['packs-10', '📦', '10 packs opened'],
+  ['packs-50', '🏭', '50 packs opened'],
+  ['charizard', '🔥', 'Pulled a Charizard'],
+  ['golden', '🥇', 'Opened a golden pack'],
+  ['streak-3', '💰', 'Beat the pack price 3 times in a row'],
+  ['dex-100', '📇', '100 unique cards in one set dex'],
+];
+function awardBadge(id) {
+  const st = packStats();
+  if (st.badges[id]) return;
+  st.badges[id] = true;
+  save();
+  const b = BADGES.find(x => x[0] === id);
+  packToast('🏅 Achievement: ' + b[1] + ' ' + b[2]);
+}
+
+function buildPack(pools, pity, golden) {
   const used = new Set();
   const cards = [];
+  if (golden) { // 1:50 — alt er rare+, halv chance for secret i hit-slottet
+    for (let i = 0; i < 9; i++) cards.push(packDraw(pools.rares, pools.all, used));
+    const gotSecret = pools.secrets.length && (pity || Math.random() < 1 / 2);
+    const hit = packDraw(gotSecret ? pools.secrets : pools.rares, pools.all, used);
+    if (gotSecret) hit.hit = true;
+    cards.push(hit);
+    return cards;
+  }
   for (let i = 0; i < 4; i++) cards.push(packDraw(pools.commons, pools.all, used));
   for (let i = 0; i < 3; i++) cards.push(packDraw(pools.uncommons, pools.all, used));
   const rev = packDraw([...pools.commons, ...pools.uncommons, ...pools.rares], pools.all, used);
@@ -2979,6 +3126,8 @@ async function openPackFlow(setId, btn) {
     if (pools.all.length < 10 || !pools.all.some(c => c.img)) {
       // fx W Promotional: saet uden kort-grafik kan ikke aabnes som pakke
       (packMode ? packToast : toast)('That set has no card images — pick another');
+    } else if (packMode) {
+      showShelf(pools); // butiks-ritualet: vaelg din pakke fra hylden
     } else {
       startPack(pools);
     }
@@ -3078,19 +3227,65 @@ document.getElementById('packOpenBtn').addEventListener('click', e => {
   openPackFlow(chosenSetId, e.currentTarget);
 });
 
+document.getElementById('surpriseBtn').addEventListener('click', async () => {
+  try {
+    if (!allSetsMeta) await loadSetsMeta();
+    chooseSet(allSetsMeta[Math.floor(Math.random() * allSetsMeta.length)]);
+    packToast('🎲 ' + localStorage.getItem('tcg-pack-set-name'));
+  } catch (e) { packToast('Could not load the set list'); }
+});
+
+document.getElementById('bundleBtn').addEventListener('click', e => {
+  if (!chosenSetId) { packToast('Choose a set first'); return; }
+  bundle = { count: 5, left: 5, total: 0, hits: [] };
+  openPackFlow(chosenSetId, e.currentTarget);
+});
+
+document.getElementById('duelBtn').addEventListener('click', e => {
+  if (!chosenSetId) { packToast('Choose a set first'); return; }
+  duel = { vals: [] };
+  packToast('⚔️ Player 1 — open your pack!');
+  openPackFlow(chosenSetId, e.currentTarget);
+});
+
+const $autoKeep = document.getElementById('autoKeep');
+$autoKeep.checked = localStorage.getItem('tcg-auto-keep') === '1';
+$autoKeep.addEventListener('change', () => localStorage.setItem('tcg-auto-keep', $autoKeep.checked ? '1' : '0'));
+
+document.addEventListener('keydown', e => { // Esc paa hylden: tilbage til landing (pack er ikke startet endnu)
+  if (e.key === 'Escape' && document.getElementById('packShelf').style.display === 'flex') {
+    packMode ? showPackLanding() : (document.getElementById('packShelf').style.display = 'none');
+  }
+});
+
 function startPack(pools) {
   const st = packStats();
-  const cards = buildPack(pools, st.dry >= PITY - 1);
+  const golden = Math.random() < 1 / 50;
+  const cards = buildPack(pools, st.dry >= PITY - 1, golden);
   st.packs++;
-  if (cards[cards.length - 1].hit) { st.secrets++; st.dry = 0; } else st.dry++;
+  if (golden) { st.golden++; awardBadge('golden'); }
+  if (st.packs >= 10) awardBadge('packs-10');
+  if (st.packs >= 50) awardBadge('packs-50');
+  if (cards[cards.length - 1].hit) { st.secrets++; st.dry = 0; awardBadge('first-secret'); } else st.dry++;
+  const dex = st.dex[pools.id] || (st.dex[pools.id] = {}); // pull-dex: alle 10 taeller som pullet
+  const isNew = {};
+  for (const c of cards) {
+    dex[c.id] = (dex[c.id] || 0) + 1;
+    if (isNew[c.id] === undefined) isNew[c.id] = dex[c.id] === 1;
+  }
+  if (Object.keys(dex).length >= 100) awardBadge('dex-100');
   save();
-  pack = { pools, cards, i: -1, kept: new Set() };
+  pack = { pools, cards, i: -1, kept: new Set(), golden, isNew };
+  document.getElementById('packShelf').style.display = 'none';
+  document.getElementById('packFoil').classList.toggle('golden', golden);
   document.getElementById('packLanding').style.display = 'none';
   document.getElementById('packClose').style.display = '';
+  document.getElementById('packBadge').textContent = '';
+  document.getElementById('packAgain').textContent = '🎁 Open another';
   const logo = document.getElementById('packLogo');
   logo.style.display = pools.logo ? '' : 'none';
   if (pools.logo) logo.src = pools.logo;
-  document.getElementById('packSetName').textContent = pools.name;
+  document.getElementById('packSetName').textContent = golden ? '✨ GOLDEN PACK ✨' : pools.name;
   $packWrap.classList.remove('rip');
   $packWrap.style.display = '';
   document.getElementById('packStack').style.display = 'none';
@@ -3174,16 +3369,56 @@ function renderPackCard() {
     $packCard.appendChild(cover);
     document.getElementById('packStack').classList.add('rumble'); // decket ryster af spaending
     attachCoverDrag(cover, c);
+    document.getElementById('packBadge').textContent = '';
     document.getElementById('packName').textContent = '???';
     document.getElementById('packMeta').textContent = '';
     document.getElementById('packBtns').style.display = 'none';
     document.getElementById('packHint').textContent = 'The last card is the big one…';
   } else {
     celebrateCard(c);
+    showPackBadge(c);
     document.getElementById('packName').textContent = c.n + (c.rev ? ' · reverse ✨' : '');
     document.getElementById('packKeep').textContent = pack.kept.has(pack.i) ? '✓ Kept' : '⭐ Keep';
     fillPackMeta(c);
   }
+}
+
+function showPackBadge(c) { // NEW eller dublet — mod pull-dexen
+  const el = document.getElementById('packBadge');
+  const count = (packStats().dex[pack.pools.id] || {})[c.id] || 1;
+  if (pack.isNew[c.id]) {
+    el.className = 'new';
+    el.textContent = '✨ NEW!';
+  } else {
+    el.className = 'dup';
+    el.textContent = 'pulled ×' + count;
+  }
+  if (/charizard/i.test(c.n)) awardBadge('charizard');
+}
+
+function playGasp() { // publikums-gisp til de allersjaeldneste: stoej-svulmen gennem bandpass
+  try {
+    if (!musicCtx || !musicDest) return;
+    const now = musicCtx.currentTime, dur = 0.55;
+    const buf = musicCtx.createBuffer(1, musicCtx.sampleRate * dur, musicCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = musicCtx.createBufferSource();
+    src.buffer = buf;
+    const f = musicCtx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = 1.2;
+    f.frequency.setValueAtTime(500, now);
+    f.frequency.exponentialRampToValueAtTime(1600, now + dur * 0.7);
+    const g = musicCtx.createGain();
+    g.gain.setValueAtTime(0.001, now);
+    g.gain.exponentialRampToValueAtTime(0.3, now + dur * 0.6); // indaanding…
+    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    src.connect(f);
+    f.connect(g);
+    g.connect(musicDest);
+    src.start(now);
+  } catch (e) {}
 }
 
 function celebrateCard(c) {
@@ -3193,6 +3428,17 @@ function celebrateCard(c) {
     packCelebrate('SECRET RARE!');
     $packCard.classList.add('flash');
     if (navigator.vibrate) navigator.vibrate([60, 40, 120]);
+    const st = packStats(); // relive-historik: seneste store hits
+    st.history.unshift({ id: c.id, n: c.n, img: c.img, set: pack.pools.name });
+    st.history = st.history.slice(0, 20);
+    save();
+    if (localStorage.getItem('tcg-auto-keep') === '1') {
+      keepCard(pack.i);
+      document.getElementById('packKeep').textContent = '✓ Kept';
+    }
+    getDetail(c.id).then(d => { // topsjaeldenheder faar publikums-gisp oveni
+      if (d && /special illustration|hyper/i.test(d.rarity || '')) setTimeout(playGasp, 250);
+    });
   } else if (c.rev || pack.i === pack.cards.length - 1) { // rare-slottet og reverse: lille fejring
     playFx('sparkle.mp3', 0.5);
     sparkleBurst($packCard);
@@ -3333,6 +3579,7 @@ function revealLast(c) {
   if (!pack) return;
   const glow = document.getElementById('packGlow');
   if (glow) glow.remove();
+  showPackBadge(c);
   document.getElementById('packName').textContent = c.n + (c.rev ? ' · reverse ✨' : '');
   document.getElementById('packBtns').style.display = '';
   document.getElementById('packKeep').textContent = pack.kept.has(pack.i) ? '✓ Kept' : '⭐ Keep';
@@ -3341,8 +3588,21 @@ function revealLast(c) {
   celebrateCard(c);
 }
 
+function cardOdds(i) { // grov chance for netop dette kort i en pakke — til flex
+  const P = pack.pools;
+  if (pack.golden) return 0;
+  let p = 0;
+  if (i < 4) p = P.commons.length ? 4 / P.commons.length : 0;
+  else if (i < 7) p = P.uncommons.length ? 3 / P.uncommons.length : 0;
+  else if (i === 7) p = 1 / Math.max(1, P.commons.length + P.uncommons.length + P.rares.length);
+  else if (i === 8) p = P.rares.length ? 1 / P.rares.length : 0;
+  else p = pack.cards[9].hit ? (1 / 8) / Math.max(1, P.secrets.length) : (7 / 8) / Math.max(1, P.rares.length);
+  return p > 0 ? Math.round(1 / p) : 0;
+}
+
 async function fillPackMeta(c) {
   const el = document.getElementById('packMeta');
+  const idx = pack.i;
   el.textContent = '…';
   const d = await getDetail(c.id);
   if (!pack || pack.cards[pack.i] !== c) return;
@@ -3354,6 +3614,10 @@ async function fillPackMeta(c) {
   if (store.showPrices && d) {
     const pr = cardPrice(d);
     if (pr != null) bits.push(fmtPrice(pr));
+  }
+  if (idx >= 7) { // flex paa de gode slots
+    const o = cardOdds(idx);
+    if (o > 20) bits.push('~1:' + o + ' packs');
   }
   el.textContent = bits.join(' · ');
 }
@@ -3505,8 +3769,13 @@ function keepCard(idx) {
     b.pages.push(emptyPage(n), emptyPage(n));
     t = { page: b.pages.length - 2, slot: 0 };
   }
-  b.pages[t.page][t.slot] = { id: c.id, n: c.n, img: c.img, o: true };
+  const placed = { id: c.id, n: c.n, img: c.img, o: true };
+  b.pages[t.page][t.slot] = placed;
   save();
+  getDetail(c.id).then(d => { // pris paa kortet: driver cover-flair (dyreste pull paa forsiden)
+    const p = cardPrice(d);
+    if (p != null) { placed.p = p; save(); }
+  });
   if (b === store.binders[store.active]) renderBinder();
   packToast(c.n + ' → Pack pulls ✔');
 }
@@ -3570,6 +3839,35 @@ function showPackSummary() {
     if (sum >= PACK_PRICE) valEl.className = 'gold';
     // dyreste pull nogensinde
     const st = packStats();
+    st.valueStreak = sum >= PACK_PRICE ? st.valueStreak + 1 : 0; // 3 i traek = badge
+    if (st.valueStreak >= 3) awardBadge('streak-3');
+    if (duel) { // ⚔️ to spillere, samme saet, hoejeste pakkevaerdi
+      duel.vals.push(sum);
+      if (duel.vals.length === 1) {
+        document.getElementById('packAgain').textContent = '⚔️ Player 2 — open your pack';
+        packToast('Player 1: ' + fmtPrice(sum) + ' — Player 2, your turn!');
+      } else {
+        const [a, b] = duel.vals;
+        valEl.textContent += ' · P1 ' + fmtPrice(a) + ' vs P2 ' + fmtPrice(b);
+        packCelebrate(a === b ? "IT'S A DRAW!" : (a > b ? 'PLAYER 1 WINS!' : 'PLAYER 2 WINS!'));
+        playFx('wow.mp3', 0.6);
+        duel = null;
+      }
+    }
+    if (bundle) { // 🎁×5: loebende total
+      bundle.total += sum;
+      bundle.hits.push(...myPack.cards.filter(c => c.hit).map(c => c.n));
+      bundle.left--;
+      if (bundle.left > 0) {
+        document.getElementById('packAgain').textContent = '🎁 Next pack (' + (bundle.count - bundle.left + 1) + '/' + bundle.count + ')';
+      } else {
+        // ponytail: bundle-summary er en linje, ikke et 50-korts grid — hits + total er pointen
+        valEl.textContent = 'Bundle total (' + bundle.count + ' packs): ' + fmtPrice(bundle.total)
+          + (bundle.hits.length ? ' · hits: ' + bundle.hits.join(', ') : ' · no secrets this time');
+        valEl.className = bundle.hits.length ? 'gold' : '';
+        bundle = null;
+      }
+    }
     let top = null;
     myPack.cards.forEach((c, i) => {
       const p = cardPrice(details[i]);
@@ -3588,11 +3886,37 @@ function renderPackStats() {
   const st = packStats();
   const bits = ['📊 ' + st.packs + ' pack' + (st.packs === 1 ? '' : 's')];
   if (st.secrets) bits.push(st.secrets + ' secret' + (st.secrets === 1 ? '' : 's') + ' (1:' + Math.round(st.packs / st.secrets) + ')');
+  if (st.golden) bits.push(st.golden + ' golden');
   if (st.best) bits.push('best: ' + st.best.n + ' ' + fmtPrice(st.best.p));
   bits.push('guaranteed ✨ in ' + Math.max(1, PITY - st.dry) + ' pack' + (PITY - st.dry === 1 ? '' : 's'));
   const line = bits.join(' · ');
   document.getElementById('packStats').textContent = line;
   document.getElementById('packLandStats').textContent = line;
+  // pity-bar
+  document.getElementById('pityFill').style.width = Math.min(100, st.dry / PITY * 100) + '%';
+  document.getElementById('pityLabel').textContent = 'Guaranteed ✨ — ' + st.dry + '/' + PITY;
+  // badges
+  const bl = document.getElementById('packBadges');
+  bl.innerHTML = '';
+  for (const [id, icon, title] of BADGES) {
+    if (!st.badges[id]) continue;
+    const s = document.createElement('span');
+    s.textContent = icon;
+    s.title = title;
+    bl.appendChild(s);
+  }
+  // relive: seneste store hits
+  const rr = document.getElementById('reliveRow');
+  rr.innerHTML = '';
+  for (const h of st.history.slice(0, 10)) {
+    if (!h.img) continue;
+    const d = document.createElement('div');
+    d.className = 'relive-card';
+    d.title = h.n + ' · ' + h.set;
+    d.innerHTML = '<img loading="lazy" src="' + imgUrl(h.img, 'low') + '" alt="">';
+    d.addEventListener('click', () => replayPull(h));
+    rr.appendChild(d);
+  }
 }
 
 document.getElementById('packAgain').addEventListener('click', () => startPack(pack.pools));
@@ -3616,8 +3940,59 @@ document.getElementById('sendTcgBtn').addEventListener('click', () => {
   toast('Copy of "' + src.name + '" sent to your 🃏 TCG binders ✔');
 });
 
+function showShelf(pools) {
+  document.getElementById('packLanding').style.display = 'none';
+  document.getElementById('packClose').style.display = '';
+  document.getElementById('packCounter').textContent = pools.name;
+  const row = document.getElementById('shelfRow');
+  row.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const p = document.createElement('div');
+    p.className = 'shelf-pack';
+    if (pools.logo) p.innerHTML = '<img src="' + pools.logo + '" alt="">';
+    p.addEventListener('click', () => {
+      if (!row.querySelector('.chosen')) {
+        p.classList.add('chosen');
+        playFlip();
+        setTimeout(() => startPack(pools), 420); // placebo — men DIN pakke
+      }
+    });
+    row.appendChild(p);
+  }
+  document.getElementById('packShelf').style.display = 'flex';
+}
+
+function replayPull(h) { // gen-oplev et stort hit med fuld fejring
+  document.getElementById('packLanding').style.display = 'none';
+  document.getElementById('packClose').style.display = '';
+  document.getElementById('packStack').style.display = '';
+  $packCard.className = '';
+  void $packCard.offsetWidth;
+  $packCard.className = 'flip holo-on';
+  $packCard.innerHTML = '';
+  const im = document.createElement('img');
+  im.src = imgUrl(h.img, 'high');
+  $packCard.appendChild(im);
+  const holo = document.createElement('div');
+  holo.className = 'holo';
+  const glare = document.createElement('div');
+  glare.className = 'glare';
+  $packCard.append(holo, glare);
+  document.getElementById('packCounter').textContent = '🕰 ' + h.set;
+  document.getElementById('packName').textContent = h.n;
+  document.getElementById('packHint').textContent = 'Tap the card to go back';
+  playFx('wow.mp3', 0.6);
+  sparkleBurst($packCard);
+  packCelebrate();
+  const back = () => { $packCard.removeEventListener('click', back); showPackLanding(); };
+  setTimeout(() => $packCard.addEventListener('click', back), 400);
+}
+
 function showPackLanding() {
   pack = null;
+  duel = null;
+  bundle = null;
+  document.getElementById('packShelf').style.display = 'none';
   $packWrap.style.display = 'none';
   document.getElementById('packStack').style.display = 'none';
   document.getElementById('packSummary').style.display = 'none';
