@@ -654,6 +654,7 @@ body.viewmode #binderSettings { display: none; }
   color: #ffd95e;
   text-shadow: 0 0 18px rgba(255,217,94,.8);
 }
+#packStats { font: 600 .8rem 'Nunito', sans-serif; color: #cbbf9f; opacity: .85; }
 #packBtns { display: flex; gap: 10px; align-items: center; }
 #packSummary { display: none; flex-direction: column; align-items: center; gap: 12px; }
 #packGrid {
@@ -1249,6 +1250,7 @@ body.viewmode .viewbar { display: flex; }
   <div id="packSummary">
     <div id="packGrid"></div>
     <div id="packValue"></div>
+    <div id="packStats"></div>
     <div style="display:flex; gap:10px">
       <button class="btn primary" id="packAgain">🎁 Open another</button>
       <button class="btn" id="packDone">Close</button>
@@ -2726,6 +2728,28 @@ function playFx(url, vol) {
   });
 }
 
+function playFlip() { // lille "fwip" ved hvert kort — daempet stoej gennem faldende lowpass
+  try {
+    if (!musicCtx || !musicDest) return;
+    const now = musicCtx.currentTime, dur = 0.08;
+    const buf = musicCtx.createBuffer(1, musicCtx.sampleRate * dur, musicCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const src = musicCtx.createBufferSource();
+    src.buffer = buf;
+    const f = musicCtx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(2600, now);
+    f.frequency.exponentialRampToValueAtTime(500, now + dur);
+    const g = musicCtx.createGain();
+    g.gain.value = 0.25;
+    src.connect(f);
+    f.connect(g);
+    g.connect(musicDest);
+    src.start(now);
+  } catch (e) { /* ingen lyd: pyt */ }
+}
+
 function playRip() { // syntetiseret papir-riv: stoej-burst med stigende bandpass
   try {
     primeMusicAudio();
@@ -2788,7 +2812,13 @@ function packDraw(pool, fallback, used) {
   return c;
 }
 
-function buildPack(pools) {
+const PITY = 10; // garanteret secret i hver 10. toerre pakke
+function packStats() {
+  if (!store.packStats) store.packStats = { packs: 0, secrets: 0, dry: 0, best: null };
+  return store.packStats;
+}
+
+function buildPack(pools, pity) {
   const used = new Set();
   const cards = [];
   for (let i = 0; i < 4; i++) cards.push(packDraw(pools.commons, pools.all, used));
@@ -2798,7 +2828,7 @@ function buildPack(pools) {
   cards.push(rev);
   cards.push(packDraw(pools.rares, pools.all, used));
   // ponytail: hit-slottet er 1:8 for et secret-kort (IR/SIR/HR/UR under et) — grov SV-tilnaermelse, ellers endnu en rare
-  const gotSecret = pools.secrets.length && Math.random() < 1 / 8;
+  const gotSecret = pools.secrets.length && (pity || Math.random() < 1 / 8);
   const hit = packDraw(gotSecret ? pools.secrets : pools.rares, pools.all, used);
   if (gotSecret) hit.hit = true;
   cards.push(hit);
@@ -2821,7 +2851,12 @@ document.getElementById('packBtn').addEventListener('click', async () => {
 });
 
 function startPack(pools) {
-  pack = { pools, cards: buildPack(pools), i: -1, kept: new Set() };
+  const st = packStats();
+  const cards = buildPack(pools, st.dry >= PITY - 1);
+  st.packs++;
+  if (cards[cards.length - 1].hit) { st.secrets++; st.dry = 0; } else st.dry++;
+  save();
+  pack = { pools, cards, i: -1, kept: new Set() };
   const logo = document.getElementById('packLogo');
   logo.style.display = pools.logo ? '' : 'none';
   if (pools.logo) logo.src = pools.logo;
@@ -2855,6 +2890,7 @@ $packWrap.addEventListener('click', () => {
 
 function renderPackCard() {
   const c = pack.cards[pack.i];
+  playFlip();
   $packCard.className = '';
   void $packCard.offsetWidth; // genstart flip-animationen
   $packCard.className = 'flip';
@@ -3181,6 +3217,7 @@ function showPackSummary() {
     grid.appendChild(div);
   });
   document.getElementById('packSummary').style.display = 'flex';
+  renderPackStats(); // straks — best/luck opdateres naar priserne er hentet
   // pakkens samlede vaerdi — gambling-suset
   const myPack = pack;
   const valEl = document.getElementById('packValue');
@@ -3198,7 +3235,29 @@ function showPackSummary() {
       + (unpriced ? ' (' + unpriced + ' unpriced)' : '')
       + (sum >= PACK_PRICE ? ' — beat the pack price! 💰' : '');
     if (sum >= PACK_PRICE) valEl.className = 'gold';
+    // dyreste pull nogensinde
+    const st = packStats();
+    let top = null;
+    myPack.cards.forEach((c, i) => {
+      const p = cardPrice(details[i]);
+      if (p != null && (!top || p > top.p)) top = { n: c.n, p };
+    });
+    if (top && (!st.best || top.p > st.best.p)) {
+      st.best = top;
+      save();
+      packToast('New best pull: ' + top.n + ' ' + fmtPrice(top.p) + ' 🏆');
+    }
+    renderPackStats();
   });
+}
+
+function renderPackStats() {
+  const st = packStats();
+  const bits = ['📊 ' + st.packs + ' pack' + (st.packs === 1 ? '' : 's')];
+  if (st.secrets) bits.push(st.secrets + ' secret' + (st.secrets === 1 ? '' : 's') + ' (1:' + Math.round(st.packs / st.secrets) + ')');
+  if (st.best) bits.push('best: ' + st.best.n + ' ' + fmtPrice(st.best.p));
+  bits.push('guaranteed ✨ in ' + Math.max(1, PITY - st.dry) + ' pack' + (PITY - st.dry === 1 ? '' : 's'));
+  document.getElementById('packStats').textContent = bits.join(' · ');
 }
 
 document.getElementById('packAgain').addEventListener('click', () => startPack(pack.pools));
