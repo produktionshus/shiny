@@ -2545,6 +2545,11 @@ const wowSound = new Audio('wow.mp3');       // secret hit
 wowSound.volume = 0.6;
 const packSparkleSound = new Audio('sparkle.mp3'); // rare/reverse — samme lyd som shiny-binderen
 packSparkleSound.volume = 0.5;
+function playFx(audio) { // frisk klon pr. afspilning: to gode kort i traek maa ikke stjaele lyden fra hinanden
+  const a = audio.cloneNode();
+  a.volume = audio.volume;
+  a.play().catch(() => {});
+}
 const packPoolCache = new Map(); // setId -> pools
 let pack = null; // { pools, cards, i, kept: Set }
 
@@ -2679,13 +2684,11 @@ function renderPackCard() {
     });
   }
   if (c.hit) {
-    wowSound.currentTime = 0;
-    wowSound.play().catch(() => {});
+    playFx(wowSound);
     sparkleBurst($packCard);
     packCelebrate();
   } else if (c.rev || pack.i === pack.cards.length - 1) { // rare-slottet og reverse: lille fejring
-    packSparkleSound.currentTime = 0;
-    packSparkleSound.play().catch(() => {});
+    playFx(packSparkleSound);
     sparkleBurst($packCard);
   }
   document.getElementById('packCounter').textContent = 'Card ' + (pack.i + 1) + ' / ' + pack.cards.length;
@@ -2741,7 +2744,7 @@ $packCard.addEventListener('pointerdown', e => {
     packDragging = false;
     if (!moved) { packNext(); return; }
     if (dy < -90 && Math.abs(dx) < 120) packKeepSwipe();
-    else if (dx < -90) packNext();
+    else if (Math.abs(dx) > 90) packNext(); // begge retninger gaar frem — en pakke aabnes een vej
     else packSpringBack();
   }
   window.addEventListener('pointermove', onMove);
