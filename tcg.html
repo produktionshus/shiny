@@ -1643,6 +1643,14 @@ function endDrag(x, y) {
 }
 
 // ---------- kort-detaljer & priser (TCGdex, cachet) ----------
+// SV-aera pull-rates (community-maalte, gaelder ikke aeldre aeraers rarities)
+const RARITY_ODDS = {
+  'Double rare': ['RR', '1:5'],
+  'Illustration rare': ['IR', '1:12'],
+  'Ultra Rare': ['UR', '1:16'],
+  'Special illustration rare': ['SIR', '1:94'],
+  'Hyper rare': ['HR', '1:149'],
+};
 const detailCache = new Map();
 function getDetail(id) {
   if (!detailCache.has(id)) {
@@ -1718,7 +1726,10 @@ async function fillInfo(panelId, card, stillCurrent) {
     const total = d.set.cardCount && d.set.cardCount.official;
     rows.push(['Set', d.set.name + ' · ' + (d.localId || '?') + (total ? '/' + total : '')]);
   }
-  if (d.rarity) rows.push(['Rarity', d.rarity]);
+  if (d.rarity) {
+    const meta = RARITY_ODDS[d.rarity];
+    rows.push(['Rarity', meta ? d.rarity + ' (' + meta[0] + ' · ~' + meta[1] + ' packs)' : d.rarity]);
+  }
   if (d.illustrator) rows.push(['Illustrator', d.illustrator]);
   if (d.variants) {
     const labels = { normal: 'Normal', reverse: 'Reverse', holo: 'Holo', firstEdition: '1st ed.' };
