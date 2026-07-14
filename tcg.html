@@ -486,13 +486,16 @@ body.viewmode #binderSettings { display: none; }
   padding: 6px 10px;
   background: none; border: none; color: #ffe9a8; cursor: pointer;
 }
-#packMusic {
-  position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); left: calc(18px + env(safe-area-inset-left, 0px));
-  font-size: 1.6rem;
-  padding: 6px 10px;
-  background: none; border: none; color: #ffe9a8; cursor: pointer;
+#packMusic { /* i samme lag som hint-teksten — fixed forsvandt bag statusbaren paa iPad */
+  font: 600 .85rem 'Fredoka', sans-serif;
+  color: #ffe9a8;
+  background: rgba(20,26,36,.55);
+  border: 1px solid rgba(255,233,168,.35);
+  border-radius: 999px;
+  padding: 6px 16px;
+  cursor: pointer;
 }
-#packMusic.off { opacity: .4; filter: grayscale(1); }
+#packMusic.off { opacity: .55; filter: grayscale(1); }
 
 /* ===== Pack opener (aabn en virtuel booster) ===== */
 #packOverlay {
@@ -1222,7 +1225,6 @@ body.viewmode .viewbar { display: flex; }
 
 <div id="packOverlay">
   <button id="packClose" title="Close (Esc)">✕</button>
-  <button id="packMusic" title="Background music: the Pokémon theme">🎵</button>
   <div id="packCounter"></div>
   <div id="packWrap">
     <div id="packTear"></div>
@@ -1252,6 +1254,7 @@ body.viewmode .viewbar { display: flex; }
       <button class="btn" id="packDone">Close</button>
     </div>
   </div>
+  <button id="packMusic" title="Background music: the Pokémon theme">🎵</button>
   <div id="packHint"></div>
   <div id="packToast"></div>
 </div>
@@ -2651,13 +2654,16 @@ function musicTick() {
   }
 }
 
+let musicLoading = false;
 async function startMusic() {
-  if (musicTimer) return; // spiller allerede
+  if (musicTimer || musicLoading) return; // spiller/henter allerede — to timere giver nodekaos
   if (!musicNotes) {
+    musicLoading = true;
     try {
       musicNotes = await (await fetch('theme.json')).json();
       musicLen = Math.max(...musicNotes.map(n => n[0] + n[2]));
     } catch (e) { toast('Could not load the music'); return; }
+    finally { musicLoading = false; }
     if (!musicOn || !pack) return; // slaaet fra / pack lukket mens den hentede
   }
   primeMusicAudio();
@@ -2675,11 +2681,12 @@ function stopMusic() {
   musicTimer = null;
   if (musicGain) musicGain.disconnect(); // planlagte noder dør med forbindelsen
   musicGain = null;
+  if (musicOut) musicOut.pause(); // iOS: en udsultet stream kan ellers loope sidste buffer
 }
 
 function updateMusicBtn() {
   $musicBtn.classList.toggle('off', !musicOn);
-  $musicBtn.title = musicOn ? 'Music off' : 'Music on';
+  $musicBtn.textContent = musicOn ? '🎵 Music on' : '🔇 Music off';
 }
 $musicBtn.addEventListener('click', () => {
   musicOn = !musicOn;
