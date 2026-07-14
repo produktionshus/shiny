@@ -1132,13 +1132,22 @@ let lastResults = []; // til bunke-visning
 let allResults = [];  // ukapped — til 'Add all'
 
 let pocketSets = new Set(); // TCG Pocket (digital) — vises ikke blandt fysiske kort
+let pocketReady = null;       // saettes af loadSets; soegning afventer den
+function isPocketCard(id) {
+  const setId = id.slice(0, id.lastIndexOf('-')).toLowerCase();
+  // moenster-fallback daekker hvis serie-opslaget fejler: A1/A2b/B1/P-A-skemaet er Pocket-eksklusivt
+  return pocketSets.has(setId) || /^(a\d+[a-z]?|b\d+[a-z]?|p-a)$/.test(setId);
+}
 async function loadSets() {
+  let readyResolve;
+  pocketReady = new Promise(r => readyResolve = r);
   try {
     const [sets, tcgp] = await Promise.all([
       fetch(API + '/sets').then(r => r.json()),
       fetch(API + '/series/tcgp').then(r => r.json()).catch(() => ({ sets: [] })),
     ]);
     pocketSets = new Set((tcgp.sets || []).map(x => x.id.toLowerCase()));
+    readyResolve();
     for (const s of sets) {
       if (pocketSets.has(s.id.toLowerCase())) continue; // kun rigtige kort
       const o = document.createElement('option');
@@ -1147,6 +1156,7 @@ async function loadSets() {
       $set.appendChild(o);
     }
   } catch (e) { $hint.textContent = 'Could not load the set list.'; }
+  readyResolve(); // moenster-fallback filtrerer selv uden listen
 }
 
 function scheduleSearch() {
@@ -1169,8 +1179,9 @@ async function doSearch() {
       cards = set.cards || [];
       if (q) cards = cards.filter(c => c.name.toLowerCase().includes(q.toLowerCase()));
     } else {
+      if (pocketReady) await pocketReady;
       cards = await (await fetch(API + '/cards?name=' + encodeURIComponent(q))).json();
-      cards = cards.filter(c => !pocketSets.has(c.id.slice(0, c.id.lastIndexOf('-')).toLowerCase()));
+      cards = cards.filter(c => !isPocketCard(c.id));
     }
     if (seq !== searchSeq) return; // forældet svar
     renderResults(cards);
