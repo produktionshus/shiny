@@ -887,6 +887,7 @@ body.viewmode #binderSettings { display: none; }
 }
 .lobby-row .lr-team.t1 { background: linear-gradient(155deg, #2b4d9c, #16295a); }
 .lobby-row .lr-team.t2 { background: linear-gradient(155deg, #8d2836, #5c1620); }
+.lobby-row .lr-team.t3 { background: linear-gradient(155deg, #2e7d4f, #153f27); }
 .lobby-row.me { border: 1.5px solid rgba(255,217,94,.5); }
 #lobbySet { font: 600 .85rem 'Nunito', sans-serif; color: #cbbf9f; }
 #lobbyStatus { font: 600 .8rem 'Nunito', sans-serif; color: #cbbf9f; opacity: .85; min-height: 1.2em; text-align: center; }
@@ -1669,7 +1670,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 <div id="lobbyView">
   <div id="lobbyCard">
     <div id="lobbyCode"></div>
-    <div id="lobbyHint">Share the code — friends join from 🎁 Packs → 2v2 → Online. Two players = 1v1, four = 2v2</div>
+    <div id="lobbyHint">Share the code — friends join from 🎁 Packs → 2v2 → Online. Up to 6: 1v1, 2v2, 3v3 or 2v2v2</div>
     <div id="lobbyPlayers"></div>
     <div id="lobbySet"></div>
     <button class="btn primary" id="lobbyStart" style="display:none">▶ Start battle</button>
@@ -4349,12 +4350,17 @@ function bestOfPack(details, cards) { // pakkens dyreste kort — til "best pull
   return best;
 }
 
-function renderTeamResult(pulls) { // pulls: [{name, team, value, best}] — 1v1 eller 2v2
-  const t1 = pulls.filter(p => p.team === 1), t2 = pulls.filter(p => p.team === 2);
-  const s1 = t1.reduce((s, p) => s + p.value, 0), s2 = t2.reduce((s, p) => s + p.value, 0);
-  const solo = t1.length === 1 && t2.length === 1;
-  const verdictTxt = s1 === s2 ? "IT'S A DRAW!"
-    : (solo ? (s1 > s2 ? t1[0].name : t2[0].name).toUpperCase() : 'TEAM ' + (s1 > s2 ? 1 : 2)) + ' WINS!';
+function renderTeamResult(pulls) { // pulls: [{name, team, value, best}] — N hold, lige store
+  const teams = [...new Set(pulls.map(p => p.team))].sort();
+  const totals = teams.map(t => {
+    const ps = pulls.filter(p => p.team === t);
+    return { t, ps, sum: ps.reduce((s, p) => s + p.value, 0) };
+  });
+  const max = Math.max(...totals.map(x => x.sum));
+  const leaders = totals.filter(x => x.sum === max);
+  const solo = totals.every(x => x.ps.length === 1);
+  const verdictTxt = leaders.length > 1 ? "IT'S A DRAW!"
+    : (solo ? leaders[0].ps[0].name.toUpperCase() : 'TEAM ' + leaders[0].t) + ' WINS!';
   document.getElementById('duelVerdict').textContent = '🏆 ' + verdictTxt;
   packCelebrate(verdictTxt);
   playFx('wow.mp3', 0.6);
@@ -4364,10 +4370,10 @@ function renderTeamResult(pulls) { // pulls: [{name, team, value, best}] — 1v1
   const line = p => p.name + ' ' + fmtPrice(p.value);
   const ts = document.getElementById('teamScore');
   ts.style.display = '';
-  ts.innerHTML = solo
-    ? t1[0].name + ': <b>' + fmtPrice(s1) + '</b> vs ' + t2[0].name + ': <b>' + fmtPrice(s2) + '</b>' + bestLine
-    : 'Team 1: ' + t1.map(line).join(' + ') + ' = <b>' + fmtPrice(s1) + '</b><br>'
-      + 'Team 2: ' + t2.map(line).join(' + ') + ' = <b>' + fmtPrice(s2) + '</b>' + bestLine;
+  ts.innerHTML = (solo
+    ? totals.map(x => x.ps[0].name + ': <b>' + fmtPrice(x.sum) + '</b>').join(' vs ')
+    : totals.map(x => 'Team ' + x.t + ': ' + x.ps.map(line).join(' + ') + ' = <b>' + fmtPrice(x.sum) + '</b>').join('<br>'))
+    + bestLine;
 }
 
 function hidePackStages() {
@@ -4501,18 +4507,21 @@ function renderLobby() {
     box.appendChild(row);
   }
   document.getElementById('lobbySet').textContent = st.setName ? '📚 ' + st.setName : 'Waiting for the host to pick a set…';
-  const t1 = st.players.filter(p => p.team === 1).length;
-  const t2 = st.players.filter(p => p.team === 2).length;
-  const ready = ((t1 === 1 && t2 === 1) || (t1 === 2 && t2 === 2)) && st.setId; // 1v1 eller 2v2
+  // mindst 2 hold, alle lige store: 1v1, 2v2, 3v3, 2v2v2…
+  const sizes = [...new Set(st.players.map(p => p.team))].sort()
+    .map(t => st.players.filter(p => p.team === t).length);
+  const even = sizes.length >= 2 && sizes.every(n => n === sizes[0]);
+  const ready = even && st.setId;
+  const config = sizes.join('v');
   const isHost = st.host === battle.playerId;
   const startBtn = document.getElementById('lobbyStart');
   startBtn.style.display = isHost ? '' : 'none';
   startBtn.disabled = !ready;
-  startBtn.textContent = st.players.length === 2 ? '▶ Start 1v1' : '▶ Start battle';
-  document.getElementById('lobbyStatus').textContent =
-    st.players.length === 2 && ready ? (isHost ? 'Ready for 1v1 — start now, or wait for four 👇' : 'Ready for 1v1 — waiting for the host…')
-    : st.players.length < 4 ? st.players.length + '/4 joined — share the code!'
-    : (ready ? 'Ready! ' + (isHost ? 'Hit start 👇' : 'Waiting for the host…') : 'Teams must be 2v2 — tap your team pill to switch');
+  startBtn.textContent = ready ? '▶ Start ' + config : '▶ Start battle';
+  document.getElementById('lobbyStatus').textContent = ready
+    ? 'Ready for ' + config + '! ' + (isHost ? 'Start now — or wait for more (up to 6) 👇' : 'Waiting for the host…')
+    : (st.players.length < 6 ? st.players.length + '/6 joined — share the code! ' : '')
+      + 'Teams must be even (1v1, 2v2, 3v3, 2v2v2) — tap your pill to switch';
 }
 document.getElementById('lobbyStart').addEventListener('click', () => battleAct('start').catch(() => packToast('Could not start — check teams')));
 document.getElementById('lobbyLeave').addEventListener('click', () => {
@@ -4601,7 +4610,7 @@ function renderOnlineResult() {
   const again = document.getElementById('packAgain');
   const isHost = st.host === battle.playerId;
   again.style.display = isHost ? '' : 'none';
-  if (isHost) again.textContent = '👥 Rematch — other team starts';
+  if (isHost) again.textContent = '👥 Rematch — next team starts';
   $packOverlay.classList.add('open');
 }
 

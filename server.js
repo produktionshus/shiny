@@ -280,12 +280,12 @@ app.post('/api/battle/:code/join', (req, res) => {
   if (!okName(name)) return res.status(400).json({ error: 'bad_name' });
   const existing = r.players.find(p => p.name.toLowerCase() === name.trim().toLowerCase());
   if (existing) { touchRoom(r); return res.json({ code: r.code, playerId: existing.id, state: roomState(r) }); } // rejoin
-  if (r.players.length >= 4) return res.status(409).json({ error: 'room_full' });
+  if (r.players.length >= 6) return res.status(409).json({ error: 'room_full' });
   if (r.phase !== 'lobby') return res.status(409).json({ error: 'already_playing' });
   const playerId = crypto.randomBytes(8).toString('base64url');
   const t1 = r.players.filter(p => p.team === 1).length;
   const t2 = r.players.filter(p => p.team === 2).length;
-  r.players.push({ id: playerId, name: name.trim(), team: t1 > t2 ? 2 : 1 }); // balancer: 2. spiller = modstander
+  r.players.push({ id: playerId, name: name.trim(), team: t1 > t2 ? 2 : 1 }); // balancer 1/2 — hold 3 vaelges manuelt
 
   touchRoom(r);
   res.json({ code: r.code, playerId, state: roomState(r) });
@@ -308,7 +308,7 @@ app.post('/api/battle/:code/act', (req, res) => {
 
   if (type === 'team') {
     if (r.phase !== 'lobby') return res.status(409).json({ error: 'already_playing' });
-    me.team = me.team === 1 ? 2 : 1;
+    me.team = me.team % 3 + 1; // cykler 1 -> 2 -> 3 -> 1
   } else if (type === 'set') {
     if (!isHost || r.phase !== 'lobby') return res.status(403).json({ error: 'host_only' });
     const { setId, setName } = req.body;
@@ -320,12 +320,15 @@ app.post('/api/battle/:code/act', (req, res) => {
   } else if (type === 'start' || type === 'rematch') {
     if (!isHost) return res.status(403).json({ error: 'host_only' });
     if (type === 'start' && r.phase !== 'lobby') return res.status(409).json({ error: 'already_playing' });
-    const t1 = r.players.filter(p => p.team === 1), t2 = r.players.filter(p => p.team === 2);
-    const solo = t1.length === 1 && t2.length === 1; // 1v1 paa to enheder — samme rum og flow
-    if ((!solo && (t1.length !== 2 || t2.length !== 2)) || !r.setId) return res.status(400).json({ error: 'need_1v1_or_2v2_and_set' });
-    if (type === 'rematch') { const f = r.firstTeam === 1 ? 2 : 1; r.firstTeam = f; } else r.firstTeam = r.firstTeam || 1;
-    const [a, b] = r.firstTeam === 1 ? [t1, t2] : [t2, t1];
-    r.order = solo ? [a[0].id, b[0].id] : [a[0].id, b[0].id, a[1].id, b[1].id]; // A1 -> B1 (-> A2 -> B2)
+    // generelt: mindst 2 hold, alle hold lige store — daekker 1v1, 2v2, 3v3, 2v2v2
+    const teamsUsed = [...new Set(r.players.map(p => p.team))].sort();
+    const groups = teamsUsed.map(t => r.players.filter(p => p.team === t));
+    const equal = groups.every(g => g.length === groups[0].length);
+    if (teamsUsed.length < 2 || !equal || !r.setId) return res.status(400).json({ error: 'need_even_teams_and_set' });
+    r.firstIdx = type === 'rematch' ? ((r.firstIdx || 0) + 1) % groups.length : (r.firstIdx || 0); // rotér starthold
+    const rot = groups.slice(r.firstIdx).concat(groups.slice(0, r.firstIdx));
+    r.order = [];
+    for (let i = 0; i < rot[0].length; i++) for (const g of rot) r.order.push(g[i].id); // flet holdene
     r.turn = 0;
     r.pulls = {};
     r.phase = 'playing';
