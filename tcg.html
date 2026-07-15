@@ -697,6 +697,12 @@ body.viewmode #binderSettings { display: none; }
   text-shadow: 0 0 18px rgba(255,217,94,.8);
 }
 #packStats { font: 600 .8rem 'Nunito', sans-serif; color: #cbbf9f; opacity: .85; }
+#duelVerdict { /* dommen bliver staaende til naeste kamp */
+  font: 700 clamp(1.3rem, 4.5vw, 2rem) 'Fredoka', sans-serif;
+  color: #ffd95e;
+  text-shadow: 0 3px 0 #8a5a00, 0 8px 30px rgba(0,0,0,.6), 0 0 30px rgba(255,217,94,.6);
+}
+#duelVerdict:empty { display: none; }
 /* /packs-landing: egen forside for pack-aabneren */
 #packLanding { display: none; flex-direction: column; align-items: center; gap: 16px; padding: 0 16px; }
 #packLandTitle {
@@ -1526,6 +1532,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <button class="btn" id="packSkipBtn" style="display:none" title="Skip to the summary">⏩</button>
   </div>
   <div id="packSummary">
+    <div id="duelVerdict"></div>
     <div id="packGrid"></div>
     <div id="packValue"></div>
     <div id="packStats"></div>
@@ -3406,13 +3413,18 @@ document.addEventListener('keydown', e => { // Esc paa hylden: tilbage til landi
 
 function startPack(pools) {
   const st = packStats();
-  const golden = Math.random() < 1 / 50;
-  const cards = buildPack(pools, st.dry >= PITY - 1, golden);
+  // duel = lige vilkaar: ingen pity-garanti, ingen guldpakker, og pity-taelleren staar stille
+  const golden = !duel && Math.random() < 1 / 50;
+  const cards = buildPack(pools, !duel && st.dry >= PITY - 1, golden);
   st.packs++;
   if (golden) { st.golden++; awardBadge('golden'); }
   if (st.packs >= 10) awardBadge('packs-10');
   if (st.packs >= 50) awardBadge('packs-50');
-  if (cards[cards.length - 1].hit) { st.secrets++; st.dry = 0; awardBadge('first-secret'); } else st.dry++;
+  if (cards[cards.length - 1].hit) {
+    st.secrets++;
+    if (!duel) st.dry = 0;
+    awardBadge('first-secret');
+  } else if (!duel) st.dry++;
   const dex = st.dex[pools.id] || (st.dex[pools.id] = {}); // pull-dex: alle 10 taeller som pullet
   const isNew = {};
   for (const c of cards) {
@@ -3427,6 +3439,7 @@ function startPack(pools) {
   document.getElementById('packLanding').style.display = 'none';
   document.getElementById('packClose').style.display = '';
   document.getElementById('packBadge').textContent = '';
+  document.getElementById('duelVerdict').textContent = '';
   document.getElementById('packAgain').textContent = '🎁 Open another';
   document.getElementById('packSkipBtn').style.display = bundle ? '' : 'none'; // grinder-mode
   const logo = document.getElementById('packLogo');
@@ -4063,7 +4076,9 @@ function showPackSummary() {
         const sc = st.duels[key] || (st.duels[key] = {});
         if (a !== b) { const w = a > b ? n1 : n2; sc[w] = (sc[w] || 0) + 1; }
         save();
-        packCelebrate(a === b ? "IT'S A DRAW!" : (a > b ? n1 : n2).toUpperCase() + ' WINS!');
+        const verdictTxt = a === b ? "IT'S A DRAW!" : (a > b ? n1 : n2).toUpperCase() + ' WINS!';
+        packCelebrate(verdictTxt);
+        document.getElementById('duelVerdict').textContent = '🏆 ' + verdictTxt; // bliver staaende til naeste kamp
         playFx('wow.mp3', 0.6);
         packToast(duelScoreLine(n1, n2));
         rematch = [n2, n1]; // man skiftes til at starte
