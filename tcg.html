@@ -1669,7 +1669,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 <div id="lobbyView">
   <div id="lobbyCard">
     <div id="lobbyCode"></div>
-    <div id="lobbyHint">Share the code — friends join from 🎁 Packs → 2v2 → Online</div>
+    <div id="lobbyHint">Share the code — friends join from 🎁 Packs → 2v2 → Online. Two players = 1v1, four = 2v2</div>
     <div id="lobbyPlayers"></div>
     <div id="lobbySet"></div>
     <button class="btn primary" id="lobbyStart" style="display:none">▶ Start battle</button>
@@ -4349,21 +4349,25 @@ function bestOfPack(details, cards) { // pakkens dyreste kort — til "best pull
   return best;
 }
 
-function renderTeamResult(pulls) { // pulls: [{name, team, value, best}]
+function renderTeamResult(pulls) { // pulls: [{name, team, value, best}] — 1v1 eller 2v2
   const t1 = pulls.filter(p => p.team === 1), t2 = pulls.filter(p => p.team === 2);
   const s1 = t1.reduce((s, p) => s + p.value, 0), s2 = t2.reduce((s, p) => s + p.value, 0);
-  const verdictTxt = s1 === s2 ? "IT'S A DRAW!" : 'TEAM ' + (s1 > s2 ? 1 : 2) + ' WINS!';
+  const solo = t1.length === 1 && t2.length === 1;
+  const verdictTxt = s1 === s2 ? "IT'S A DRAW!"
+    : (solo ? (s1 > s2 ? t1[0].name : t2[0].name).toUpperCase() : 'TEAM ' + (s1 > s2 ? 1 : 2)) + ' WINS!';
   document.getElementById('duelVerdict').textContent = '🏆 ' + verdictTxt;
   packCelebrate(verdictTxt);
   playFx('wow.mp3', 0.6);
   const withBest = pulls.filter(p => p.best);
   const top = withBest.sort((a, b) => ((b.best.p) || 0) - ((a.best.p) || 0))[0];
+  const bestLine = top ? '<br>⭐ Best pull: ' + top.name + ' — ' + top.best.n + (top.best.p != null ? ' (' + fmtPrice(top.best.p) + ')' : '') : '';
   const line = p => p.name + ' ' + fmtPrice(p.value);
   const ts = document.getElementById('teamScore');
   ts.style.display = '';
-  ts.innerHTML = 'Team 1: ' + t1.map(line).join(' + ') + ' = <b>' + fmtPrice(s1) + '</b><br>'
-    + 'Team 2: ' + t2.map(line).join(' + ') + ' = <b>' + fmtPrice(s2) + '</b>'
-    + (top ? '<br>⭐ Best pull: ' + top.name + ' — ' + top.best.n + (top.best.p != null ? ' (' + fmtPrice(top.best.p) + ')' : '') : '');
+  ts.innerHTML = solo
+    ? t1[0].name + ': <b>' + fmtPrice(s1) + '</b> vs ' + t2[0].name + ': <b>' + fmtPrice(s2) + '</b>' + bestLine
+    : 'Team 1: ' + t1.map(line).join(' + ') + ' = <b>' + fmtPrice(s1) + '</b><br>'
+      + 'Team 2: ' + t2.map(line).join(' + ') + ' = <b>' + fmtPrice(s2) + '</b>' + bestLine;
 }
 
 function hidePackStages() {
@@ -4499,13 +4503,15 @@ function renderLobby() {
   document.getElementById('lobbySet').textContent = st.setName ? '📚 ' + st.setName : 'Waiting for the host to pick a set…';
   const t1 = st.players.filter(p => p.team === 1).length;
   const t2 = st.players.filter(p => p.team === 2).length;
-  const ready = t1 === 2 && t2 === 2 && st.setId;
+  const ready = ((t1 === 1 && t2 === 1) || (t1 === 2 && t2 === 2)) && st.setId; // 1v1 eller 2v2
   const isHost = st.host === battle.playerId;
   const startBtn = document.getElementById('lobbyStart');
   startBtn.style.display = isHost ? '' : 'none';
   startBtn.disabled = !ready;
-  document.getElementById('lobbyStatus').textContent = st.players.length < 4
-    ? st.players.length + '/4 joined — share the code!'
+  startBtn.textContent = st.players.length === 2 ? '▶ Start 1v1' : '▶ Start battle';
+  document.getElementById('lobbyStatus').textContent =
+    st.players.length === 2 && ready ? (isHost ? 'Ready for 1v1 — start now, or wait for four 👇' : 'Ready for 1v1 — waiting for the host…')
+    : st.players.length < 4 ? st.players.length + '/4 joined — share the code!'
     : (ready ? 'Ready! ' + (isHost ? 'Hit start 👇' : 'Waiting for the host…') : 'Teams must be 2v2 — tap your team pill to switch');
 }
 document.getElementById('lobbyStart').addEventListener('click', () => battleAct('start').catch(() => packToast('Could not start — check teams')));
@@ -4523,7 +4529,7 @@ function showTurnPrompt() {
   document.getElementById('packLanding').style.display = 'none';
   const stage = document.getElementById('spectateStage');
   stage.style.display = 'flex';
-  document.getElementById('specTitle').textContent = '🎁 YOUR TURN — pack ' + (battle.state.turn + 1) + '/4';
+  document.getElementById('specTitle').textContent = '🎁 YOUR TURN — pack ' + (battle.state.turn + 1) + '/' + battle.state.order.length;
   document.getElementById('specCard').innerHTML = '<div class="spec-wait">🎁</div>';
   document.getElementById('specName').textContent = '';
   document.getElementById('specGrid').innerHTML = '';
@@ -4551,7 +4557,7 @@ function renderSpectate(turnId) {
   const st = battle.state;
   const p = battlePlayer(turnId);
   const mate = battlePlayer(battle.playerId).team === p.team;
-  document.getElementById('specTitle').textContent = '👀 ' + p.name + ' (' + (mate ? 'your teammate' : 'Team ' + p.team) + ') — pack ' + (st.turn + 1) + '/4';
+  document.getElementById('specTitle').textContent = '👀 ' + p.name + ' (' + (mate ? 'your teammate' : (st.order.length === 2 ? 'opponent' : 'Team ' + p.team)) + ') — pack ' + (st.turn + 1) + '/' + st.order.length;
   const pull = st.pulls[turnId];
   const cards = pull ? pull.cards : [];
   const last = cards[cards.length - 1];

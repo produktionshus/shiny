@@ -284,7 +284,9 @@ app.post('/api/battle/:code/join', (req, res) => {
   if (r.phase !== 'lobby') return res.status(409).json({ error: 'already_playing' });
   const playerId = crypto.randomBytes(8).toString('base64url');
   const t1 = r.players.filter(p => p.team === 1).length;
-  r.players.push({ id: playerId, name: name.trim(), team: t1 <= 1 ? 1 : 2 });
+  const t2 = r.players.filter(p => p.team === 2).length;
+  r.players.push({ id: playerId, name: name.trim(), team: t1 > t2 ? 2 : 1 }); // balancer: 2. spiller = modstander
+
   touchRoom(r);
   res.json({ code: r.code, playerId, state: roomState(r) });
 });
@@ -319,10 +321,11 @@ app.post('/api/battle/:code/act', (req, res) => {
     if (!isHost) return res.status(403).json({ error: 'host_only' });
     if (type === 'start' && r.phase !== 'lobby') return res.status(409).json({ error: 'already_playing' });
     const t1 = r.players.filter(p => p.team === 1), t2 = r.players.filter(p => p.team === 2);
-    if (t1.length !== 2 || t2.length !== 2 || !r.setId) return res.status(400).json({ error: 'need_2v2_and_set' });
+    const solo = t1.length === 1 && t2.length === 1; // 1v1 paa to enheder — samme rum og flow
+    if ((!solo && (t1.length !== 2 || t2.length !== 2)) || !r.setId) return res.status(400).json({ error: 'need_1v1_or_2v2_and_set' });
     if (type === 'rematch') { const f = r.firstTeam === 1 ? 2 : 1; r.firstTeam = f; } else r.firstTeam = r.firstTeam || 1;
     const [a, b] = r.firstTeam === 1 ? [t1, t2] : [t2, t1];
-    r.order = [a[0].id, b[0].id, a[1].id, b[1].id]; // hold A sp1 -> hold B sp1 -> hold A sp2 -> hold B sp2
+    r.order = solo ? [a[0].id, b[0].id] : [a[0].id, b[0].id, a[1].id, b[1].id]; // A1 -> B1 (-> A2 -> B2)
     r.turn = 0;
     r.pulls = {};
     r.phase = 'playing';
