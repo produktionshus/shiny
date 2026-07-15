@@ -233,6 +233,127 @@ app.get('/api/shared/:token', (req, res) => {
   res.json({ username: user.username, collected: row ? JSON.parse(row.data) : [] });
 });
 
+// ===== 2v2 pack battle: rooms i hukommelsen (doer ved genstart — et spil varer minutter) =====
+const rooms = new Map(); // code -> room
+const ROOM_TTL = 2 * 60 * 60 * 1000;
+setInterval(() => {
+  const cutoff = Date.now() - ROOM_TTL;
+  for (const [c, r] of rooms) if (r.touched < cutoff) rooms.delete(c);
+}, 10 * 60 * 1000);
+
+function roomCode() {
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // uden I/O — laesbare koder
+  let c;
+  do { c = Array.from({ length: 4 }, () => A[Math.floor(Math.random() * A.length)]).join(''); } while (rooms.has(c));
+  return c;
+}
+function roomState(r) { // spillernes view — uden interne felter
+  return {
+    v: r.v, phase: r.phase, setId: r.setId, setName: r.setName,
+    players: r.players.map(p => ({ id: p.id, name: p.name, team: p.team })),
+    order: r.order, turn: r.turn, pulls: r.pulls, host: r.players[0] && r.players[0].id,
+  };
+}
+function touchRoom(r) { r.touched = Date.now(); r.v++; }
+const okName = n => typeof n === 'string' && n.trim().length >= 1 && n.length <= 14;
+
+app.post('/api/battle', (req, res) => {
+  const { name } = req.body || {};
+  if (!okName(name)) return res.status(400).json({ error: 'bad_name' });
+  if (rooms.size >= 500) return res.status(429).json({ error: 'too_many_rooms' });
+  const code = roomCode();
+  const playerId = crypto.randomBytes(8).toString('base64url');
+  const room = {
+    code, v: 0, touched: Date.now(), phase: 'lobby',
+    setId: null, setName: null,
+    players: [{ id: playerId, name: name.trim(), team: 1 }],
+    order: [], turn: 0, pulls: {},
+  };
+  rooms.set(code, room);
+  res.json({ code, playerId, state: roomState(room) });
+});
+
+app.post('/api/battle/:code/join', (req, res) => {
+  const r = rooms.get(String(req.params.code).toUpperCase());
+  if (!r) return res.status(404).json({ error: 'not_found' });
+  const { name } = req.body || {};
+  if (!okName(name)) return res.status(400).json({ error: 'bad_name' });
+  const existing = r.players.find(p => p.name.toLowerCase() === name.trim().toLowerCase());
+  if (existing) { touchRoom(r); return res.json({ code: r.code, playerId: existing.id, state: roomState(r) }); } // rejoin
+  if (r.players.length >= 4) return res.status(409).json({ error: 'room_full' });
+  if (r.phase !== 'lobby') return res.status(409).json({ error: 'already_playing' });
+  const playerId = crypto.randomBytes(8).toString('base64url');
+  const t1 = r.players.filter(p => p.team === 1).length;
+  r.players.push({ id: playerId, name: name.trim(), team: t1 <= 1 ? 1 : 2 });
+  touchRoom(r);
+  res.json({ code: r.code, playerId, state: roomState(r) });
+});
+
+app.get('/api/battle/:code', (req, res) => {
+  const r = rooms.get(String(req.params.code).toUpperCase());
+  if (!r) return res.status(404).json({ error: 'not_found' });
+  res.json({ state: roomState(r) });
+});
+
+app.post('/api/battle/:code/act', (req, res) => {
+  const r = rooms.get(String(req.params.code).toUpperCase());
+  if (!r) return res.status(404).json({ error: 'not_found' });
+  const { playerId, type } = req.body || {};
+  const me = r.players.find(p => p.id === playerId);
+  if (!me) return res.status(403).json({ error: 'not_in_room' });
+  const isHost = r.players[0] && r.players[0].id === playerId;
+  const myTurn = r.order[r.turn] === playerId;
+
+  if (type === 'team') {
+    if (r.phase !== 'lobby') return res.status(409).json({ error: 'already_playing' });
+    me.team = me.team === 1 ? 2 : 1;
+  } else if (type === 'set') {
+    if (!isHost || r.phase !== 'lobby') return res.status(403).json({ error: 'host_only' });
+    const { setId, setName } = req.body;
+    if (typeof setId !== 'string' || setId.length > 20 || typeof setName !== 'string' || setName.length > 60) {
+      return res.status(400).json({ error: 'bad_set' });
+    }
+    r.setId = setId;
+    r.setName = setName;
+  } else if (type === 'start' || type === 'rematch') {
+    if (!isHost) return res.status(403).json({ error: 'host_only' });
+    if (type === 'start' && r.phase !== 'lobby') return res.status(409).json({ error: 'already_playing' });
+    const t1 = r.players.filter(p => p.team === 1), t2 = r.players.filter(p => p.team === 2);
+    if (t1.length !== 2 || t2.length !== 2 || !r.setId) return res.status(400).json({ error: 'need_2v2_and_set' });
+    if (type === 'rematch') { const f = r.firstTeam === 1 ? 2 : 1; r.firstTeam = f; } else r.firstTeam = r.firstTeam || 1;
+    const [a, b] = r.firstTeam === 1 ? [t1, t2] : [t2, t1];
+    r.order = [a[0].id, b[0].id, a[1].id, b[1].id]; // hold A sp1 -> hold B sp1 -> hold A sp2 -> hold B sp2
+    r.turn = 0;
+    r.pulls = {};
+    r.phase = 'playing';
+  } else if (type === 'reveal') {
+    if (r.phase !== 'playing' || !myTurn) return res.status(403).json({ error: 'not_your_turn' });
+    const { card } = req.body;
+    if (!card || typeof card.n !== 'string' || card.n.length > 80
+        || (card.img != null && (typeof card.img !== 'string' || card.img.length > 120))) {
+      return res.status(400).json({ error: 'bad_card' });
+    }
+    const pull = r.pulls[playerId] || (r.pulls[playerId] = { cards: [], value: null });
+    if (pull.cards.length >= 10) return res.status(400).json({ error: 'pack_full' });
+    pull.cards.push({ n: card.n, img: card.img || null, hit: !!card.hit, rev: !!card.rev });
+  } else if (type === 'packDone') {
+    if (r.phase !== 'playing' || !myTurn) return res.status(403).json({ error: 'not_your_turn' });
+    const { value, best } = req.body;
+    const pull = r.pulls[playerId] || (r.pulls[playerId] = { cards: [], value: null });
+    pull.value = typeof value === 'number' && isFinite(value) ? Math.max(0, Math.min(99999, value)) : 0;
+    if (best && typeof best.n === 'string' && best.n.length <= 80) {
+      pull.best = { n: best.n, img: typeof best.img === 'string' && best.img.length <= 120 ? best.img : null,
+        p: typeof best.p === 'number' && isFinite(best.p) ? best.p : null };
+    }
+    r.turn++;
+    if (r.turn >= r.order.length) r.phase = 'done';
+  } else {
+    return res.status(400).json({ error: 'bad_action' });
+  }
+  touchRoom(r);
+  res.json({ state: roomState(r) });
+});
+
 // pack-aabneren er sin egen app men deler motor (og konto) med TCG-binderen
 app.get('/packs', (req, res) => res.sendFile(path.join(__dirname, 'tcg.html')));
 
