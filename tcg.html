@@ -3096,8 +3096,9 @@ function playRip() { // syntetiseret papir-riv: stoej-burst med stigende bandpas
 }
 const packPoolCache = new Map(); // setId -> pools
 let pack = null; // { pools, cards, i, kept: Set, golden, isNew }
-let duel = null;   // { vals: [] } — to spillere, samme saet
+let duel = null;   // { vals, names } — to spillere, samme saet
 let bundle = null; // { count, left, total, hits } — 5 pakker i traek
+let rematch = null; // navnepar fra sidste duel: goer "Open another" til rematch-knap
 
 const packBrief = c => ({ id: c.id, n: c.name, img: c.image ? c.image.replace(ASSETS, '') : null });
 
@@ -4061,6 +4062,8 @@ function showPackSummary() {
         packCelebrate(a === b ? "IT'S A DRAW!" : (a > b ? n1 : n2).toUpperCase() + ' WINS!');
         playFx('wow.mp3', 0.6);
         packToast('🏆 ' + n1 + ' ' + sc.a + ' – ' + sc.b + ' ' + n2);
+        rematch = duel.names; // naeste runde direkte fra dommen
+        document.getElementById('packAgain').textContent = '⚔️ Rematch — ' + n1 + ' first';
         duel = null;
       }
     }
@@ -4129,7 +4132,13 @@ function renderPackStats() {
   }
 }
 
-document.getElementById('packAgain').addEventListener('click', () => startPack(pack.pools));
+document.getElementById('packAgain').addEventListener('click', () => {
+  if (rematch && !duel && !bundle) { // ⚔️ ny runde med samme navne
+    duel = { vals: [], names: rematch };
+    packToast('⚔️ ' + rematch[0] + ' — open your pack!');
+  }
+  startPack(pack.pools);
+});
 
 // landing → sim-binderne bag overlayet
 document.getElementById('packBindersBtn').addEventListener('click', () => {
@@ -4202,6 +4211,7 @@ function showPackLanding() {
   pack = null;
   duel = null;
   bundle = null;
+  rematch = null;
   document.getElementById('packShelf').style.display = 'none';
   $packWrap.style.display = 'none';
   document.getElementById('packStack').style.display = 'none';
