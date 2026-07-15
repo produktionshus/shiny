@@ -3362,12 +3362,15 @@ document.getElementById('bundleBtn').addEventListener('click', e => {
   openPackFlow(chosenSetId, e.currentTarget);
 });
 
-function duelKey(n) { return n[0] + '|' + n[1]; }
+function duelKey(n) { return [...n].sort().join('|'); } // ordre-uafhaengig: skiftevis start aendrer ikke parret
+function duelScoreLine(n1, n2) {
+  const sc = (packStats().duels || {})[duelKey([n1, n2])];
+  return sc ? '🏆 ' + n1 + ' ' + (sc[n1] || 0) + ' – ' + (sc[n2] || 0) + ' ' + n2 : '';
+}
 function renderDuelScore() {
   const n1 = document.getElementById('duelN1').value.trim() || 'Player 1';
   const n2 = document.getElementById('duelN2').value.trim() || 'Player 2';
-  const sc = (packStats().duels || {})[duelKey([n1, n2])];
-  document.getElementById('duelScore').textContent = sc ? '🏆 ' + n1 + ' ' + sc.a + ' – ' + sc.b + ' ' + n2 : '';
+  document.getElementById('duelScore').textContent = duelScoreLine(n1, n2);
 }
 document.getElementById('duelBtn').addEventListener('click', () => {
   if (!chosenSetId) { packToast('Choose a set first'); return; }
@@ -4055,15 +4058,16 @@ function showPackSummary() {
       } else {
         const [a, b] = duel.vals;
         valEl.textContent += ' · ' + n1 + ' ' + fmtPrice(a) + ' vs ' + n2 + ' ' + fmtPrice(b);
-        if (!st.duels) st.duels = {}; // scoreboard foelger navneparret
-        const sc = st.duels[duelKey(duel.names)] || (st.duels[duelKey(duel.names)] = { a: 0, b: 0 });
-        if (a > b) sc.a++; else if (b > a) sc.b++;
+        if (!st.duels) st.duels = {}; // scoreboard foelger navneparret, vinder-navne som noegler
+        const key = duelKey(duel.names);
+        const sc = st.duels[key] || (st.duels[key] = {});
+        if (a !== b) { const w = a > b ? n1 : n2; sc[w] = (sc[w] || 0) + 1; }
         save();
         packCelebrate(a === b ? "IT'S A DRAW!" : (a > b ? n1 : n2).toUpperCase() + ' WINS!');
         playFx('wow.mp3', 0.6);
-        packToast('🏆 ' + n1 + ' ' + sc.a + ' – ' + sc.b + ' ' + n2);
-        rematch = duel.names; // naeste runde direkte fra dommen
-        document.getElementById('packAgain').textContent = '⚔️ Rematch — ' + n1 + ' first';
+        packToast(duelScoreLine(n1, n2));
+        rematch = [n2, n1]; // man skiftes til at starte
+        document.getElementById('packAgain').textContent = '⚔️ Rematch — ' + n2 + ' first';
         duel = null;
       }
     }
