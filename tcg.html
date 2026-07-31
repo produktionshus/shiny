@@ -1403,6 +1403,10 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <input id="q" placeholder="Search card name, e.g. Mew…" autocomplete="off">
       <select id="setSelect"><option value="">All sets (search by name)</option></select>
     </div>
+    <div class="place-mode" style="margin-bottom:6px">
+      <button id="langEN" class="on" title="Search English cards">EN</button>
+      <button id="langJP" title="Search Japanese cards">JP 🇯🇵</button>
+    </div>
     <div class="place-mode">
       <button id="modeOwned" class="on" title="Cards you have">✓ Have</button>
       <button id="modeWanted" title="Cards on your wishlist">☆ Need</button>
@@ -1694,7 +1698,10 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 </div>
 
 <script>
-const API = 'https://api.tcgdex.net/v2/en';
+const API_ROOT = 'https://api.tcgdex.net/v2';
+const API = API_ROOT + '/en';
+function sAPI() { return API_ROOT + '/' + (store.searchLang || 'en'); } // soegesprog
+function cardLang(card) { return card && card.img && card.img.startsWith('ja/') ? 'ja' : 'en'; }
 const ASSETS = 'https://assets.tcgdex.net/';
 const LS_KEY = 'tcg-binder-v1';
 const BINDER_COLORS = { // [top, mellem, bund] laedergradient
@@ -1812,11 +1819,12 @@ async function loadSets() {
   pocketReady = new Promise(r => readyResolve = r);
   try {
     const [sets, tcgp] = await Promise.all([
-      fetch(API + '/sets').then(r => r.json()),
-      fetch(API + '/series/tcgp').then(r => r.json()).catch(() => ({ sets: [] })),
+      fetch(sAPI() + '/sets').then(r => r.json()),
+      fetch(sAPI() + '/series/tcgp').then(r => r.json()).catch(() => ({ sets: [] })),
     ]);
     pocketSets = new Set((tcgp.sets || []).map(x => x.id.toLowerCase()));
     readyResolve();
+    while ($set.options.length > 1) $set.remove(1); // genindlaesning ved sprogskifte
     for (const s of sets) {
       if (pocketSets.has(s.id.toLowerCase())) continue; // kun rigtige kort
       const o = document.createElement('option');
@@ -1842,15 +1850,24 @@ async function doSearch() {
   const seq = ++searchSeq;
   $hint.textContent = 'Searching…';
   try {
+    // samler-syntaks: "Mew rc24" / "Pikachu 069" — sidste token som kortnummer
+    const normNum = t => String(t).toLowerCase().replace(/^([a-z]*)0*/, '$1');
+    let name = q, num = null;
+    const nm = q.match(/^(.*\S)\s+([A-Za-z]{0,3}\d{1,4}[A-Za-z]?)$/);
+    if (nm) { name = nm[1]; num = normNum(nm[2]); }
     let cards;
     if (setId) {
-      const set = await (await fetch(API + '/sets/' + setId)).json();
+      const set = await (await fetch(sAPI() + '/sets/' + setId)).json();
       cards = set.cards || [];
       if (q) cards = cards.filter(c => c.name.toLowerCase().includes(q.toLowerCase()));
     } else {
       if (pocketReady) await pocketReady;
-      cards = await (await fetch(API + '/cards?name=' + encodeURIComponent(q))).json();
+      cards = await (await fetch(sAPI() + '/cards?name=' + encodeURIComponent(name))).json();
       cards = cards.filter(c => !isPocketCard(c.id));
+      if (num) {
+        const hits = cards.filter(c => normNum(c.localId || '') === num);
+        if (hits.length) cards = hits; // ellers: tallet var nok del af navnet — vis fuld liste
+      }
     }
     if (seq !== searchSeq) return; // forældet svar
     renderResults(cards);
@@ -2001,7 +2018,7 @@ function renderPage(grid, pageIdx) {
           lastPlaced = null;
         }
         div.appendChild(im);
-        getDetail(card.id).then(d => {
+        getDetail(card.id, cardLang(card)).then(d => {
           if (d && d.variants && d.variants.holo && div.isConnected && !div.querySelector('.holo-sheen')) {
             const sh = document.createElement('div');
             sh.className = 'holo-sheen';
@@ -2331,13 +2348,15 @@ const RARITY_ODDS = {
   'Hyper rare': ['HR', '1:149'],
 };
 const detailCache = new Map();
-function getDetail(id) {
-  if (!detailCache.has(id)) {
-    detailCache.set(id, fetch(API + '/cards/' + id)
+function getDetail(id, lang) {
+  lang = lang || 'en';
+  const key = lang + ':' + id;
+  if (!detailCache.has(key)) {
+    detailCache.set(key, fetch(API_ROOT + '/' + lang + '/cards/' + id)
       .then(r => r.ok ? r.json() : null)
       .catch(() => null));
   }
-  return detailCache.get(id);
+  return detailCache.get(key);
 }
 function priceSource() { return store.priceSource === 'tcgplayer' ? 'tcgplayer' : 'cardmarket'; }
 function updatePriceUI() {
@@ -2396,7 +2415,7 @@ async function fillInfo(panelId, card, stillCurrent) {
   const panel = document.getElementById(panelId);
   panel.style.display = '';
   panel.textContent = 'Loading…';
-  const d = await getDetail(card.id);
+  const d = await getDetail(card.id, cardLang(card));
   if (!stillCurrent()) return; // bruger har lukket/skiftet
   panel.textContent = '';
   if (!d) { panel.textContent = 'No details available'; return; }
@@ -2442,6 +2461,7 @@ document.getElementById('valueBtn').addEventListener('click', async () => {
   if (!cards.length) { toast('The binder is empty'); return; }
   valueBusy = true;
   const ids = [...new Set(cards.map(c => c.id))];
+  const langById = new Map(cards.map(c => [c.id, cardLang(c)]));
   const queue = ids.slice();
   const prices = new Map();
   let done = 0;
@@ -2449,7 +2469,7 @@ document.getElementById('valueBtn').addEventListener('click', async () => {
   await Promise.all(Array.from({ length: 8 }, async () => { // ponytail: 8 samtidige opslag
     while (queue.length) {
       const id = queue.shift();
-      prices.set(id, cardPrice(await getDetail(id)));
+      prices.set(id, cardPrice(await getDetail(id, langById.get(id))));
       btn.textContent = '💰 ' + (++done) + '/' + ids.length;
     }
   }));
@@ -2480,7 +2500,7 @@ function openZoom(card, from) {
   hi.src = imgUrl(card.img, 'high');
   document.getElementById('zoomName').textContent = card.n;
   $zoomCard.classList.remove('holo-on');
-  getDetail(card.id).then(d => { // reverse er naesten alle moderne kort — kun aegte holo taeller
+  getDetail(card.id, cardLang(card)).then(d => { // reverse er naesten alle moderne kort — kun aegte holo taeller
     if (zoomedCard === card && d && d.variants && d.variants.holo) $zoomCard.classList.add('holo-on');
   });
   fillZoomInfo(card);
@@ -2845,7 +2865,7 @@ document.getElementById('needBtn').addEventListener('click', async () => {
   for (const c of binder().pages.flat()) {
     if (c && c.o === false) {
       const k = c.id;
-      if (!counts.has(k)) counts.set(k, { n: c.n, count: 0 });
+      if (!counts.has(k)) counts.set(k, { n: c.n, count: 0, lang: cardLang(c) });
       counts.get(k).count++;
     }
   }
@@ -2874,7 +2894,7 @@ document.getElementById('needBtn').addEventListener('click', async () => {
       links.appendChild(cm);
       row.appendChild(links);
       list.appendChild(row);
-      jobs.push({ id, n: v.n, links, cm });
+      jobs.push({ id, n: v.n, lang: v.lang, links, cm });
     }
   }
   document.getElementById('needcopy').style.display = counts.size ? '' : 'none';
@@ -2884,7 +2904,7 @@ document.getElementById('needBtn').addEventListener('click', async () => {
   await Promise.all(Array.from({ length: 8 }, async () => {
     while (queue.length) {
       const job = queue.shift();
-      const d = await getDetail(job.id);
+      const d = await getDetail(job.id, job.lang);
       if (gen !== needGen) return;
       if (d && d.set && d.set.name) {
         // saet-side filtreret paa navn rammer kortniveau (praecist produkt-slug kraever Cardmarkets egne saetkoder)
@@ -4757,6 +4777,22 @@ document.addEventListener('keydown', e => {
     document.getElementById('packKeep').textContent = '✓ Kept';
   }
 });
+
+// ---------- soegesprog EN/JP ----------
+function setSearchLang(lang) {
+  store.searchLang = lang;
+  document.getElementById('langEN').classList.toggle('on', lang === 'en');
+  document.getElementById('langJP').classList.toggle('on', lang === 'ja');
+  save();
+  loadSets();   // saet-listen skifter sprog
+  doSearch();   // koer soegningen igen paa nyt sprog
+}
+document.getElementById('langEN').addEventListener('click', () => setSearchLang('en'));
+document.getElementById('langJP').addEventListener('click', () => setSearchLang('ja'));
+if ((store.searchLang || 'en') !== 'en') {
+  document.getElementById('langEN').classList.remove('on');
+  document.getElementById('langJP').classList.add('on');
+}
 
 // ---------- init ----------
 if (packMode) {
