@@ -94,6 +94,48 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
 }
 
 /* ===== Search panel ===== */
+.pagegrid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.pagegrid .pg {
+  width: 64px;
+  aspect-ratio: 63/88;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid rgba(0,0,0,.25);
+  background: rgba(0,0,0,.08);
+  position: relative;
+}
+.pagegrid .pg.cur { border-color: #d9a92f; box-shadow: 0 0 0 2px rgba(217,169,47,.5); }
+.pagegrid .pg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pagegrid .pg .pgnum {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  font: 700 .62rem 'Fredoka', sans-serif;
+  text-align: center;
+  padding: 1px 0;
+}
+body.drawer-closed .search-panel { display: none; }
+body.drawer-closed .page,
+body.drawer-closed #cover {
+  width: min(calc((100vw - 240px) / 2), calc((100vh - 260px) * 0.716 * var(--cols, 3) / var(--rows, 3)), calc(var(--cols, 3) * 430px));
+}
+#drawerTab {
+  position: fixed;
+  left: 0; top: 50%;
+  transform: translateY(-50%);
+  z-index: 460;
+  writing-mode: vertical-rl;
+  padding: 14px 6px;
+  border-radius: 0 10px 10px 0;
+  border: 1.5px solid rgba(255,217,94,.4);
+  border-left: none;
+  background: rgba(20,26,36,.9);
+  color: #ffe9a8;
+  font: 700 .8rem 'Fredoka', sans-serif;
+  cursor: pointer;
+}
+body.viewmode #drawerTab { display: none; }
 .search-panel {
   flex: 0 0 330px;
   background: rgba(0,0,0,.3);
@@ -1457,6 +1499,7 @@ body.viewmode .viewbar { display: flex; }
 /* i pack-mode ligger overlayet over alt — naven skal blive haengende ovenpaa */
 body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px; margin: 0; }
 </style>
+<button id="drawerTab" title="Toggle search panel">🔍 Search</button>
 <nav class="binder-switch">
   <a class="go" href="/">✨ GO</a>
   <a class="tcg active" href="/tcg">🃏 TCG</a>
@@ -1611,6 +1654,14 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <button id="mysharelink" class="authaction secondary">🔗 Copy my share link</button>
     <button id="tradesBtn" class="authaction secondary">🤝 Trade matches</button>
     <button id="myGuestbook" class="authaction secondary">💬 My guestbook</button>
+  </div>
+</div>
+
+<div id="pagesmodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 style="font: 700 1.3rem 'Fredoka', sans-serif; margin-bottom: 10px;">📖 Pages</h2>
+    <div class="pagegrid" id="pagegrid"></div>
   </div>
 </div>
 
@@ -5427,6 +5478,54 @@ if ((store.searchLang || 'en') !== 'en') {
   document.getElementById('langEN').classList.remove('on');
   document.getElementById('langJP').classList.add('on');
 }
+
+// ---------- skuffe: fold soegepanelet ind/ud ----------
+const DRAWER_KEY = 'tcg-drawer-closed';
+function applyDrawer() {
+  document.body.classList.toggle('drawer-closed', localStorage.getItem(DRAWER_KEY) === '1');
+  document.getElementById('drawerTab').textContent =
+    document.body.classList.contains('drawer-closed') ? '🔍 Search' : '◀ Hide';
+}
+document.getElementById('drawerTab').addEventListener('click', () => {
+  localStorage.setItem(DRAWER_KEY, document.body.classList.contains('drawer-closed') ? '0' : '1');
+  applyDrawer();
+  renderBinder(); // lommestoerrelse aendres -> billedkvalitet genberegnes
+});
+applyDrawer();
+
+// ---------- side-oversigt: klik paa opslag-etiketten ----------
+const pagesmodal = document.getElementById('pagesmodal');
+document.getElementById('spreadLabel').style.cursor = 'pointer';
+document.getElementById('spreadLabel').title = 'Show all pages';
+document.getElementById('spreadLabel').addEventListener('click', () => {
+  const grid = document.getElementById('pagegrid');
+  grid.innerHTML = '';
+  binder().pages.forEach((pg, i) => {
+    const box = document.createElement('div');
+    box.className = 'pg' + (spread >= 0 && (i === spread * 2 - 1 || i === spread * 2) ? ' cur' : '');
+    const first = pg.find(c => c && c.img);
+    if (first) {
+      const im = document.createElement('img');
+      im.loading = 'lazy';
+      im.src = imgUrl(first.img, 'low');
+      box.appendChild(im);
+    }
+    const num = document.createElement('div');
+    num.className = 'pgnum';
+    num.textContent = 'P' + (i + 1) + ' · ' + pg.filter(c => c).length + '/' + pg.length;
+    box.appendChild(num);
+    box.addEventListener('click', () => {
+      spread = Math.floor((i + 1) / 2);
+      renderBinder();
+      pagesmodal.hidden = true;
+    });
+    grid.appendChild(box);
+  });
+  pagesmodal.hidden = false;
+});
+pagesmodal.addEventListener('click', e => {
+  if (e.target === pagesmodal || e.target.closest('.modal-close')) pagesmodal.hidden = true;
+});
 
 // ---------- tastatur: ←/→ bladrer binderen ----------
 document.addEventListener('keydown', e => {
