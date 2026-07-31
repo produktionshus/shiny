@@ -488,6 +488,41 @@ body.viewmode #binderSettings { display: none; }
   font-weight: 800; color: #ffe9a8;
   display: none; z-index: 350;
 }
+#pileStrip {
+  display: flex; gap: 5px;
+  max-width: min(92vw, 920px);
+  overflow-x: auto;
+  padding: 6px 8px;
+  touch-action: pan-x; /* overlayet er ellers touch-action:none */
+  scrollbar-width: thin;
+}
+#pileStrip .strip-thumb {
+  flex: 0 0 auto;
+  width: 44px;
+  aspect-ratio: 63/88;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  opacity: .7;
+  background: rgba(255,255,255,.06);
+}
+#pileStrip .strip-thumb.on { border-color: #ffd95e; opacity: 1; box-shadow: 0 0 8px rgba(255,217,94,.6); }
+#pileStrip .strip-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#pileStrip .strip-thumb .noimg {
+  font-size: .42rem; font-weight: 800; color: #cbbf9f;
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; text-align: center; padding: 2px;
+}
+#pileSort {
+  font: 700 .8rem 'Nunito', sans-serif;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(255,217,94,.4);
+  background: rgba(0,0,0,.35);
+  color: #ffe9a8;
+}
+#pileSort option { background: #1b2430; }
 #pileClose, #packClose { /* safe-area: standalone-PWA laegger indholdet under statusbaren */
   position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); right: calc(18px + env(safe-area-inset-right, 0px));
   font-size: 1.6rem;
@@ -1525,7 +1560,13 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 
 <div id="pileOverlay">
   <button id="pileClose" title="Close (Esc)">✕</button>
-  <div id="pileCounter"></div>
+  <div style="display:flex; gap:12px; align-items:center">
+    <div id="pileCounter"></div>
+    <select id="pileSort">
+      <option value="search">Search order</option>
+      <option value="set">Set &amp; number</option>
+    </select>
+  </div>
   <div id="pileStack">
     <div class="pile-back b3"></div>
     <div class="pile-back b1"></div>
@@ -1539,6 +1580,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <button class="btn primary" id="pileAdd" title="Add to binder (↑)">▲ Add to binder</button>
     <button class="navbtn" id="pileNext" title="Next (→)">▶</button>
   </div>
+  <div id="pileStrip"></div>
   <div id="pileHint">Swipe ←/→ to browse · swipe ↑ to add to the first empty pocket · Esc closes</div>
   <div id="pileToast"></div>
 </div>
@@ -2631,8 +2673,10 @@ function firstFreeSlot() {
 
 document.getElementById('pileBtn').addEventListener('click', () => {
   if (!allResults.length) { toast('Search first — then you can browse the pile'); return; }
-  pile = { cards: allResults.slice(), i: 0 };
+  pile = { cards: allResults.slice(), orig: allResults.slice(), i: 0 };
+  document.getElementById('pileSort').value = 'search';
   $pileOverlay.classList.add('open');
+  buildStrip();
   renderPile();
 });
 function closePile() { pile = null; document.getElementById('pileInfo').style.display = 'none'; $pileOverlay.classList.remove('open'); }
@@ -2658,7 +2702,56 @@ function renderPile() {
   document.getElementById('pileCounter').textContent = (pile.i + 1) + ' / ' + pile.cards.length;
   document.getElementById('pileName').textContent = c.n;
   fillInfo('pileInfo', c, () => pile && pile.cards[pile.i] === c);
+  syncStrip();
 }
+
+function buildStrip() {
+  const strip = document.getElementById('pileStrip');
+  strip.innerHTML = '';
+  pile.cards.forEach((c, i) => {
+    const t = document.createElement('div');
+    t.className = 'strip-thumb';
+    if (c.img) {
+      const im = document.createElement('img');
+      im.loading = 'lazy';
+      im.src = imgUrl(c.img, 'low');
+      t.appendChild(im);
+    } else {
+      const d = document.createElement('div');
+      d.className = 'noimg';
+      d.textContent = c.n;
+      t.appendChild(d);
+    }
+    t.title = c.n;
+    t.addEventListener('click', () => { pile.i = i; renderPile(); });
+    strip.appendChild(t);
+  });
+}
+function syncStrip() {
+  const strip = document.getElementById('pileStrip');
+  [...strip.children].forEach((el, i) => el.classList.toggle('on', i === pile.i));
+  const cur = strip.children[pile.i];
+  if (cur) cur.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+}
+function splitId(id) {
+  const k = id.lastIndexOf('-');
+  return [id.slice(0, k), parseInt(String(id.slice(k + 1)).replace(/\D/g, ''), 10) || 0];
+}
+document.getElementById('pileSort').addEventListener('change', e => {
+  if (!pile) return;
+  const cur = pile.cards[pile.i];
+  if (e.target.value === 'set') {
+    pile.cards = pile.orig.slice().sort((a, b) => {
+      const [sa, la] = splitId(a.id), [sb, lb] = splitId(b.id);
+      return sa === sb ? (la - lb || a.id.localeCompare(b.id)) : sa.localeCompare(sb);
+    });
+  } else {
+    pile.cards = pile.orig.slice();
+  }
+  pile.i = Math.max(0, pile.cards.indexOf(cur));
+  buildStrip();
+  renderPile();
+});
 
 let pileToastTimer;
 function pileToast(msg) {
