@@ -296,6 +296,26 @@ body.viewmode #drawerTab { display: none; }
   padding: 0 20px;
   letter-spacing: .04em;
 }
+#coverBadge {
+  font: 700 .85rem 'Fredoka', sans-serif;
+  letter-spacing: .12em;
+  color: #5c3d00;
+  background: linear-gradient(180deg, #ffe9a0, var(--gold));
+  border: 1.5px solid #a87c14;
+  border-radius: 999px;
+  padding: 4px 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+.confetti {
+  position: fixed; top: -14px;
+  width: 9px; height: 14px;
+  z-index: 900;
+  pointer-events: none;
+  animation: confFall linear forwards;
+}
+@keyframes confFall {
+  to { transform: translateY(105vh) rotate(720deg); opacity: .9; }
+}
 #coverHint { font: 600 .8rem 'Fredoka', sans-serif; color: rgba(255,233,168,.7); }
 #cover:hover #coverHint { color: #ffe9a8; }
 
@@ -1561,6 +1581,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
           <img id="coverCard" alt="" style="display:none">
           <div id="coverEmblem">✦</div>
           <div id="coverName"></div>
+          <div id="coverBadge" style="display:none">✦ MASTER SET ✦</div>
           <div id="coverHint">Click to open</div>
         </div>
         <div class="spread">
@@ -1589,6 +1610,8 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <button class="btn edit-only" id="settingsBtn">⚙ Appearance</button>
       <button class="btn" id="needBtn">📋 Need list</button>
       <button class="btn" id="valueBtn" title="Estimated Cardmarket value of the cards in this binder">💰 Value</button>
+      <button class="btn" id="curveBtn" title="Binder value over time">📈</button>
+      <button class="btn" id="factsBtn">📊 Facts</button>
       <button class="btn" id="sendTcgBtn" style="display:none" title="Copy this pull binder into your real TCG binders">📤 Send copy to TCG</button>
     </div>
     <div id="binderSettings">
@@ -1654,6 +1677,22 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <button id="mysharelink" class="authaction secondary">🔗 Copy my share link</button>
     <button id="tradesBtn" class="authaction secondary">🤝 Trade matches</button>
     <button id="myGuestbook" class="authaction secondary">💬 My guestbook</button>
+  </div>
+</div>
+
+<div id="factsmodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 style="font: 700 1.3rem 'Fredoka', sans-serif; margin-bottom: 8px;">📊 Binder facts</h2>
+    <div id="factsbody" style="text-align:left; font: 700 .9rem 'Nunito', sans-serif;"></div>
+  </div>
+</div>
+
+<div id="curvemodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 style="font: 700 1.3rem 'Fredoka', sans-serif; margin-bottom: 8px;">📈 Value over time</h2>
+    <div id="curvebody" style="font: 700 .9rem 'Nunito', sans-serif;"></div>
   </div>
 </div>
 
@@ -2176,6 +2215,7 @@ function renderBinder() {
     cc.style.display = flair ? '' : 'none';
     if (flair) cc.src = imgUrl(flair.img, 'low');
     document.getElementById('coverEmblem').style.display = flair ? 'none' : '';
+    document.getElementById('coverBadge').style.display = bb.msDone ? '' : 'none';
     renderProgress();
     return;
   }
@@ -2217,6 +2257,13 @@ function renderProgress() {
       if (si && setEl.style.display !== 'none') {
         const total = si.cardCount && si.cardCount.official;
         setEl.textContent = ownedUnique + (total ? '/' + total : '') + ' · ' + si.name;
+        const complete = !!total && ownedUnique >= total;
+        const b = binder();
+        if (!viewBinder) {
+          if (complete && !b.msDone) { b.msDone = true; save(); confettiBurst(); }
+          else if (!complete && b.msDone) { b.msDone = false; save(); } // aerligt badge
+        }
+        if (complete || b.msDone) setEl.textContent += ' — MASTER SET ✦';
       }
     });
   } else {
@@ -2639,6 +2686,7 @@ function getDetail(id, lang) {
 function priceSource() { return store.priceSource === 'tcgplayer' ? 'tcgplayer' : 'cardmarket'; }
 function updatePriceUI() {
   document.getElementById('valueBtn').style.display = store.showPrices ? '' : 'none';
+  document.getElementById('curveBtn').style.display = store.showPrices ? '' : 'none';
   document.getElementById('priceSourceSel').disabled = !store.showPrices;
   document.getElementById('dispCurrency').disabled = !store.showPrices || priceSource() === 'tcgplayer';
 }
@@ -5525,6 +5573,154 @@ document.getElementById('spreadLabel').addEventListener('click', () => {
 });
 pagesmodal.addEventListener('click', e => {
   if (e.target === pagesmodal || e.target.closest('.modal-close')) pagesmodal.hidden = true;
+});
+
+// ---------- konfetti (master set) ----------
+function confettiBurst() {
+  const colors = ['#ffd95e', '#e8554d', '#3a7bd5', '#38a169', '#b07be0', '#ffffff'];
+  for (let i = 0; i < 90; i++) {
+    const d = document.createElement('div');
+    d.className = 'confetti';
+    d.style.left = Math.random() * 100 + 'vw';
+    d.style.background = colors[i % colors.length];
+    d.style.animationDelay = (Math.random() * 0.8) + 's';
+    d.style.animationDuration = (2 + Math.random() * 1.6) + 's';
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 4600);
+  }
+  toast('MASTER SET COMPLETE! ✦');
+}
+
+// ---------- binder-facts ----------
+const factsmodal = document.getElementById('factsmodal');
+document.getElementById('factsBtn').addEventListener('click', async () => {
+  const cards = binder().pages.flat().filter(c => c);
+  const body = document.getElementById('factsbody');
+  if (!cards.length) { toast('The binder is empty'); return; }
+  factsmodal.hidden = false;
+  const ids = [...new Set(cards.map(c => c.id))];
+  body.textContent = 'Crunching ' + ids.length + ' cards…';
+  const langById = new Map(cards.map(c => [c.id, cardLang(c)]));
+  const queue = ids.slice();
+  const details = new Map();
+  await Promise.all(Array.from({ length: 8 }, async () => {
+    while (queue.length) {
+      const id = queue.shift();
+      details.set(id, await getDetail(id, langById.get(id)));
+    }
+  }));
+  if (factsmodal.hidden) return;
+  const rarities = new Map();
+  let holo = 0;
+  const sets = new Set();
+  const priced = [];
+  for (const c of cards) {
+    const d = details.get(c.id);
+    sets.add(c.id.slice(0, c.id.lastIndexOf('-')));
+    if (d) {
+      if (d.rarity) rarities.set(d.rarity, (rarities.get(d.rarity) || 0) + 1);
+      if (d.variants && d.variants.holo) holo++;
+    }
+  }
+  for (const id of ids) {
+    const pr = store.showPrices ? cardPrice(details.get(id)) : null;
+    if (pr != null) priced.push([id, pr]);
+  }
+  priced.sort((a, b) => b[1] - a[1]);
+  body.textContent = '';
+  const line = (l, v) => {
+    const row = document.createElement('div');
+    row.style.margin = '4px 0';
+    const lb = document.createElement('span');
+    lb.textContent = l + ': ';
+    lb.style.cssText = "font-family:'Fredoka',sans-serif;font-weight:600;";
+    row.append(lb, String(v));
+    body.appendChild(row);
+  };
+  line('Cards', cards.length + ' (' + ids.length + ' unique)');
+  line('Owned / needed', cards.filter(c => c.o !== false).length + ' / ' + cards.filter(c => c.o === false).length);
+  line('Sets represented', sets.size);
+  line('True holo cards', holo);
+  const rarStr = [...rarities.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)
+    .map(([r, n]) => r + ' ×' + n).join(' · ') || '—';
+  line('Rarities', rarStr);
+  if (store.showPrices && priced.length) {
+    const topStr = priced.slice(0, 3)
+      .map(([id]) => { const c = cards.find(x => x.id === id); return c ? c.n : id; })
+      .map((n, i) => n + ' (' + fmtPrice(priced[i][1]) + ')').join(' · ');
+    line('Most valuable', topStr);
+  }
+});
+factsmodal.addEventListener('click', e => {
+  if (e.target === factsmodal || e.target.closest('.modal-close')) factsmodal.hidden = true;
+});
+
+// ---------- binderens vaerdikurve (fra daglige pris-snapshots) ----------
+const curvemodal = document.getElementById('curvemodal');
+document.getElementById('curveBtn').addEventListener('click', async () => {
+  const cards = binder().pages.flat().filter(c => c && c.o !== false && cardLang(c) === 'en');
+  const body = document.getElementById('curvebody');
+  if (!cards.length) { toast('No owned cards to track'); return; }
+  curvemodal.hidden = false;
+  body.textContent = 'Building curve…';
+  const countById = new Map();
+  for (const c of cards) countById.set(c.id, (countById.get(c.id) || 0) + 1);
+  const ids = [...countById.keys()];
+  const hist = new Map();
+  const queue = ids.slice();
+  await Promise.all(Array.from({ length: 8 }, async () => {
+    while (queue.length) {
+      const id = queue.shift();
+      try {
+        const j = await (await fetch('/api/prices/' + encodeURIComponent(id))).json();
+        hist.set(id, (j.history || []).filter(r => r.eur != null));
+      } catch (e) { hist.set(id, []); }
+    }
+  }));
+  if (curvemodal.hidden) return;
+  const days = [...new Set([].concat(...[...hist.values()].map(h => h.map(r => r.day))))].sort();
+  if (days.length < 2) {
+    body.textContent = 'The curve builds from daily snapshots — check back in a couple of days.';
+    return;
+  }
+  // forward-fill: hvert korts senest kendte pris paa hver dag
+  const totals = days.map(day => {
+    let sum = 0;
+    for (const [id, h] of hist) {
+      let v = null;
+      for (const r of h) { if (r.day <= day) v = r.eur; else break; }
+      if (v === null && h.length) v = h[0].eur; // backfill foer foerste snapshot
+      if (v !== null) sum += v * countById.get(id);
+    }
+    return sum;
+  });
+  const w = 320, hgt = 120;
+  const min = Math.min(...totals), max = Math.max(...totals);
+  const span = (max - min) || 1;
+  const step = w / (days.length - 1);
+  const path = totals.map((v, i) =>
+    (i ? 'L' : 'M') + (i * step).toFixed(1) + ' ' + (hgt - 8 - (v - min) / span * (hgt - 16)).toFixed(1)
+  ).join(' ');
+  body.innerHTML = '';
+  const top = document.createElement('div');
+  top.style.cssText = 'display:flex;justify-content:space-between;margin-bottom:4px;';
+  const l1 = document.createElement('span');
+  l1.textContent = days[0];
+  const l2 = document.createElement('span');
+  l2.textContent = days[days.length - 1] + ' · ' + fmtMoneyEUR(totals[totals.length - 1]);
+  top.append(l1, l2);
+  body.appendChild(top);
+  const svgWrap = document.createElement('div');
+  svgWrap.innerHTML = '<svg width="' + w + '" height="' + hgt + '" viewBox="0 0 ' + w + ' ' + hgt
+    + '" style="max-width:100%"><path d="' + path + '" fill="none" stroke="#a87c14" stroke-width="2.5" stroke-linejoin="round"/></svg>';
+  body.appendChild(svgWrap.firstChild);
+  const foot = document.createElement('div');
+  foot.style.cssText = 'display:flex;justify-content:space-between;opacity:.7;font-size:.8rem;';
+  foot.innerHTML = '<span>low ' + fmtMoneyEUR(min) + '</span><span>high ' + fmtMoneyEUR(max) + '</span>';
+  body.appendChild(foot);
+});
+curvemodal.addEventListener('click', e => {
+  if (e.target === curvemodal || e.target.closest('.modal-close')) curvemodal.hidden = true;
 });
 
 // ---------- tastatur: ←/→ bladrer binderen ----------
