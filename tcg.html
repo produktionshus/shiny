@@ -43,7 +43,14 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-header { text-align: center; padding: 22px 16px 6px; }
+header { text-align: center; padding: 16px 16px 4px; }
+h1 .brand {
+  background: linear-gradient(180deg, #ffe9a0 20%, #d9a92f 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: .03em;
+}
 h1 {
   font-family: 'Fredoka', sans-serif;
   font-weight: 700;
@@ -53,6 +60,48 @@ h1 {
   text-shadow: 0 2px 0 #8a5a00, 0 5px 18px rgba(0,0,0,.5);
 }
 .subtitle { opacity: .8; font-size: .9rem; margin-top: 4px; }
+
+/* ===== Display case-tema (toggle i ⚙) ===== */
+body.theme-display {
+  background:
+    radial-gradient(900px 520px at 50% 6%, #1a2233 0%, transparent 58%),
+    #0a0c12;
+}
+body.theme-display::before { opacity: .03; }
+body.theme-display .binder-wrap { position: relative; }
+body.theme-display .binder-wrap::before {
+  content: '';
+  position: absolute; inset: -50px -90px;
+  background: radial-gradient(50% 62% at 50% 28%, rgba(255,236,180,.10), transparent 72%);
+  pointer-events: none;
+}
+body.theme-display .binder {
+  box-shadow:
+    0 45px 100px rgba(0,0,0,.9),
+    0 0 70px rgba(255,217,94,.08),
+    inset 0 2px 4px rgba(255,255,255,.15),
+    inset 0 -3px 8px rgba(0,0,0,.4);
+}
+body.theme-display .search-panel {
+  background: rgba(9,12,19,.6);
+  backdrop-filter: blur(10px);
+  border-color: rgba(255,255,255,.08);
+}
+body.theme-display button.btn {
+  background: rgba(255,255,255,.05);
+  border-color: rgba(255,255,255,.14);
+}
+body.theme-display button.btn.primary {
+  background: rgba(232,184,75,.28);
+  border-color: rgba(232,184,75,.7);
+}
+body.theme-display .navbtn { background: rgba(0,0,0,.65); }
+body.theme-display .pocket { transition: border-color .12s, box-shadow .18s; }
+body.theme-display .pocket:hover { box-shadow: 0 0 20px rgba(255,217,94,.3), inset 0 1px 3px rgba(255,255,255,.4); }
+body.theme-display .toolbar input, body.theme-display .toolbar select,
+body.theme-display .search-row input, body.theme-display .search-row select {
+  background: rgba(255,255,255,.05);
+}
 
 /* ===== Toolbar ===== */
 .toolbar {
@@ -1599,7 +1648,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 </nav>
 
 <header>
-  <h1>🗂️ PokéBinder</h1>
+  <h1>🗂️ <span class="brand">PokéBinder</span></h1>
   <div class="subtitle">Build and show off your Pokémon TCG binders digitally</div>
 </header>
 
@@ -1691,6 +1740,12 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <button class="btn" id="sendTcgBtn" style="display:none" title="Copy this pull binder into your real TCG binders">📤 Send copy to TCG</button>
     </div>
     <div id="binderSettings">
+      <label>Theme:
+        <select id="themeSel">
+          <option value="classic">Classic desk</option>
+          <option value="display">Display case</option>
+        </select>
+      </label>
       <label>Pockets:
         <select id="sizeSelect">
           <option value="2x2">4 (2×2)</option>
@@ -2814,7 +2869,11 @@ function getDetail(id, lang) {
   return detailCache.get(key);
 }
 function priceSource() { return store.priceSource === 'tcgplayer' ? 'tcgplayer' : 'cardmarket'; }
+function applyTheme() {
+  document.body.classList.toggle('theme-display', store.theme === 'display');
+}
 function updatePriceUI() {
+  applyTheme(); // globalt tema haandhaeves ved hver render (daekker synk/import)
   document.getElementById('valueBtn').style.display = store.showPrices ? '' : 'none';
   document.getElementById('curveBtn').style.display = store.showPrices ? '' : 'none';
   document.getElementById('priceSourceSel').disabled = !store.showPrices;
@@ -3145,6 +3204,7 @@ for (const key of Object.keys(BINDER_COLORS)) {
 function renderSettings() {
   const b = binder();
   document.getElementById('showPrices').checked = !!store.showPrices;
+  document.getElementById('themeSel').value = store.theme === 'display' ? 'display' : 'classic';
   document.getElementById('priceSourceSel').value = priceSource();
   document.getElementById('dispCurrency').value = store.dispCurrency === 'dkk' ? 'dkk' : 'eur';
   $sizeSelect.value = (b.cols || 3) + 'x' + (b.rows || 3);
@@ -3244,6 +3304,12 @@ document.getElementById('importFile').addEventListener('change', async e => {
 $darkPages.addEventListener('change', () => {
   binder().dark = $darkPages.checked;
   save(); renderBinder();
+});
+
+document.getElementById('themeSel').addEventListener('change', e => {
+  store.theme = e.target.value; // globalt, foelger kontoen via synk
+  applyTheme();
+  save();
 });
 
 document.getElementById('showPrices').addEventListener('change', e => {
