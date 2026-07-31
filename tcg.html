@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>TCG Binder · Pokémon</title>
+<title>PokéBinder</title>
 <link rel="manifest" href="/tcg-manifest.json">
 <meta name="theme-color" content="#1b2430">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1599,7 +1599,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 </nav>
 
 <header>
-  <h1>🗂️ TCG Binder</h1>
+  <h1>🗂️ PokéBinder</h1>
   <div class="subtitle">Build and show off your Pokémon TCG binders digitally</div>
 </header>
 
@@ -6049,6 +6049,10 @@ loadSets();
 // offline-support: kortbilleder og app-shell caches (springes over i dev)
 if ('serviceWorker' in navigator && location.hostname !== 'localhost') {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+// paa pokebinder.dk bor shiny stadig paa sit eget domaene
+if (location.hostname.includes('pokebinder')) {
+  document.querySelector('.binder-switch a.go').href = 'https://shiny.kulldorf.com/';
 }
 const friendParam = location.search.match(/[?&]friend=([\w-]+)/);
 if (friendParam) openFriend(friendParam[1]);

@@ -1,6 +1,6 @@
 {
-  "name": "TCG Binder",
-  "short_name": "TCG Binder",
+  "name": "PokéBinder",
+  "short_name": "PokéBinder",
   "start_url": "/tcg",
   "scope": "/",
   "display": "standalone",

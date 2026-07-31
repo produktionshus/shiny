@@ -1,4 +1,4 @@
-// Service worker for TCG Binder — offline på messer/byttemarkeder.
+// Service worker for PokéBinder — offline på messer/byttemarkeder.
 // Strategi: app-shell network-first (deploys vinder), kortbilleder cache-first,
 // TCGdex-API network-first med cache-fallback. Egne /api/-kald caches ALDRIG
 // (auth/synk-data). Requests der ikke matcher røres ikke (shiny påvirkes ikke).
