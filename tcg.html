@@ -6002,9 +6002,10 @@ document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement) stopPresent();
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') stopPresent(); });
-document.querySelector('.binder-wrap').addEventListener('click', () => {
+document.querySelector('.binder-wrap').addEventListener('click', e => {
   if (!document.body.classList.contains('presenting')) return;
-  presentStep(); // klik = bladr nu, og nulstil rytmen
+  // ◀/▶ har allerede bladret selv — overtrump dem ikke med et fremad-skridt
+  if (!e.target.closest('.navbtn')) presentStep();
   clearInterval(presentTimer);
   presentTimer = setInterval(presentStep, 5000);
 });
