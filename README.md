@@ -39,3 +39,6 @@ npm start          # kræver Node >= 24 (bruger indbygget node:sqlite)
 | GET | `/api/tcg` | `{store}` — TCG-bindere for brugeren (kræver login) |
 | PUT | `/api/tcg` | `{store: {active, binders: […]}}` (kræver login) |
 | GET | `/api/tcg/shared/:token` | `{username, store}` — offentlig read-only |
+| GET | `/api/prices/:id` | `{history: [{day, eur, usd}, …]}` — dagligt snapshot |
+| GET | `/api/tcg/comments/:token` | `{comments}` — gæstebog, offentlig |
+| POST | `/api/tcg/comments/:token` | `{text}` (kræver login) |

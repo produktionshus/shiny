@@ -1172,7 +1172,7 @@ body.viewmode #binderSettings { display: none; }
   background: rgba(8,12,18,.85);
   display: none;
   align-items: center; justify-content: center;
-  z-index: 300;
+  z-index: 600;
   perspective: 1100px;
   touch-action: none;
 }
@@ -1438,6 +1438,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 <div class="viewbar">
   <span id="viewTitle"></span>
   <select id="viewBinderSelect" style="display:none" title="Choose binder"></select>
+  <button class="btn" id="viewComments" style="display:none">💬 Guestbook</button>
   <button class="btn primary" id="importBtn">Save as my binder</button>
   <button class="btn" id="exitView">Back to my binders</button>
 </div>
@@ -1495,6 +1496,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <span id="progressText"></span>
       <div class="progress-bar"><div id="progressFill"></div></div>
     </div>
+    <div class="spread-label" id="setProgress" style="display:none"></div>
     <div class="binder-controls">
       <button class="btn edit-only" id="addPages">+ Add spread</button>
       <button class="btn edit-only" id="delPages">Remove last spread</button>
@@ -1522,6 +1524,10 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
         </select>
       </label>
       <button class="btn" id="clearBinder">🧹 Clear binder</button>
+      <button class="btn" id="sortBinder">⇅ Sort by set</button>
+      <button class="btn" id="exportBinder">⬇ Export</button>
+      <button class="btn" id="importBinder">⬆ Import</button>
+      <input type="file" id="importFile" accept=".json,application/json" style="display:none">
     </div>
     <div id="inspectZone">🔍 Drop the card here to take a closer look</div>
   </div>
@@ -1554,6 +1560,27 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <div id="frienderr"></div>
     <button id="friendadd" class="authaction">Add friend</button>
     <button id="mysharelink" class="authaction secondary">🔗 Copy my share link</button>
+    <button id="tradesBtn" class="authaction secondary">🤝 Trade matches</button>
+    <button id="myGuestbook" class="authaction secondary">💬 My guestbook</button>
+  </div>
+</div>
+
+<div id="tradesmodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 style="font: 700 1.4rem 'Fredoka', sans-serif; margin-bottom: 8px;">🤝 Trade matches</h2>
+    <div id="tradesbody" style="text-align:left; font: 700 .9rem 'Nunito', sans-serif; max-height: 60vh; overflow-y: auto;"></div>
+  </div>
+</div>
+
+<div id="commentsmodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 id="commentsTitle" style="font: 700 1.3rem 'Fredoka', sans-serif; margin-bottom: 8px;">💬 Comments</h2>
+    <div id="commentslist" style="text-align:left; font: 700 .88rem 'Nunito', sans-serif; max-height: 45vh; overflow-y: auto; margin-bottom: 8px;"></div>
+    <input id="commentInput" placeholder="Write a comment…" maxlength="300" autocomplete="off">
+    <div id="commenterr" style="color:#a01818; font: 700 .8rem 'Nunito', sans-serif; min-height: 1.1em;"></div>
+    <button id="commentSend" class="authaction">Send</button>
   </div>
 </div>
 
@@ -1747,6 +1774,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   <div id="zoomInfo" style="display:none"></div>
   <div id="zoomActions">
     <button class="btn primary" id="zoomPlace">Add to binder</button>
+    <button class="btn" id="zoomCover" style="display:none">Set as cover</button>
     <button class="btn" id="zoomClose">Close</button>
   </div>
 </div>
@@ -2024,7 +2052,8 @@ function renderBinder() {
   if (closed) {
     document.getElementById('coverName').textContent = bb.name;
     document.getElementById('spreadLabel').textContent = bb.name;
-    const flair = bb.sim // sim-binder: dyreste pull pryder forsiden
+    const flair = bb.cover ? { img: bb.cover } // valgt cover-kort vinder
+      : bb.sim // sim-binder: dyreste pull pryder forsiden
       ? bb.pages.flat().filter(c => c && c.img && c.p != null).sort((a, b) => b.p - a.p)[0]
       : null;
     const cc = document.getElementById('coverCard');
@@ -2049,10 +2078,34 @@ function renderProgress() {
   const cards = binder().pages.flat().filter(c => c);
   const owned = cards.filter(c => c.o !== false).length;
   const wrap = document.getElementById('progressWrap');
-  if (!cards.length) { wrap.style.display = 'none'; return; }
+  const setEl = document.getElementById('setProgress');
+  if (!cards.length) { wrap.style.display = 'none'; setEl.style.display = 'none'; return; }
   wrap.style.display = 'flex';
   document.getElementById('progressText').textContent = owned + ' of ' + cards.length + ' collected';
   document.getElementById('progressFill').style.width = Math.round(100 * owned / cards.length) + '%';
+  // dominerende saet -> master-set-fremdrift ("87/189 · Darkness Ablaze")
+  const bySet = new Map();
+  for (const c of cards) {
+    const sid = c.id.slice(0, c.id.lastIndexOf('-'));
+    bySet.set(sid, (bySet.get(sid) || 0) + 1);
+  }
+  let top = null;
+  for (const [sid, n] of bySet) if (!top || n > top[1]) top = [sid, n];
+  if (top && top[1] >= 5 && top[1] * 2 >= cards.length) {
+    const sid = top[0];
+    const inSet = cards.filter(c => c.id.startsWith(sid + '-'));
+    const ownedUnique = new Set(inSet.filter(c => c.o !== false).map(c => c.id)).size;
+    setEl.style.display = '';
+    setEl.textContent = ownedUnique + ' · ' + sid;
+    getSetInfo(sid, cardLang(inSet[0])).then(si => {
+      if (si && setEl.style.display !== 'none') {
+        const total = si.cardCount && si.cardCount.official;
+        setEl.textContent = ownedUnique + (total ? '/' + total : '') + ' · ' + si.name;
+      }
+    });
+  } else {
+    setEl.style.display = 'none';
+  }
 }
 
 function renderPage(grid, pageIdx) {
@@ -2281,6 +2334,8 @@ document.getElementById('exitView').addEventListener('click', exitViewMode);
 function exitViewMode() {
   viewBinder = null;
   viewStore = null;
+  currentFriend = null;
+  document.getElementById('viewComments').style.display = 'none';
   document.getElementById('viewBinderSelect').style.display = 'none';
   history.replaceState(null, '', location.pathname);
   document.body.classList.remove('viewmode');
@@ -2409,6 +2464,16 @@ const RARITY_ODDS = {
   'Hyper rare': ['HR', '1:149'],
 };
 const detailCache = new Map();
+const setInfoCache = new Map();
+function getSetInfo(setId, lang) {
+  const key = (lang || 'en') + ':' + setId;
+  if (!setInfoCache.has(key)) {
+    setInfoCache.set(key, fetch(API_ROOT + '/' + (lang || 'en') + '/sets/' + encodeURIComponent(setId))
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null));
+  }
+  return setInfoCache.get(key);
+}
 function getDetail(id, lang) {
   lang = lang || 'en';
   const key = lang + ':' + id;
@@ -2510,6 +2575,35 @@ async function fillInfo(panelId, card, stillCurrent) {
     row.append(lab, val);
     panel.appendChild(row);
   }
+  if (store.showPrices && cardLang(card) === 'en') {
+    try { // serverens daglige pris-snapshots -> kurve naar der er mindst 2 punkter
+      const h = (await (await fetch('/api/prices/' + encodeURIComponent(card.id))).json()).history || [];
+      if (!stillCurrent()) return;
+      const key = priceSource() === 'tcgplayer' ? 'usd' : 'eur';
+      const pts = h.filter(r => r[key] != null);
+      if (pts.length >= 2) {
+        const w = 214, hgt = 46;
+        const vals = pts.map(r => r[key]);
+        const min = Math.min(...vals), max = Math.max(...vals);
+        const span = (max - min) || 1;
+        const step = w / (pts.length - 1);
+        const path = vals.map((v, i) =>
+          (i ? 'L' : 'M') + (i * step).toFixed(1) + ' ' + (hgt - 4 - (v - min) / span * (hgt - 8)).toFixed(1)
+        ).join(' ');
+        const cap = document.createElement('div');
+        cap.className = 'zi-row';
+        const cl = document.createElement('span'); cl.className = 'zi-l'; cl.textContent = 'History';
+        const cv = document.createElement('span');
+        cv.textContent = pts.length + 'd · ' + fmtPrice(min) + '–' + fmtPrice(max);
+        cap.append(cl, cv);
+        panel.appendChild(cap);
+        const svgWrap = document.createElement('div');
+        svgWrap.innerHTML = '<svg width="' + w + '" height="' + hgt + '" viewBox="0 0 ' + w + ' ' + hgt
+          + '"><path d="' + path + '" fill="none" stroke="#ffd95e" stroke-width="2" stroke-linejoin="round"/></svg>';
+        panel.appendChild(svgWrap.firstChild);
+      }
+    } catch (e) { /* historik er nice-to-have */ }
+  }
 }
 function fillZoomInfo(card) { return fillInfo('zoomInfo', card, () => zoomedCard === card); }
 
@@ -2567,6 +2661,9 @@ function openZoom(card, from) {
   fillZoomInfo(card);
   // "Læg i binder" kun for kort der ikke allerede ligger der
   document.getElementById('zoomPlace').style.display = (viewBinder || from) ? 'none' : '';
+  const coverBtn = document.getElementById('zoomCover');
+  coverBtn.style.display = viewBinder ? 'none' : '';
+  coverBtn.textContent = binder().cover === card.img ? 'Remove cover' : 'Set as cover';
   $overlay.classList.add('open');
   $zoomCard.style.transform = '';
 }
@@ -2589,6 +2686,15 @@ $overlay.addEventListener('pointermove', e => {
 });
 $overlay.addEventListener('click', e => { if (e.target === $overlay) closeZoom(); });
 document.getElementById('zoomClose').addEventListener('click', closeZoom);
+document.getElementById('zoomCover').addEventListener('click', () => {
+  const card = zoomedCard;
+  if (!card || viewBinder) return;
+  const b = binder();
+  b.cover = b.cover === card.img ? null : card.img;
+  save();
+  document.getElementById('zoomCover').textContent = b.cover === card.img ? 'Remove cover' : 'Set as cover';
+  toast(b.cover ? 'Cover set 🖼' : 'Cover removed');
+});
 document.getElementById('zoomPlace').addEventListener('click', () => {
   const card = zoomedCard;
   closeZoom();
@@ -2656,6 +2762,60 @@ document.getElementById('clearBinder').addEventListener('click', () => {
   spread = 0;
   save(); renderBinder();
   toast(count + ' cards removed', true);
+});
+
+document.getElementById('sortBinder').addEventListener('click', () => {
+  const b = binder();
+  const cards = b.pages.flat().filter(c => c);
+  if (!cards.length) { toast('The binder is empty'); return; }
+  snapshot();
+  cards.sort((x, y) => {
+    const [sx, lx] = splitId(x.id), [sy, ly] = splitId(y.id);
+    return sx === sy ? (lx - ly || x.id.localeCompare(y.id)) : sx.localeCompare(sy);
+  });
+  const per = slotsOf(b);
+  const pages = [];
+  for (let i = 0; i < cards.length; i += per) {
+    const pg = cards.slice(i, i + per);
+    while (pg.length < per) pg.push(null);
+    pages.push(pg);
+  }
+  while (pages.length < 2 || pages.length % 2) pages.push(emptyPage(per));
+  b.pages = pages;
+  spread = 0;
+  save(); renderBinder();
+  toast('Sorted by set & number', true);
+});
+
+document.getElementById('exportBinder').addEventListener('click', () => {
+  const b = binder();
+  const payload = { tcgbinder: 1, name: b.name, cols: b.cols, rows: b.rows,
+    color: b.color, dark: b.dark, cover: b.cover || null, pages: b.pages };
+  const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (b.name || 'binder').replace(/[^\w.-]+/g, '_') + '.tcgbinder.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+document.getElementById('importBinder').addEventListener('click', () =>
+  document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const d = JSON.parse(await file.text());
+    if (d.tcgbinder !== 1 || !Array.isArray(d.pages)) throw new Error('bad');
+    store.binders.push({ name: String(d.name || 'Imported').slice(0, 60),
+      cols: [2,3,4].includes(d.cols) ? d.cols : 3, rows: [2,3,4].includes(d.rows) ? d.rows : 3,
+      color: String(d.color || 'blue').slice(0, 10), dark: d.dark !== false,
+      cover: typeof d.cover === 'string' ? d.cover : null, pages: d.pages });
+    store.active = store.binders.length - 1;
+    spread = 0;
+    save(); renderBinderSelect(); renderBinder();
+    toast('Binder imported ✔');
+  } catch (err) { toast('Not a valid binder file'); }
 });
 
 $darkPages.addEventListener('change', () => {
@@ -3191,6 +3351,8 @@ async function openFriend(token, name) {
     viewBinder = viewStore.binders[0];
     document.body.classList.add('viewmode');
     document.getElementById('viewTitle').textContent = '👀 ' + j.username + "'s binders";
+    currentFriend = { token, name: j.username };
+    document.getElementById('viewComments').style.display = '';
     spread = -1; // start paa forsiden — fremvisning
     renderBinder();
   } catch (e) { toast('Could not load binders'); }
@@ -3200,6 +3362,161 @@ $viewBinderSelect.addEventListener('change', () => {
   viewBinder = viewStore.binders[+$viewBinderSelect.value];
   spread = -1;
   renderBinder();
+});
+
+// ---------- trades: match need/have mod venner ----------
+const tradesmodal = document.getElementById('tradesmodal');
+document.getElementById('tradesBtn').addEventListener('click', async () => {
+  friendsmodal.hidden = true;
+  const body = document.getElementById('tradesbody');
+  body.textContent = 'Checking friends…';
+  tradesmodal.hidden = false;
+  const mine = store.binders.flatMap(b => b.pages.flat()).filter(c => c);
+  const myNeed = new Map(), ownCount = new Map(), cardById = new Map();
+  for (const c of mine) {
+    cardById.set(c.id, c);
+    if (c.o === false) myNeed.set(c.id, c);
+    else ownCount.set(c.id, (ownCount.get(c.id) || 0) + 1);
+  }
+  for (const id of [...myNeed.keys()]) if (ownCount.has(id)) myNeed.delete(id); // allerede opfyldt
+  const mySpares = new Map(); // dubletter = overskud (task 8)
+  for (const [id, n] of ownCount) if (n > 1) mySpares.set(id, n - 1);
+  body.textContent = '';
+  if (!friends.length) { body.textContent = 'Add friends first.'; return; }
+  for (const f of friends) {
+    const sec = document.createElement('div');
+    sec.style.marginBottom = '14px';
+    const h = document.createElement('div');
+    h.textContent = f.name;
+    h.style.cssText = "font-family:'Fredoka',sans-serif;font-weight:600;margin:8px 0 2px;";
+    sec.appendChild(h);
+    body.appendChild(sec);
+    try {
+      const j = await api('/api/tcg/shared/' + f.token);
+      const theirs = ((j.store && j.store.binders) || []).flatMap(b => (b.pages || []).flat()).filter(c => c);
+      const theirHave = new Set(), theirNeed = new Set();
+      for (const c of theirs) { if (c.o === false) theirNeed.add(c.id); else theirHave.add(c.id); }
+      for (const id of [...theirNeed]) if (theirHave.has(id)) theirNeed.delete(id);
+      const youGet = [...myNeed.values()].filter(c => theirHave.has(c.id));
+      const youGive = [...mySpares.keys()].filter(id => theirNeed.has(id)).map(id => cardById.get(id));
+      sec.appendChild(tradeRow('You need — ' + f.name + ' has', youGet));
+      sec.appendChild(tradeRow(f.name + ' needs — you have spare', youGive, mySpares));
+    } catch (e) {
+      const err = document.createElement('div');
+      err.textContent = 'Could not load';
+      err.style.opacity = .6;
+      sec.appendChild(err);
+    }
+  }
+});
+function tradeRow(label, cards, spareCounts) {
+  const wrap = document.createElement('div');
+  const lab = document.createElement('div');
+  lab.textContent = label + (cards.length ? ' (' + cards.length + ')' : '');
+  lab.style.cssText = 'font-size:.78rem;opacity:.75;margin:4px 0 2px;';
+  wrap.appendChild(lab);
+  if (!cards.length) {
+    const n = document.createElement('div');
+    n.textContent = '—';
+    n.style.cssText = 'opacity:.45;margin-bottom:4px;';
+    wrap.appendChild(n);
+    return wrap;
+  }
+  const strip = document.createElement('div');
+  strip.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;';
+  for (const c of cards.slice(0, 40)) {
+    const t = document.createElement('div');
+    t.style.cssText = 'position:relative;width:42px;aspect-ratio:63/88;border-radius:4px;overflow:hidden;cursor:pointer;background:rgba(0,0,0,.12);';
+    const spare = spareCounts && spareCounts.get(c.id);
+    t.title = c.n + ' (' + c.id + ')' + (spare ? ' — ' + spare + ' spare' : '');
+    if (c.img) {
+      const im = document.createElement('img');
+      im.loading = 'lazy';
+      im.src = imgUrl(c.img, 'low');
+      im.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+      t.appendChild(im);
+    }
+    t.addEventListener('click', () => openZoom(c, true)); // from: skjul Add-knap
+    strip.appendChild(t);
+  }
+  if (cards.length > 40) {
+    const more = document.createElement('div');
+    more.textContent = '+' + (cards.length - 40);
+    more.style.cssText = 'align-self:center;font-size:.8rem;opacity:.6;';
+    strip.appendChild(more);
+  }
+  wrap.appendChild(strip);
+  return wrap;
+}
+tradesmodal.addEventListener('click', e => {
+  if (e.target === tradesmodal || e.target.closest('.modal-close')) tradesmodal.hidden = true;
+});
+
+// ---------- kommentarer (gaestebog pr. bruger, samme token som deling) ----------
+const commentsmodal = document.getElementById('commentsmodal');
+let commentsToken = null;
+let currentFriend = null;
+async function openComments(token, title) {
+  commentsToken = token;
+  document.getElementById('commentsTitle').textContent = '💬 ' + title;
+  document.getElementById('commenterr').textContent = '';
+  document.getElementById('commentSend').style.display = me ? '' : 'none';
+  document.getElementById('commentInput').style.display = me ? '' : 'none';
+  const list = document.getElementById('commentslist');
+  list.textContent = 'Loading…';
+  commentsmodal.hidden = false;
+  try {
+    const j = await api('/api/tcg/comments/' + token);
+    list.textContent = '';
+    if (!j.comments.length) {
+      list.textContent = 'No comments yet — be the first!';
+      list.style.opacity = .6;
+    } else {
+      list.style.opacity = 1;
+      for (const c of j.comments) {
+        const row = document.createElement('div');
+        row.style.marginBottom = '7px';
+        const a = document.createElement('span');
+        a.textContent = c.author;
+        a.style.cssText = "font-family:'Fredoka',sans-serif;font-weight:600;";
+        const t = document.createElement('span');
+        t.textContent = ' ' + c.text;
+        const d = document.createElement('div');
+        d.textContent = String(c.created || '').slice(0, 16).replace('T', ' ');
+        d.style.cssText = 'font-size:.68rem;opacity:.5;';
+        row.append(a, t, d);
+        list.appendChild(row);
+      }
+    }
+  } catch (e) { list.textContent = 'Could not load comments'; }
+}
+document.getElementById('commentSend').addEventListener('click', async () => {
+  const inp = document.getElementById('commentInput');
+  const text = inp.value.trim();
+  if (!text || !commentsToken) return;
+  try {
+    await api('/api/tcg/comments/' + commentsToken, { method: 'POST', body: JSON.stringify({ text }) });
+    inp.value = '';
+    openComments(commentsToken, document.getElementById('commentsTitle').textContent.replace('💬 ', ''));
+  } catch (e) {
+    document.getElementById('commenterr').textContent = me ? 'Could not send' : 'Log in to comment';
+  }
+});
+document.getElementById('commentInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('commentSend').click();
+});
+document.getElementById('viewComments').addEventListener('click', () => {
+  if (currentFriend) openComments(currentFriend.token, currentFriend.name + "'s guestbook");
+});
+document.getElementById('myGuestbook').addEventListener('click', async () => {
+  try {
+    const j = await api('/api/share', { method: 'POST' });
+    friendsmodal.hidden = true;
+    openComments(j.token, 'Your guestbook');
+  } catch (e) { toast('Log in first'); }
+});
+commentsmodal.addEventListener('click', e => {
+  if (e.target === commentsmodal || e.target.closest('.modal-close')) commentsmodal.hidden = true;
 });
 
 // ---------- baggrundsmusik (Pokemon-temaet, chiptune fra theme.json) ----------

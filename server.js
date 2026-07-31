@@ -34,6 +34,20 @@ db.exec(`
     data TEXT NOT NULL,
     updated TEXT DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE TABLE IF NOT EXISTS price_history (
+    card_id TEXT NOT NULL,
+    day TEXT NOT NULL,
+    eur REAL,
+    usd REAL,
+    PRIMARY KEY (card_id, day)
+  );
+  CREATE TABLE IF NOT EXISTS tcg_comments (
+    id INTEGER PRIMARY KEY,
+    owner_id INTEGER NOT NULL REFERENCES users(id),
+    author_id INTEGER NOT NULL REFERENCES users(id),
+    text TEXT NOT NULL,
+    created TEXT DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 const app = express();
@@ -149,6 +163,91 @@ app.get('/api/tcg/shared/:token', (req, res) => {
   if (!user) return res.status(404).json({ error: 'not_found' });
   const row = db.prepare('SELECT data FROM tcg_binders WHERE user_id = ?').get(user.id);
   res.json({ username: user.username, store: row ? JSON.parse(row.data) : null });
+});
+
+// ===== price history (daily snapshot of cards present in any binder) =====
+function extractPrices(d) {
+  const blocks = [];
+  if (d && d.pricing) blocks.push(d.pricing);
+  for (const v of (d && d.variants_detailed) || []) if (v.pricing) blocks.push(v.pricing);
+  let eur = null, usd = null;
+  for (const b of blocks) {
+    const cm = b && b.cardmarket;
+    if (cm && eur === null) {
+      for (const k of ['trend', 'avg30', 'avg', 'trend-holo', 'avg30-holo', 'avg-holo', 'low']) {
+        if (typeof cm[k] === 'number') { eur = cm[k]; break; }
+      }
+    }
+    const tp = b && b.tcgplayer;
+    if (tp && usd === null) {
+      for (const k of Object.keys(tp)) {
+        if (tp[k] && typeof tp[k].marketPrice === 'number') { usd = tp[k].marketPrice; break; }
+      }
+    }
+  }
+  return { eur, usd };
+}
+
+async function snapshotPrices() {
+  const rows = db.prepare('SELECT data FROM tcg_binders').all();
+  const ids = new Set();
+  for (const r of rows) {
+    try {
+      for (const b of JSON.parse(r.data).binders || [])
+        for (const pg of b.pages || [])
+          for (const c of pg)
+            if (c && c.id && !(c.img && c.img.startsWith('ja/'))) ids.add(c.id); // JP-print har sjaeldent priser
+    } catch (e) { /* korrupt blob: spring over */ }
+  }
+  const day = new Date().toISOString().slice(0, 10);
+  const ins = db.prepare('INSERT OR IGNORE INTO price_history (card_id, day, eur, usd) VALUES (?, ?, ?, ?)');
+  for (const id of ids) {
+    try {
+      const r = await fetch('https://api.tcgdex.net/v2/en/cards/' + encodeURIComponent(id));
+      if (r.ok) {
+        const { eur, usd } = extractPrices(await r.json());
+        if (eur !== null || usd !== null) ins.run(id, day, eur, usd);
+      }
+    } catch (e) { /* enkelt kort fejler: videre */ }
+    await new Promise(r => setTimeout(r, 150)); // skaansom takt mod TCGdex
+  }
+  console.log(`price snapshot ${day}: ${ids.size} kort`);
+}
+
+function maybeSnapshotPrices() {
+  const day = new Date().toISOString().slice(0, 10);
+  const done = db.prepare('SELECT 1 FROM price_history WHERE day = ? LIMIT 1').get(day);
+  if (!done) snapshotPrices().catch(e => console.error('price snapshot fejlede:', e));
+}
+setTimeout(maybeSnapshotPrices, 30 * 1000);          // kort efter boot
+setInterval(maybeSnapshotPrices, 6 * 60 * 60 * 1000); // og loebende — koerer kun een gang pr. dag
+
+app.get('/api/prices/:id', (req, res) => {
+  const rows = db.prepare(
+    'SELECT day, eur, usd FROM price_history WHERE card_id = ? ORDER BY day ASC LIMIT 400')
+    .all(String(req.params.id));
+  res.json({ history: rows });
+});
+
+// ===== comments on a user's binders (guestbook keyed by share token) =====
+app.get('/api/tcg/comments/:token', (req, res) => {
+  const owner = db.prepare('SELECT id FROM users WHERE share_token = ?').get(String(req.params.token));
+  if (!owner) return res.status(404).json({ error: 'not_found' });
+  const rows = db.prepare(`
+    SELECT c.text, c.created, u.username AS author
+    FROM tcg_comments c JOIN users u ON u.id = c.author_id
+    WHERE c.owner_id = ? ORDER BY c.id DESC LIMIT 100`).all(owner.id);
+  res.json({ comments: rows });
+});
+
+app.post('/api/tcg/comments/:token', requireLogin, (req, res) => {
+  const owner = db.prepare('SELECT id FROM users WHERE share_token = ?').get(String(req.params.token));
+  if (!owner) return res.status(404).json({ error: 'not_found' });
+  const text = String((req.body || {}).text || '').trim();
+  if (!text || text.length > 300) return res.status(400).json({ error: 'invalid_text' });
+  db.prepare('INSERT INTO tcg_comments (owner_id, author_id, text) VALUES (?, ?, ?)')
+    .run(owner.id, req.session.userId, text);
+  res.json({ ok: true });
 });
 
 // ===== admin (enabled only when ADMIN_KEY env is set; key sent as X-Admin-Key header) =====
