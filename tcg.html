@@ -102,6 +102,55 @@ body.theme-display .toolbar input, body.theme-display .toolbar select,
 body.theme-display .search-row input, body.theme-display .search-row select {
   background: rgba(255,255,255,.05);
 }
+/* montren: vignette rundt om lokalet */
+body.theme-display::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, transparent 52%, rgba(0,0,0,.55) 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+/* floejlssider — montren har ikke papir */
+body.theme-display .page,
+body.theme-display .page.dark {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(120,140,190,.10), transparent 60%),
+    linear-gradient(180deg, #191c26 0%, #10121a 100%);
+}
+body.theme-display .page.left::after, body.theme-display .page.right::after {
+  background: repeating-linear-gradient(90deg, #2a2e3c 0 1.6px, #14161e 1.6px 2.6px);
+}
+body.theme-display .page-num { color: #7f87a0; }
+body.theme-display .pocket {
+  border-color: rgba(190,205,235,.22);
+  background: linear-gradient(160deg, rgba(190,205,235,.10), rgba(190,205,235,.02) 55%);
+  box-shadow: inset 0 1px 3px rgba(255,255,255,.12), 0 1px 2px rgba(0,0,0,.5);
+  transition: border-color .12s, box-shadow .18s, transform .18s;
+}
+body.theme-display .pocket:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 10px 26px rgba(0,0,0,.6), 0 0 20px rgba(255,217,94,.25);
+  z-index: 6;
+}
+body.theme-display .name-only, body.theme-display .empty-hint { color: #8b93ad; }
+body.theme-display .ring { border-color: #d8dde8; }
+/* glasgulv: refleksion under binderen (Chrome/Safari; Firefox faar den ikke) */
+body.theme-display .binder {
+  -webkit-box-reflect: below 14px linear-gradient(transparent 62%, rgba(255,255,255,.10));
+}
+/* langsomt lysstrejf hen over montren */
+body.theme-display .binder-wrap::after {
+  content: '';
+  position: absolute; inset: -20px;
+  background: linear-gradient(115deg, transparent 42%, rgba(255,244,214,.06) 50%, transparent 58%);
+  background-size: 300% 100%;
+  animation: caseSweep 9s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes caseSweep {
+  0%, 55% { background-position: 120% 0; }
+  85%, 100% { background-position: -60% 0; }
+}
 
 /* ===== Toolbar ===== */
 .toolbar {
