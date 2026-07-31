@@ -156,13 +156,29 @@ app.put('/api/tcg', requireLogin, (req, res) => {
   res.json({ ok: true });
 });
 
+// purchase price/date is private — never leaves the owner's own session
+function stripPrivate(store) {
+  if (!store) return store;
+  return {
+    ...store,
+    binders: (store.binders || []).map(b => ({
+      ...b,
+      pages: (b.pages || []).map(pg => pg.map(c => {
+        if (!c) return null;
+        const { pp, pd, ...rest } = c;
+        return rest;
+      })),
+    })),
+  };
+}
+
 // public read-only view of a user's TCG binders (same share token as the shiny collection)
 app.get('/api/tcg/shared/:token', (req, res) => {
   const user = db.prepare('SELECT id, username FROM users WHERE share_token = ?')
     .get(String(req.params.token));
   if (!user) return res.status(404).json({ error: 'not_found' });
   const row = db.prepare('SELECT data FROM tcg_binders WHERE user_id = ?').get(user.id);
-  res.json({ username: user.username, store: row ? JSON.parse(row.data) : null });
+  res.json({ username: user.username, store: row ? stripPrivate(JSON.parse(row.data)) : null });
 });
 
 // ===== price history (daily snapshot of cards present in any binder) =====

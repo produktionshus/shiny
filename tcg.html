@@ -1265,6 +1265,28 @@ body.viewmode #binderSettings { display: none; }
 .zi-row .zi-l { color: #ffd95e; font-family: 'Fredoka', sans-serif; font-weight: 600; flex: 0 0 auto; }
 .zi-row span:last-child { text-align: right; }
 @media (max-width: 900px) { #zoomInfo, #pileInfo { display: none !important; } } /* lille skaerm: kortet er pointen */
+#zoomPurchase {
+  position: fixed; left: 50%; bottom: 62px; transform: translateX(-50%);
+  display: none; align-items: center; gap: 8px;
+  background: rgba(20,26,36,.92);
+  border: 1.5px solid rgba(255,217,94,.4);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font: 700 .82rem 'Nunito', sans-serif;
+  color: #ffe9a8;
+  z-index: 610;
+}
+#zoomPurchase input {
+  font: 700 .82rem 'Nunito', sans-serif;
+  background: rgba(0,0,0,.35);
+  border: 1.5px solid rgba(255,217,94,.35);
+  border-radius: 8px;
+  color: #ffe9a8;
+  padding: 3px 8px;
+}
+#ppInput { width: 80px; }
+#pdInput { width: 135px; }
+#ppGain { font-weight: 800; }
 #zoomActions {
   position: fixed; left: 50%; top: 24px; transform: translateX(-50%);
   display: flex; gap: 10px;
@@ -1523,6 +1545,12 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
           <option value="tcgplayer">TCGplayer (NA, $)</option>
         </select>
       </label>
+      <label>Show as:
+        <select id="dispCurrency">
+          <option value="eur">€ EUR</option>
+          <option value="dkk">kr DKK</option>
+        </select>
+      </label>
       <button class="btn" id="clearBinder">🧹 Clear binder</button>
       <button class="btn" id="sortBinder">⇅ Sort by set</button>
       <button class="btn" id="exportBinder">⬇ Export</button>
@@ -1772,6 +1800,13 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   </div>
   <div id="zoomName"></div>
   <div id="zoomInfo" style="display:none"></div>
+  <div id="zoomPurchase">
+    <span>Paid</span>
+    <input id="ppInput" type="number" step="0.01" min="0" placeholder="0.00">
+    <span id="ppCur">€</span>
+    <input id="pdInput" type="date">
+    <span id="ppGain"></span>
+  </div>
   <div id="zoomActions">
     <button class="btn primary" id="zoomPlace">Add to binder</button>
     <button class="btn" id="zoomCover" style="display:none">Set as cover</button>
@@ -2292,7 +2327,12 @@ document.getElementById('delBinder').addEventListener('click', () => {
 
 // ---------- deling ----------
 function encodeBinder(b) {
-  const json = JSON.stringify({ v: 1, n: b.name, p: b.pages, c: b.cols, r: b.rows, col: b.color, d: b.dark ? 1 : 0 });
+  const pubPages = b.pages.map(pg => pg.map(cd => { // koebsdata er privat
+    if (!cd) return null;
+    const { pp, pd, ...rest } = cd;
+    return rest;
+  }));
+  const json = JSON.stringify({ v: 1, n: b.name, p: pubPages, c: b.cols, r: b.rows, col: b.color, d: b.dark ? 1 : 0, cv: b.cover || undefined });
   return btoa(unescape(encodeURIComponent(json))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 function decodeBinder(s) {
@@ -2300,7 +2340,7 @@ function decodeBinder(s) {
   const json = decodeURIComponent(escape(atob(b64)));
   const d = JSON.parse(json);
   if (d.v !== 1 || !Array.isArray(d.p)) throw new Error('bad payload');
-  return { name: String(d.n || 'Shared binder'), pages: d.p, cols: d.c || 3, rows: d.r || 3, color: d.col || 'blue', dark: !!d.d };
+  return { name: String(d.n || 'Shared binder'), pages: d.p, cols: d.c || 3, rows: d.r || 3, color: d.col || 'blue', dark: !!d.d, cover: d.cv || null };
 }
 document.getElementById('shareBtn').addEventListener('click', async () => {
   const url = location.origin + location.pathname + '#b=' + encodeBinder(binder());
@@ -2488,6 +2528,7 @@ function priceSource() { return store.priceSource === 'tcgplayer' ? 'tcgplayer' 
 function updatePriceUI() {
   document.getElementById('valueBtn').style.display = store.showPrices ? '' : 'none';
   document.getElementById('priceSourceSel').disabled = !store.showPrices;
+  document.getElementById('dispCurrency').disabled = !store.showPrices || priceSource() === 'tcgplayer';
 }
 function priceSourceName() { return priceSource() === 'tcgplayer' ? 'TCGplayer' : 'Cardmarket'; }
 function cardPrice(d) {
@@ -2532,9 +2573,26 @@ function tcgplayerProductId(d) {
   }
   return null;
 }
-function fmtPrice(x) {
-  const sym = priceSource() === 'tcgplayer' ? '$' : '€';
-  return sym + (x >= 100 ? Math.round(x) : x.toFixed(2));
+const DKK_RATE = 7.46; // ERM2-fastkurs, centralkurs 7.46038 — statisk er fint i baandet paa ±2.25%
+function fmtNum(x) { return x >= 100 ? String(Math.round(x)) : x.toFixed(2); }
+function fmtMoneyEUR(eur) { // al EUR-visning respekterer €/kr-toggle
+  return store.dispCurrency === 'dkk' ? fmtNum(eur * DKK_RATE) + ' kr' : '€' + fmtNum(eur);
+}
+function fmtPrice(x) { // x i kildens valuta
+  return priceSource() === 'tcgplayer' ? '$' + fmtNum(x) : fmtMoneyEUR(x);
+}
+function cmEUR(d) { // Cardmarket-EUR uanset valgt kilde (til koebs-afkast)
+  if (!d) return null;
+  const blocks = [];
+  if (d.pricing) blocks.push(d.pricing);
+  for (const v of d.variants_detailed || []) if (v.pricing) blocks.push(v.pricing);
+  for (const b of blocks) {
+    const cm = b && b.cardmarket;
+    if (cm) for (const k of ['trend', 'avg30', 'avg', 'trend-holo', 'avg30-holo', 'avg-holo', 'low']) {
+      if (typeof cm[k] === 'number') return cm[k];
+    }
+  }
+  return null;
 }
 
 async function fillInfo(panelId, card, stillCurrent) {
@@ -2563,6 +2621,9 @@ async function fillInfo(panelId, card, stillCurrent) {
   if (store.showPrices) {
     const price = cardPrice(d);
     rows.push(['Price', price != null ? fmtPrice(price) + ' (' + priceSourceName() + ')' : '—']);
+  }
+  if (card.pp != null) {
+    rows.push(['Bought', fmtMoneyEUR(card.pp) + (card.pd ? ' · ' + card.pd : '')]);
   }
   for (const [l, v] of rows) {
     const row = document.createElement('div');
@@ -2634,9 +2695,16 @@ document.getElementById('valueBtn').addEventListener('click', async () => {
     if (pr == null) { unpriced++; continue; }
     if (c.o === false) need += pr; else have += pr;
   }
-  btn.textContent = '💰 ' + fmtPrice(have)
+  let paid = 0;
+  for (const c of cards) if (c.pp != null && c.o !== false) paid += c.pp;
+  let label = '💰 ' + fmtPrice(have)
     + (need ? ' · need ' + fmtPrice(need) : '')
     + (unpriced ? ' · ' + unpriced + ' unpriced' : '');
+  if (paid > 0 && priceSource() === 'cardmarket') { // afkast kun aebler-mod-aebler (EUR)
+    const pct = Math.round((have - paid) / paid * 100);
+    label += ' · paid ' + fmtMoneyEUR(paid) + ' (' + (pct >= 0 ? '+' : '') + pct + '%)';
+  }
+  btn.textContent = label;
   valueBusy = false;
 });
 
@@ -2664,11 +2732,25 @@ function openZoom(card, from) {
   const coverBtn = document.getElementById('zoomCover');
   coverBtn.style.display = viewBinder ? 'none' : '';
   coverBtn.textContent = binder().cover === card.img ? 'Remove cover' : 'Set as cover';
+  // koebspris/dato: kun for kortet som lomme-instans i egen binder
+  const inBinder = !viewBinder && binder().pages.flat().includes(card);
+  purchaseCard = inBinder ? card : null;
+  const pw = document.getElementById('zoomPurchase');
+  pw.style.display = inBinder ? 'flex' : 'none';
+  if (inBinder) {
+    document.getElementById('ppCur').textContent = store.dispCurrency === 'dkk' ? 'kr' : '€';
+    document.getElementById('ppInput').value = card.pp != null
+      ? (store.dispCurrency === 'dkk' ? (card.pp * DKK_RATE).toFixed(2) : card.pp.toFixed(2)) : '';
+    document.getElementById('pdInput').value = card.pd || new Date().toISOString().slice(0, 10);
+    updateGain();
+  }
   $overlay.classList.add('open');
   $zoomCard.style.transform = '';
 }
 function closeZoom() {
   zoomedCard = null;
+  purchaseCard = null;
+  document.getElementById('zoomPurchase').style.display = 'none';
   document.getElementById('zoomInfo').style.display = 'none';
   $overlay.classList.remove('open');
 }
@@ -2686,6 +2768,39 @@ $overlay.addEventListener('pointermove', e => {
 });
 $overlay.addEventListener('click', e => { if (e.target === $overlay) closeZoom(); });
 document.getElementById('zoomClose').addEventListener('click', closeZoom);
+let purchaseCard = null;
+async function updateGain() {
+  const el = document.getElementById('ppGain');
+  el.textContent = '';
+  const card = purchaseCard;
+  if (!card || card.pp == null) return;
+  const d = await getDetail(card.id, cardLang(card));
+  if (purchaseCard !== card) return;
+  const mkt = cmEUR(d);
+  if (mkt == null || !card.pp) return;
+  const pct = (mkt - card.pp) / card.pp * 100;
+  el.textContent = (pct >= 0 ? '+' : '') + Math.round(pct) + '%';
+  el.style.color = pct >= 0 ? '#7de08a' : '#e88a8a';
+}
+document.getElementById('ppInput').addEventListener('change', () => {
+  if (!purchaseCard) return;
+  const v = parseFloat(document.getElementById('ppInput').value);
+  if (isNaN(v) || v < 0) {
+    delete purchaseCard.pp;
+    delete purchaseCard.pd;
+  } else {
+    purchaseCard.pp = store.dispCurrency === 'dkk' ? +(v / DKK_RATE).toFixed(4) : v; // kanonisk EUR
+    purchaseCard.pd = document.getElementById('pdInput').value || new Date().toISOString().slice(0, 10);
+  }
+  save();
+  updateGain();
+});
+document.getElementById('pdInput').addEventListener('change', () => {
+  if (purchaseCard && purchaseCard.pp != null) {
+    purchaseCard.pd = document.getElementById('pdInput').value;
+    save();
+  }
+});
 document.getElementById('zoomCover').addEventListener('click', () => {
   const card = zoomedCard;
   if (!card || viewBinder) return;
@@ -2724,6 +2839,7 @@ function renderSettings() {
   const b = binder();
   document.getElementById('showPrices').checked = !!store.showPrices;
   document.getElementById('priceSourceSel').value = priceSource();
+  document.getElementById('dispCurrency').value = store.dispCurrency === 'dkk' ? 'dkk' : 'eur';
   $sizeSelect.value = (b.cols || 3) + 'x' + (b.rows || 3);
   $darkPages.checked = !!b.dark;
   document.querySelectorAll('.swatch').forEach(sw =>
@@ -2826,6 +2942,12 @@ $darkPages.addEventListener('change', () => {
 document.getElementById('showPrices').addEventListener('change', e => {
   store.showPrices = e.target.checked; // global, foelger kontoen via synk
   updatePriceUI();
+  save();
+});
+
+document.getElementById('dispCurrency').addEventListener('change', e => {
+  store.dispCurrency = e.target.value; // global, foelger kontoen via synk
+  document.getElementById('valueBtn').textContent = '💰 Value';
   save();
 });
 
