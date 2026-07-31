@@ -156,6 +156,7 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
   justify-content: center;
   align-items: center;
   gap: 10px;
+  perspective: 2200px;
 }
 .navbtn {
   font-size: 1.5rem;
@@ -190,7 +191,18 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
   border-radius: 12px;
   pointer-events: none;
 }
-.spread { position: relative; display: flex; }
+.spread { position: relative; display: flex; transform-style: preserve-3d; }
+/* sideblad: den nye side folder ind over ryggen */
+.spread.turn-fwd .page.right { animation: turnInR .3s ease-out; transform-origin: left center; }
+.spread.turn-back .page.left { animation: turnInL .3s ease-out; transform-origin: right center; }
+@keyframes turnInR {
+  from { transform: rotateY(-75deg); opacity: .3; box-shadow: -30px 0 40px rgba(0,0,0,.4); }
+  to   { transform: rotateY(0); opacity: 1; }
+}
+@keyframes turnInL {
+  from { transform: rotateY(75deg); opacity: .3; box-shadow: 30px 0 40px rgba(0,0,0,.4); }
+  to   { transform: rotateY(0); opacity: 1; }
+}
 
 /* forside — lukket binder */
 #cover {
@@ -320,6 +332,7 @@ body.viewmode #binderSettings { display: none; }
 
 @media (hover: none) {
   .pocket .ptool, .result .zoom { opacity: .85; }
+  .pocket .ptool { width: 34px; height: 34px; font-size: 1rem; } /* Apples 44pt er maalet — 34 er kompromis paa smaa lommer */
   .toolbar input, .toolbar select,
   .search-row input, .search-row select,
   .modal-card input { font-size: 16px; } /* under 16px auto-zoomer iOS ved fokus */
@@ -1333,6 +1346,14 @@ img { -webkit-user-drag: none; user-select: none; }
 #dragGhost.touch { transform: translate(-50%, -130%) rotate(4deg); animation: none; }
 body.dragging { cursor: grabbing; }
 body.dragging * { cursor: grabbing !important; }
+.pocket .empty-hint {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; padding: 8px; text-align: center;
+  font: 600 .7rem 'Fredoka', sans-serif;
+  color: #8a7a55;
+  pointer-events: none;
+}
+.page.dark .empty-hint { color: #8b8fa0; }
 .pocket .name-only {
   display: flex; align-items: center; justify-content: center;
   height: 100%; padding: 6px; text-align: center;
@@ -1837,6 +1858,7 @@ let picked = null;           // lomme løftet til flytning: {page, slot}
 let viewBinder = null;       // read-only binder fra delelink
 let placeMode = 'owned';     // 'owned' | 'wanted' — status nye kort får
 let lastPlaced = null;       // {page, slot} → pop-animation ved næste render
+let lastSpread = 0;          // til bladre-animationens retning
 
 function load() {
   try {
@@ -2081,7 +2103,15 @@ function renderBinder() {
   binderEl.style.setProperty('--rows', bb.rows || 3);
   const closed = spread < 0;
   document.getElementById('cover').style.display = closed ? 'flex' : 'none';
-  document.querySelector('.spread').style.display = closed ? 'none' : 'flex';
+  const spreadEl = document.querySelector('.spread');
+  spreadEl.style.display = closed ? 'none' : 'flex';
+  const dir = spread > lastSpread ? 'fwd' : spread < lastSpread ? 'back' : null;
+  lastSpread = spread;
+  if (dir && !closed) {
+    spreadEl.classList.remove('turn-fwd', 'turn-back');
+    void spreadEl.offsetWidth; // genstart animationen
+    spreadEl.classList.add('turn-' + dir);
+  }
   document.getElementById('prev').disabled = closed;
   document.getElementById('next').disabled = !closed && spread >= maxSpread();
   if (closed) {
@@ -2151,6 +2181,7 @@ function renderPage(grid, pageIdx) {
   grid.style.visibility = '';
   // low.webp er ~245px bred — skift til high naar lommerne er stoerre
   const q = grid.clientWidth / (binder().cols || 3) > 260 ? 'high' : 'low';
+  const emptyBinder = !viewBinder && !binder().pages.flat().some(c => c);
   page.forEach((card, slot) => {
     const div = document.createElement('div');
     div.className = 'pocket';
@@ -2211,6 +2242,12 @@ function renderPage(grid, pageIdx) {
         div.appendChild(own);
         attachDrag(div, () => ({ card: { ...card }, from: { page: pageIdx, slot } }));
       }
+    }
+    if (!card && emptyBinder && pageIdx === 0 && slot === 0) {
+      const hint = document.createElement('div');
+      hint.className = 'empty-hint';
+      hint.textContent = 'Search cards and tap pockets — or pick a set and 📥 Add all';
+      div.appendChild(hint);
     }
     div.dataset.page = pageIdx;
     div.dataset.slot = slot;
@@ -2428,6 +2465,7 @@ function attachDrag(el, getPayload) {
     }
     function onCancel() { // browseren tog over (fx scroll) — ryd op
       cleanup();
+      clearFlip();
       if (drag) {
         drag.ghost.remove();
         drag = null;
@@ -2464,13 +2502,36 @@ function dropTargetAt(x, y) {
   if (el.closest('#inspectZone')) return { type: 'inspect', el: document.getElementById('inspectZone') };
   return null;
 }
+let flipHover = null, flipTimer = null;
+function clearFlip() {
+  flipHover = null;
+  clearTimeout(flipTimer);
+  flipTimer = null;
+}
+function dragFlipCheck(x, y) { // hold kortet over ◀/▶ → binderen bladrer under traekket
+  const el = document.elementFromPoint(x, y);
+  const nav = el && el.closest('#prev, #next');
+  const key = nav ? nav.id : null;
+  if (key === flipHover) return;
+  clearFlip();
+  flipHover = key;
+  if (!key) return;
+  flipTimer = setTimeout(() => {
+    if (!drag) return;
+    if (key === 'prev' && spread > 0) { spread--; renderBinder(); }        // luk ikke binderen midt i et traek
+    else if (key === 'next' && spread < maxSpread()) { spread++; renderBinder(); }
+    flipHover = null; // bliv haengende → bladr videre
+  }, 450);
+}
 function markTarget(x, y) {
   document.querySelectorAll('.pocket.dragover').forEach(p => p.classList.remove('dragover'));
   document.getElementById('inspectZone').classList.remove('dragover');
+  dragFlipCheck(x, y);
   const t = dropTargetAt(x, y);
   if (t) t.el.classList.add('dragover');
 }
 function endDrag(x, y) {
+  clearFlip();
   const t = dropTargetAt(x, y);
   drag.ghost.remove();
   document.body.classList.remove('dragging');
@@ -5366,6 +5427,16 @@ if ((store.searchLang || 'en') !== 'en') {
   document.getElementById('langEN').classList.remove('on');
   document.getElementById('langJP').classList.add('on');
 }
+
+// ---------- tastatur: ←/→ bladrer binderen ----------
+document.addEventListener('keydown', e => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  if (pile || zoomedCard) return; // bunke/zoom har egne taster
+  if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  if (document.querySelector('.modal:not([hidden])')) return;
+  const btn = document.getElementById(e.key === 'ArrowLeft' ? 'prev' : 'next');
+  if (!btn.disabled) { btn.click(); e.preventDefault(); }
+});
 
 // ---------- init ----------
 if (packMode) {
