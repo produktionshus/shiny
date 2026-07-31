@@ -143,6 +143,24 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
 }
 
 /* ===== Search panel ===== */
+.coach {
+  position: fixed;
+  z-index: 800;
+  max-width: 250px;
+  background: rgba(20,26,36,.97);
+  border: 2px solid var(--stitch);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font: 700 .85rem 'Nunito', sans-serif;
+  color: #ffe9a8;
+  box-shadow: 0 10px 40px rgba(0,0,0,.6);
+  pointer-events: none;
+}
+.coach-target { outline: 3px solid #ffd95e; outline-offset: 3px; border-radius: 8px; }
+#welcomemodal .wsub { font: 600 .88rem 'Nunito', sans-serif; opacity: .8; margin-bottom: 12px; }
+#welcomemodal .wlogin { font: 600 .8rem 'Nunito', sans-serif; opacity: .85; margin-top: 12px; }
+#welcomemodal .wlogin button { margin-top: 6px; color: var(--ink); background: rgba(0,0,0,.08); border-color: rgba(0,0,0,.3); }
+#wsFriendRow { margin-top: 4px; }
 .shelfrow { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: flex-end; }
 .spine {
   width: 46px; height: 175px;
@@ -1649,49 +1667,50 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 
 <header>
   <h1>🗂️ <span class="brand">PokéBinder</span></h1>
-  <div class="subtitle">Build and show off your Pokémon TCG binders digitally</div>
+  <div class="subtitle" data-l="Build and show off your Pokémon TCG binders digitally">Build and show off your Pokémon TCG binders digitally</div>
 </header>
 
 <div class="toolbar">
   <button class="btn" id="shelfBtn" title="Binder shelf">🗄</button>
   <select id="binderSelect" title="Choose binder"></select>
-  <input id="binderName" placeholder="Binder name" size="14">
-  <button class="btn" id="newBinder">+ New binder</button>
-  <button class="btn" id="delBinder">Delete binder</button>
-  <button class="btn" id="friendsBtn">👥 Friends</button>
+  <input id="binderName" data-lp="Binder name" placeholder="Binder name" size="14">
+  <button class="btn" id="newBinder" data-l="+ New binder">+ New binder</button>
+  <button class="btn" id="delBinder" data-l="Delete binder">Delete binder</button>
+  <button class="btn" id="friendsBtn" data-l="👥 Friends">👥 Friends</button>
   <button class="btn" id="authbtn">👤 Log in</button>
-  <button class="btn primary" id="shareBtn">🔗 Share binder</button>
+  <button class="btn" id="helpBtn" title="Guide">?</button>
+  <button class="btn primary" id="shareBtn" data-l="🔗 Share binder">🔗 Share binder</button>
 </div>
 
 <div class="viewbar">
   <span id="viewTitle"></span>
   <select id="viewBinderSelect" style="display:none" title="Choose binder"></select>
-  <button class="btn" id="viewComments" style="display:none">💬 Guestbook</button>
-  <button class="btn primary" id="importBtn">Save as my binder</button>
-  <button class="btn" id="exitView">Back to my binders</button>
+  <button class="btn" id="viewComments" style="display:none" data-l="💬 Guestbook">💬 Guestbook</button>
+  <button class="btn primary" id="importBtn" data-l="Save as my binder">Save as my binder</button>
+  <button class="btn" id="exitView" data-l="Back to my binders">Back to my binders</button>
 </div>
 
 <div class="layout">
   <div class="search-panel">
-    <h2>Find cards</h2>
+    <h2 data-l="Find cards">Find cards</h2>
     <div class="search-row">
       <input id="q" placeholder="Mew · Mew rc24 · artist:koizumi" autocomplete="off">
-      <select id="setSelect"><option value="">All sets (search by name)</option></select>
+      <select id="setSelect"><option value="" data-l="All sets (search by name)">All sets (search by name)</option></select>
     </div>
     <div class="place-mode" style="margin-bottom:6px">
       <button id="langEN" class="on" title="Search English cards">EN</button>
       <button id="langJP" title="Search Japanese cards">JP 🇯🇵</button>
     </div>
     <div class="place-mode">
-      <button id="modeOwned" class="on" title="Cards you have">✓ Have</button>
-      <button id="modeWanted" title="Cards on your wishlist">☆ Need</button>
+      <button id="modeOwned" class="on" title="Cards you have" data-l="✓ Have">✓ Have</button>
+      <button id="modeWanted" title="Cards on your wishlist" data-l="☆ Need">☆ Need</button>
     </div>
     <div style="display:flex; gap:6px; margin-bottom:8px">
-      <button class="btn" id="pileBtn" style="flex:1">🂠 Browse as a pile</button>
-      <button class="btn" id="fillBtn" style="flex:1" title="Adds every search result to the binder in order, using the Have/Need toggle">📥 Add all</button>
+      <button class="btn" id="pileBtn" style="flex:1" data-l="🂠 Browse as a pile">🂠 Browse as a pile</button>
+      <button class="btn" id="fillBtn" style="flex:1" title="Adds every search result to the binder in order, using the Have/Need toggle" data-l="📥 Add all">📥 Add all</button>
       <button class="btn" id="packBtn" style="flex:1" title="Open a virtual booster pack from the chosen set">🎁 Pack</button>
     </div>
-    <div class="search-hint" id="hint">Click a card, then click pockets — the same card can be placed as many times as you like.</div>
+    <div class="search-hint" id="hint" data-l="Click a card, then click pockets — the same card can be placed as many times as you like.">Click a card, then click pockets — the same card can be placed as many times as you like.</div>
     <div id="recentChips"></div>
     <div class="results" id="results"></div>
   </div>
@@ -1705,7 +1724,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
           <div id="coverEmblem">✦</div>
           <div id="coverName"></div>
           <div id="coverBadge" style="display:none">✦ MASTER SET ✦</div>
-          <div id="coverHint">Click to open</div>
+          <div id="coverHint" data-l="Click to open">Click to open</div>
         </div>
         <div class="spread">
           <div class="page left">
@@ -1728,25 +1747,31 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     </div>
     <div class="spread-label" id="setProgress" style="display:none"></div>
     <div class="binder-controls">
-      <button class="btn edit-only" id="addPages">+ Add spread</button>
-      <button class="btn edit-only" id="delPages">Remove last spread</button>
-      <button class="btn edit-only" id="settingsBtn">⚙ Appearance</button>
-      <button class="btn" id="needBtn">📋 Need list</button>
+      <button class="btn edit-only" id="addPages" data-l="+ Add spread">+ Add spread</button>
+      <button class="btn edit-only" id="delPages" data-l="Remove last spread">Remove last spread</button>
+      <button class="btn edit-only" id="settingsBtn" data-l="⚙ Appearance">⚙ Appearance</button>
+      <button class="btn" id="needBtn" data-l="📋 Need list">📋 Need list</button>
       <button class="btn" id="valueBtn" title="Estimated Cardmarket value of the cards in this binder">💰 Value</button>
       <button class="btn" id="curveBtn" title="Binder value over time">📈</button>
-      <button class="btn" id="factsBtn">📊 Facts</button>
-      <button class="btn" id="presentBtn" title="Fullscreen presentation with auto page turns">▶ Present</button>
-      <button class="btn" id="snapBtn" title="Save/share the open spread as an image">📷 Spread</button>
+      <button class="btn" id="factsBtn" data-l="📊 Facts">📊 Facts</button>
+      <button class="btn" id="presentBtn" title="Fullscreen presentation with auto page turns" data-l="▶ Present">▶ Present</button>
+      <button class="btn" id="snapBtn" title="Save/share the open spread as an image" data-l="📷 Spread">📷 Spread</button>
       <button class="btn" id="sendTcgBtn" style="display:none" title="Copy this pull binder into your real TCG binders">📤 Send copy to TCG</button>
     </div>
     <div id="binderSettings">
-      <label>Theme:
-        <select id="themeSel">
-          <option value="classic">Classic desk</option>
-          <option value="display">Display case</option>
+      <label><span data-l="Language:">Language:</span>
+        <select id="uiLangSel">
+          <option value="en">English</option>
+          <option value="da">Dansk</option>
         </select>
       </label>
-      <label>Pockets:
+      <label><span data-l="Theme:">Theme:</span>
+        <select id="themeSel">
+          <option value="classic" data-l="Classic desk">Classic desk</option>
+          <option value="display" data-l="Display case">Display case</option>
+        </select>
+      </label>
+      <label><span data-l="Pockets:">Pockets:</span>
         <select id="sizeSelect">
           <option value="2x2">4 (2×2)</option>
           <option value="3x3">9 (3×3)</option>
@@ -1754,28 +1779,28 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
           <option value="4x4">16 (4×4)</option>
         </select>
       </label>
-      <label>Color: <span id="swatches"></span></label>
-      <label><input type="checkbox" id="darkPages"> Black pages</label>
-      <label><input type="checkbox" id="showPrices"> Show prices</label>
-      <label>Prices:
+      <label><span data-l="Color:">Color:</span> <span id="swatches"></span></label>
+      <label><input type="checkbox" id="darkPages"> <span data-l="Black pages">Black pages</span></label>
+      <label><input type="checkbox" id="showPrices"> <span data-l="Show prices">Show prices</span></label>
+      <label><span data-l="Prices:">Prices:</span>
         <select id="priceSourceSel">
           <option value="cardmarket">Cardmarket (EU, €)</option>
           <option value="tcgplayer">TCGplayer (NA, $)</option>
         </select>
       </label>
-      <label>Show as:
+      <label><span data-l="Show as:">Show as:</span>
         <select id="dispCurrency">
           <option value="eur">€ EUR</option>
           <option value="dkk">kr DKK</option>
         </select>
       </label>
-      <button class="btn" id="clearBinder">🧹 Clear binder</button>
-      <button class="btn" id="sortBinder">⇅ Sort by set</button>
-      <button class="btn" id="exportBinder">⬇ Export</button>
-      <button class="btn" id="importBinder">⬆ Import</button>
+      <button class="btn" id="clearBinder" data-l="🧹 Clear binder">🧹 Clear binder</button>
+      <button class="btn" id="sortBinder" data-l="⇅ Sort by set">⇅ Sort by set</button>
+      <button class="btn" id="exportBinder" data-l="⬇ Export">⬇ Export</button>
+      <button class="btn" id="importBinder" data-l="⬆ Import">⬆ Import</button>
       <input type="file" id="importFile" accept=".json,application/json" style="display:none">
     </div>
-    <div id="inspectZone">🔍 Drop the card here to take a closer look</div>
+    <div id="inspectZone" data-l="🔍 Drop the card here to take a closer look">🔍 Drop the card here to take a closer look</div>
   </div>
 </div>
 
@@ -1812,6 +1837,27 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 </div>
 
 <button id="presentExit" title="Exit presentation (Esc)">✕</button>
+
+<div id="welcomemodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 style="font: 700 1.4rem 'Fredoka', sans-serif; margin-bottom: 6px;">🗂️ <span data-l="Welcome to PokéBinder">Welcome to PokéBinder</span></h2>
+    <p class="wsub" data-l="Your Pokémon TCG collection as a real binder — build goals, track prices, show it off.">Your Pokémon TCG collection as a real binder — build goals, track prices, show it off.</p>
+    <button class="authaction" id="wsMaster" data-l="🎯 Start a master set">🎯 Start a master set</button>
+    <div id="wsSetRow" style="display:none">
+      <select id="wsSetSel" style="width:100%; margin:6px 0; padding:9px; border-radius:10px; border:1.5px solid rgba(150,130,90,.5); font: 700 .9rem 'Nunito', sans-serif;"></select>
+      <button class="authaction" id="wsSetGo" data-l="Create my goal binder">Create my goal binder</button>
+    </div>
+    <button class="authaction secondary" id="wsBrowse" data-l="🔍 Browse and build freely">🔍 Browse and build freely</button>
+    <button class="authaction secondary" id="wsFriend" data-l="👀 I have a friend's link">👀 I have a friend's link</button>
+    <div id="wsFriendRow" style="display:none">
+      <input id="wsFriendInput" data-lp="Paste the link or code…" placeholder="Paste the link or code…" autocomplete="off">
+      <button class="authaction" id="wsFriendGo" data-l="Open">Open</button>
+    </div>
+    <p class="wlogin"><span data-l="Log in (free) so your binder follows you across devices.">Log in (free) so your binder follows you across devices.</span><br>
+      <button class="btn" id="wsLogin" data-l="Log in / create account">Log in / create account</button></p>
+  </div>
+</div>
 
 <div id="shelfmodal" class="modal" hidden>
   <div class="modal-card">
@@ -1868,11 +1914,11 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   <div class="modal-card">
     <button class="modal-close" aria-label="Close">✕</button>
     <h2 id="aheading" style="font: 700 1.4rem 'Fredoka', sans-serif; margin-bottom: 10px;">👤 Log in</h2>
-    <input id="auser" placeholder="Username" autocomplete="username">
-    <input id="apass" type="password" placeholder="Password (min. 6 characters)" autocomplete="current-password">
+    <input id="auser" data-lp="Username" placeholder="Username" autocomplete="username">
+    <input id="apass" type="password" data-lp="Password (min. 6 characters)" placeholder="Password (min. 6 characters)" autocomplete="current-password">
     <div id="aerr"></div>
-    <button id="dologin" class="authaction">Log in</button>
-    <button id="doregister" class="authaction secondary">Create account</button>
+    <button id="dologin" class="authaction" data-l="Log in">Log in</button>
+    <button id="doregister" class="authaction secondary" data-l="Create account">Create account</button>
   </div>
 </div>
 
@@ -1881,8 +1927,8 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   <div style="display:flex; gap:12px; align-items:center">
     <div id="pileCounter"></div>
     <select id="pileSort">
-      <option value="search">Search order</option>
-      <option value="set">Set &amp; number</option>
+      <option value="search" data-l="Search order">Search order</option>
+      <option value="set" data-l="Set &amp; number">Set &amp; number</option>
     </select>
     <input id="pileFind" placeholder="Find… (Mew rc24)" autocomplete="off">
   </div>
@@ -1896,11 +1942,11 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   <div id="pileInfo" style="display:none"></div>
   <div id="pileBtns">
     <button class="navbtn" id="pilePrev" title="Previous (←)">◀</button>
-    <button class="btn primary" id="pileAdd" title="Add to binder (↑)">▲ Add to binder</button>
+    <button class="btn primary" id="pileAdd" title="Add to binder (↑)" data-l="▲ Add to binder">▲ Add to binder</button>
     <button class="navbtn" id="pileNext" title="Next (→)">▶</button>
   </div>
   <div id="pileStrip"></div>
-  <div id="pileHint">Swipe ←/→ to browse · swipe ↑ to add to the first empty pocket · Esc closes</div>
+  <div id="pileHint" data-l="Swipe ←/→ to browse · swipe ↑ to add to the first empty pocket · Esc closes">Swipe ←/→ to browse · swipe ↑ to add to the first empty pocket · Esc closes</div>
   <div id="pileToast"></div>
 </div>
 
@@ -2007,7 +2053,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <div style="display:flex; gap:10px">
       <button class="btn primary" id="packAgain">🎁 Open another</button>
       <button class="btn" id="sharePullBtn">📸 Share</button>
-      <button class="btn" id="packDone">Close</button>
+      <button class="btn" id="packDone" data-l="Close">Close</button>
     </div>
   </div>
   <button id="packMusic" title="Background music: the Pokémon theme">🎵</button>
@@ -2067,9 +2113,9 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <span id="ppGain"></span>
   </div>
   <div id="zoomActions">
-    <button class="btn primary" id="zoomPlace">Add to binder</button>
+    <button class="btn primary" id="zoomPlace" data-l="Add to binder">Add to binder</button>
     <button class="btn" id="zoomCover" style="display:none">Set as cover</button>
-    <button class="btn" id="zoomClose">Close</button>
+    <button class="btn" id="zoomClose" data-l="Close">Close</button>
   </div>
 </div>
 
@@ -2080,6 +2126,110 @@ function sAPI() { return API_ROOT + '/' + (store.searchLang || 'en'); } // soege
 function cardLang(card) { return card && card.img && card.img.startsWith('ja/') ? 'ja' : 'en'; }
 const ASSETS = 'https://assets.tcgdex.net/';
 const LS_KEY = 'tcg-binder-v1';
+// ===== sprog (EN/DA) — noegle = engelsk kildetekst =====
+const STR_DA = {
+  'Build and show off your Pokémon TCG binders digitally': 'Byg og fremvis dine Pokémon TCG-bindere digitalt',
+  'Binder name': 'Bindernavn',
+  '+ New binder': '+ Ny binder',
+  'Delete binder': 'Slet binder',
+  '🔗 Share binder': '🔗 Del binder',
+  '👥 Friends': '👥 Venner',
+  'Save as my binder': 'Gem som min binder',
+  'Back to my binders': 'Tilbage til mine bindere',
+  '💬 Guestbook': '💬 Gæstebog',
+  'Find cards': 'Find kort',
+  'All sets (search by name)': 'Alle sæt (søg på navn)',
+  '✓ Have': '✓ Har',
+  '☆ Need': '☆ Mangler',
+  '🂠 Browse as a pile': '🂠 Gennemse som bunke',
+  '📥 Add all': '📥 Tilføj alle',
+  'Click a card, then click pockets — the same card can be placed as many times as you like.':
+    'Klik på et kort og derefter på lommer — samme kort kan placeres så mange gange du vil.',
+  '+ Add spread': '+ Tilføj opslag',
+  'Remove last spread': 'Fjern sidste opslag',
+  '⚙ Appearance': '⚙ Udseende',
+  '📋 Need list': '📋 Mangler-liste',
+  '📊 Facts': '📊 Fakta',
+  '▶ Present': '▶ Fremvis',
+  '📷 Spread': '📷 Opslag',
+  '🔍 Drop the card here to take a closer look': '🔍 Slip kortet her for at se det tæt på',
+  'Click to open': 'Klik for at åbne',
+  '▲ Add to binder': '▲ Læg i binder',
+  'Swipe ←/→ to browse · swipe ↑ to add to the first empty pocket · Esc closes':
+    'Swipe ←/→ for at bladre · swipe ↑ for at lægge i første ledige lomme · Esc lukker',
+  'Search order': 'Søge-rækkefølge',
+  'Set & number': 'Sæt & nummer',
+  'Add to binder': 'Læg i binder',
+  'Close': 'Luk',
+  'Log in': 'Log ind',
+  'Create account': 'Opret konto',
+  'Username': 'Brugernavn',
+  'Password (min. 6 characters)': 'Adgangskode (mindst 6 tegn)',
+  'Language:': 'Sprog:',
+  'Theme:': 'Tema:',
+  'Classic desk': 'Klassisk skrivebord',
+  'Display case': 'Montre',
+  'Pockets:': 'Lommer:',
+  'Color:': 'Farve:',
+  'Black pages': 'Sorte sider',
+  'Show prices': 'Vis priser',
+  'Prices:': 'Priser:',
+  'Show as:': 'Vis som:',
+  '🧹 Clear binder': '🧹 Tøm binder',
+  '⇅ Sort by set': '⇅ Sortér efter sæt',
+  '⬇ Export': '⬇ Eksportér',
+  '⬆ Import': '⬆ Importér',
+  '👤 Log in': '👤 Log ind',
+  'log out': 'log ud',
+  'Undo': 'Fortryd',
+  'Searching…': 'Søger…',
+  ' cards found.': ' kort fundet.',
+  'No cards found.': 'Ingen kort fundet.',
+  'Search by name or choose a set.': 'Søg på navn eller vælg et sæt.',
+  ' of ': ' af ',
+  ' collected': ' samlet',
+  'Page ': 'Side ',
+  ' — click pockets to place (Esc to finish)': ' — klik på lommer for at placere (Esc afslutter)',
+  'Share link copied 📋': 'Delelink kopieret 📋',
+  'Sorted by set & number': 'Sorteret efter sæt & nummer',
+  'Removed ': 'Fjernede ',
+  'Replaced ': 'Erstattede ',
+  'Spread removed': 'Opslag fjernet',
+  ' cards removed': ' kort fjernet',
+  'Binder imported ✔': 'Binder importeret ✔',
+  'Binders synced from your account ✔': 'Bindere hentet fra din konto ✔',
+  'cards added as': 'kort tilføjet som',
+  'have': 'har',
+  'need': 'mangler',
+  'Card picked up — click another pocket to move or swap': 'Kort løftet — klik på en anden lomme for at flytte/bytte',
+  'Search cards and tap pockets — or pick a set and 📥 Add all': 'Søg kort og tryk på lommer — eller vælg et sæt og 📥 Tilføj alle',
+  'Search first — then you can browse the pile': 'Søg først — så kan bunken gennemses',
+  'The binder is empty': 'Binderen er tom',
+  'Deleted ': 'Slettede ',
+  'Welcome to PokéBinder': 'Velkommen til PokéBinder',
+  'Your Pokémon TCG collection as a real binder — build goals, track prices, show it off.':
+    'Din Pokémon TCG-samling som en rigtig binder — byg mål, følg priser, og vis den frem.',
+  '🎯 Start a master set': '🎯 Start et master set',
+  '🔍 Browse and build freely': '🔍 Udforsk og byg frit',
+  "👀 I have a friend's link": '👀 Jeg har et venne-link',
+  'Paste the link or code…': 'Indsæt linket eller koden…',
+  'Open': 'Åbn',
+  'Create my goal binder': 'Opret min mål-binder',
+  'Log in (free) so your binder follows you across devices.': 'Log ind (gratis) så din binder følger dig på tværs af enheder.',
+  'Log in / create account': 'Log ind / opret konto',
+  'Building your goal binder…': 'Bygger din mål-binder…',
+  'Tap ✓ on cards you own — the bar tracks your progress': 'Tryk ✓ på kort du ejer — bjælken viser din fremdrift',
+  'Have/Need: decides whether new cards count as owned or wishlist': 'Har/Mangler: afgør om nye kort tæller som ejet eller ønskeliste',
+  'Favourite move: swipe a whole set as a pile — swipe up to keep': 'Favorit-trick: swipe et helt sæt som bunke — swipe op for at beholde',
+  'Could not load the set': 'Kunne ikke hente sættet',
+  'Not found — check the link': 'Ikke fundet — tjek linket',
+};
+function T(en) { return (store.uiLang === 'da' && STR_DA[en]) || en; }
+function applyLang() {
+  document.documentElement.lang = store.uiLang === 'da' ? 'da' : 'en';
+  document.querySelectorAll('[data-l]').forEach(el => { el.textContent = T(el.dataset.l); });
+  document.querySelectorAll('[data-lp]').forEach(el => { el.placeholder = T(el.dataset.lp); });
+}
 const BINDER_COLORS = { // [top, mellem, bund] laedergradient
   blue:   ['#2b4d9c', '#1f3a7a', '#16295a'],
   red:    ['#8d2836', '#7a1f2b', '#5c1620'],
@@ -2109,6 +2259,7 @@ function load() {
         if (b.dark === undefined) b.dark = true;
         if (b.sim === undefined && b.name === 'Pack pulls') b.sim = true; // aeldre pulls flytter til sim-verdenen
       }
+      if (s.uiLang === undefined && (navigator.language || '').toLowerCase().startsWith('da')) s.uiLang = 'da';
       return s;
     }
   } catch (e) {}
@@ -2143,7 +2294,7 @@ function toast(msg, undoable) {
   if (undoable) {
     const b = document.createElement('button');
     b.className = 'undo-btn';
-    b.textContent = 'Undo';
+    b.textContent = T('Undo');
     b.addEventListener('click', () => {
       restoreSnap();
       t.style.display = 'none';
@@ -2264,9 +2415,9 @@ $set.addEventListener('change', doSearch);
 async function doSearch() {
   const q = $q.value.trim();
   const setId = $set.value;
-  if (!q && !setId) { $results.innerHTML = ''; $hint.textContent = 'Search by name or choose a set.'; return; }
+  if (!q && !setId) { $results.innerHTML = ''; $hint.textContent = T('Search by name or choose a set.'); return; }
   const seq = ++searchSeq;
-  $hint.textContent = 'Searching…';
+  $hint.textContent = T('Searching…');
   try {
     const artistM = q.match(/^(?:artist|illustrator):\s*(.+)$/i);
     const pq = parseQuery(q);
@@ -2304,8 +2455,8 @@ function renderResults(cards) {
   allResults = cards.map(c => ({ id: c.id, n: c.name, img: c.image ? c.image.replace(ASSETS, '') : null }));
   const shown = cards.slice(0, MAX_RESULTS);
   $hint.textContent = cards.length
-    ? (cards.length > MAX_RESULTS ? `Showing ${MAX_RESULTS} of ${cards.length} — narrow your search.` : `${cards.length} cards found.`)
-    : 'No cards found.';
+    ? (cards.length > MAX_RESULTS ? `${MAX_RESULTS}/${cards.length} — narrow your search.` : cards.length + T(' cards found.'))
+    : T('No cards found.');
   for (const c of shown) {
     const card = { id: c.id, n: c.name, img: c.image ? c.image.replace(ASSETS, '') : null };
     lastResults.push(card);
@@ -2345,7 +2496,7 @@ function selectCard(card, el) {
   const b = document.getElementById('placeBanner');
   document.getElementById('bannerImg').src = card.img ? imgUrl(card.img, 'low') : '';
   document.getElementById('bannerImg').style.display = card.img ? '' : 'none';
-  document.getElementById('bannerText').textContent = card.n + ' — click pockets to place (Esc to finish)';
+  document.getElementById('bannerText').textContent = card.n + T(' — click pockets to place (Esc to finish)');
   b.style.display = 'flex';
   renderBinder();
 }
@@ -2408,8 +2559,8 @@ function renderBinder() {
   const pL = spread * 2 - 1, pR = spread * 2; // view 0: kun hoejre side, som en rigtig binder
   renderPage($gridL, pL);
   renderPage($gridR, pR);
-  document.getElementById('numL').textContent = pL >= 0 ? 'Page ' + (pL + 1) : '';
-  document.getElementById('numR').textContent = pR < pageCount() ? 'Page ' + (pR + 1) : '';
+  document.getElementById('numL').textContent = pL >= 0 ? T('Page ') + (pL + 1) : '';
+  document.getElementById('numR').textContent = pR < pageCount() ? T('Page ') + (pR + 1) : '';
   document.getElementById('spreadLabel').textContent =
     bb.name + ' · ' + (spread + 1) + ' / ' + (maxSpread() + 1);
   renderProgress();
@@ -2422,7 +2573,7 @@ function renderProgress() {
   const setEl = document.getElementById('setProgress');
   if (!cards.length) { wrap.style.display = 'none'; setEl.style.display = 'none'; return; }
   wrap.style.display = 'flex';
-  document.getElementById('progressText').textContent = owned + ' of ' + cards.length + ' collected';
+  document.getElementById('progressText').textContent = owned + T(' of ') + cards.length + T(' collected');
   document.getElementById('progressFill').style.width = Math.round(100 * owned / cards.length) + '%';
   // dominerende saet -> master-set-fremdrift ("87/189 · Darkness Ablaze")
   const bySet = new Map();
@@ -2510,7 +2661,7 @@ function renderPage(grid, pageIdx) {
           snapshot();
           binder().pages[pageIdx][slot] = null;
           save(); renderBinder();
-          toast('Removed ' + card.n, true);
+          toast(T('Removed ') + card.n, true);
         });
         div.appendChild(rm);
         const own = document.createElement('button');
@@ -2529,7 +2680,7 @@ function renderPage(grid, pageIdx) {
     if (!card && emptyBinder && pageIdx === 0 && slot === 0) {
       const hint = document.createElement('div');
       hint.className = 'empty-hint';
-      hint.textContent = 'Search cards and tap pockets — or pick a set and 📥 Add all';
+      hint.textContent = T('Search cards and tap pockets — or pick a set and 📥 Add all');
       div.appendChild(hint);
     }
     div.dataset.page = pageIdx;
@@ -2547,7 +2698,7 @@ function pocketClick(pageIdx, slot) {
     const existing = pages[pageIdx][slot];
     if (existing) snapshot();
     pages[pageIdx][slot] = { ...placing, o: placeMode === 'owned' }; // kopi — samme kort ubegrænset
-    if (existing) toast('Replaced ' + existing.n, true);
+    if (existing) toast(T('Replaced ') + existing.n, true);
     lastPlaced = { page: pageIdx, slot };
     save(); renderBinder();
     return;
@@ -2560,7 +2711,7 @@ function pocketClick(pageIdx, slot) {
   }
   if (pages[pageIdx][slot]) {
     picked = { page: pageIdx, slot };
-    toast('Card picked up — click another pocket to move or swap');
+    toast(T('Card picked up — click another pocket to move or swap'));
     renderBinder();
   }
 }
@@ -2590,7 +2741,7 @@ document.getElementById('delPages').addEventListener('click', () => {
   snapshot();
   pages.splice(-2, 2);
   save(); renderBinder();
-  toast('Spread removed', true);
+  toast(T('Spread removed'), true);
 });
 
 // ---------- bindere (flere) ----------
@@ -2642,7 +2793,7 @@ document.getElementById('delBinder').addEventListener('click', () => {
     save(); renderBinderSelect(); renderBinder();
   };
   save(); renderBinderSelect(); renderBinder();
-  toast('Deleted "' + removed.name + '"', true);
+  toast(T('Deleted ') + '"' + removed.name + '"', true);
 });
 
 // ---------- deling ----------
@@ -2666,7 +2817,7 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
   const url = location.origin + location.pathname + '#b=' + encodeBinder(binder());
   try {
     await navigator.clipboard.writeText(url);
-    toast('Share link copied 📋');
+    toast(T('Share link copied 📋'));
   } catch (e) {
     prompt('Copy the link:', url);
   }
@@ -2832,7 +2983,7 @@ function endDrag(x, y) {
     const existing = pages[t.page][t.slot];
     if (existing) snapshot();
     pages[t.page][t.slot] = { ...card, o: placeMode === 'owned' }; // dubletter altid tilladt
-    if (existing) toast('Replaced ' + existing.n, true);
+    if (existing) toast(T('Replaced ') + existing.n, true);
     lastPlaced = { page: t.page, slot: t.slot };
     save(); renderBinder();
   }
@@ -2871,6 +3022,7 @@ function getDetail(id, lang) {
 function priceSource() { return store.priceSource === 'tcgplayer' ? 'tcgplayer' : 'cardmarket'; }
 function applyTheme() {
   document.body.classList.toggle('theme-display', store.theme === 'display');
+  applyLang();
 }
 function updatePriceUI() {
   applyTheme(); // globalt tema haandhaeves ved hver render (daekker synk/import)
@@ -3205,6 +3357,7 @@ function renderSettings() {
   const b = binder();
   document.getElementById('showPrices').checked = !!store.showPrices;
   document.getElementById('themeSel').value = store.theme === 'display' ? 'display' : 'classic';
+  document.getElementById('uiLangSel').value = store.uiLang === 'da' ? 'da' : 'en';
   document.getElementById('priceSourceSel').value = priceSource();
   document.getElementById('dispCurrency').value = store.dispCurrency === 'dkk' ? 'dkk' : 'eur';
   $sizeSelect.value = (b.cols || 3) + 'x' + (b.rows || 3);
@@ -3244,7 +3397,7 @@ document.getElementById('clearBinder').addEventListener('click', () => {
   b.pages = b.pages.map(pg => pg.map(() => null)); // sider beholdes, lommer toemmes
   spread = 0;
   save(); renderBinder();
-  toast(count + ' cards removed', true);
+  toast(count + T(' cards removed'), true);
 });
 
 document.getElementById('sortBinder').addEventListener('click', () => {
@@ -3267,7 +3420,7 @@ document.getElementById('sortBinder').addEventListener('click', () => {
   b.pages = pages;
   spread = 0;
   save(); renderBinder();
-  toast('Sorted by set & number', true);
+  toast(T('Sorted by set & number'), true);
 });
 
 document.getElementById('exportBinder').addEventListener('click', () => {
@@ -3297,13 +3450,20 @@ document.getElementById('importFile').addEventListener('change', async e => {
     store.active = store.binders.length - 1;
     spread = 0;
     save(); renderBinderSelect(); renderBinder();
-    toast('Binder imported ✔');
+    toast(T('Binder imported ✔'));
   } catch (err) { toast('Not a valid binder file'); }
 });
 
 $darkPages.addEventListener('change', () => {
   binder().dark = $darkPages.checked;
   save(); renderBinder();
+});
+
+document.getElementById('uiLangSel').addEventListener('change', e => {
+  store.uiLang = e.target.value; // globalt, foelger kontoen via synk
+  applyLang();
+  renderBinder();
+  save();
 });
 
 document.getElementById('themeSel').addEventListener('change', e => {
@@ -3346,7 +3506,7 @@ function firstFreeSlot() {
 }
 
 document.getElementById('pileBtn').addEventListener('click', () => {
-  if (!allResults.length) { toast('Search first — then you can browse the pile'); return; }
+  if (!allResults.length) { toast(T('Search first — then you can browse the pile')); return; }
   pile = { cards: allResults.slice(), orig: allResults.slice(), i: 0 };
   document.getElementById('pileSort').value = 'search';
   document.getElementById('pileFind').value = '';
@@ -3547,7 +3707,7 @@ async function api(path, opts = {}) {
   return j;
 }
 function updateAuthUI() {
-  authbtn.textContent = me ? '👤 ' + me + ' · log out' : '👤 Log in';
+  authbtn.textContent = me ? '👤 ' + me + ' · ' + T('log out') : T('👤 Log in');
 }
 
 let pushTimer = null;
@@ -3581,7 +3741,7 @@ async function loadServerStore() {
         spread = 0;
         renderBinder();
       }
-      toast('Binders synced from your account ✔');
+      toast(T('Binders synced from your account ✔'));
     } else {
       pushStore(); // konto uden data endnu: skub lokal samling op
     }
@@ -3641,7 +3801,7 @@ document.getElementById('fillBtn').addEventListener('click', () => {
   save();
   spread = Math.floor((first.page + 1) / 2);
   renderBinder();
-  toast(allResults.length + ' cards added as "' + (placeMode === 'owned' ? 'have' : 'need') + '"', true);
+  toast(allResults.length + ' ' + T('cards added as') + ' "' + T(placeMode === 'owned' ? 'have' : 'need') + '"', true);
 });
 
 // ---------- Need list ----------
@@ -6083,6 +6243,128 @@ document.getElementById('snapBtn').addEventListener('click', async () => {
   } catch (e) { toast('Image export failed'); }
 });
 
+// ---------- onboarding ----------
+const welcomemodal = document.getElementById('welcomemodal');
+const ONBOARD_KEY = 'tcg-onboarded';
+
+function clearCoach() {
+  document.querySelectorAll('.coach').forEach(x => x.remove());
+  document.querySelectorAll('.coach-target').forEach(x => x.classList.remove('coach-target'));
+}
+function coachShow(steps) { // [[selector, tekst], …] — naeste ved foerste interaktion
+  clearCoach();
+  if (!steps.length) return;
+  const [sel, text] = steps[0];
+  const el = document.querySelector(sel);
+  if (!el || el.offsetParent === null) { coachShow(steps.slice(1)); return; }
+  el.classList.add('coach-target');
+  const tip = document.createElement('div');
+  tip.className = 'coach';
+  tip.textContent = text;
+  document.body.appendChild(tip);
+  const r = el.getBoundingClientRect();
+  tip.style.left = Math.min(window.innerWidth - 262, Math.max(8, r.left)) + 'px';
+  tip.style.top = Math.min(window.innerHeight - 90, r.bottom + 8) + 'px';
+  const next = () => {
+    document.removeEventListener('pointerdown', next, true);
+    clearCoach();
+    setTimeout(() => coachShow(steps.slice(1)), 200);
+  };
+  document.addEventListener('pointerdown', next, true);
+}
+
+function maybeOnboard() {
+  if (localStorage.getItem(ONBOARD_KEY)) return;
+  if (viewBinder || location.search.includes('friend=')) return;
+  if (store.binders.some(b => b.pages.flat().some(c => c))) {
+    localStorage.setItem(ONBOARD_KEY, '1'); // eksisterende samler: ingen guide
+    return;
+  }
+  welcomemodal.hidden = false;
+}
+function finishOnboard() {
+  localStorage.setItem(ONBOARD_KEY, '1');
+  welcomemodal.hidden = true;
+}
+welcomemodal.addEventListener('click', e => {
+  if (e.target === welcomemodal || e.target.closest('.modal-close')) finishOnboard();
+});
+document.getElementById('helpBtn').addEventListener('click', () => {
+  document.getElementById('wsSetRow').style.display = 'none';
+  document.getElementById('wsFriendRow').style.display = 'none';
+  welcomemodal.hidden = false;
+});
+document.getElementById('wsLogin').addEventListener('click', () => { finishOnboard(); authbtn.click(); });
+
+document.getElementById('wsBrowse').addEventListener('click', () => {
+  finishOnboard();
+  document.getElementById('q').focus();
+  coachShow([
+    ['#modeOwned', T('Have/Need: decides whether new cards count as owned or wishlist')],
+    ['#pileBtn', T('Favourite move: swipe a whole set as a pile — swipe up to keep')],
+  ]);
+});
+
+document.getElementById('wsFriend').addEventListener('click', () => {
+  document.getElementById('wsSetRow').style.display = 'none';
+  const row = document.getElementById('wsFriendRow');
+  row.style.display = row.style.display === 'none' ? '' : 'none';
+});
+document.getElementById('wsFriendGo').addEventListener('click', () => {
+  const v = document.getElementById('wsFriendInput').value.trim();
+  const m = v.match(/(?:share|friend)=([\w-]+)/) || v.match(/^([\w-]{6,40})$/);
+  if (!m) { toast(T('Not found — check the link')); return; }
+  finishOnboard();
+  openFriend(m[1]);
+});
+
+document.getElementById('wsMaster').addEventListener('click', async () => {
+  document.getElementById('wsFriendRow').style.display = 'none';
+  const row = document.getElementById('wsSetRow');
+  row.style.display = row.style.display === 'none' ? '' : 'none';
+  const sel = document.getElementById('wsSetSel');
+  if (row.style.display !== 'none' && !sel.options.length) {
+    if (pocketReady) await pocketReady;
+    const opts = [...document.getElementById('setSelect').options].slice(1);
+    opts.slice(-12).reverse().forEach(o => { // nyeste saet ligger sidst i TCGdex-listen
+      const n = document.createElement('option');
+      n.value = o.value;
+      n.textContent = o.textContent.replace('🆕 ', '');
+      sel.appendChild(n);
+    });
+  }
+});
+document.getElementById('wsSetGo').addEventListener('click', async () => {
+  const sel = document.getElementById('wsSetSel');
+  if (!sel.value) return;
+  const setId = sel.value;
+  const setName = sel.options[sel.selectedIndex].textContent.replace(/ \(\d+\)$/, '');
+  finishOnboard();
+  toast(T('Building your goal binder…'));
+  try {
+    const set = await (await fetch(sAPI() + '/sets/' + setId)).json();
+    const cards = (set.cards || []).map(c => ({
+      id: c.id, n: c.name, img: c.image ? c.image.replace(ASSETS, '') : null, o: false,
+    }));
+    const per = 9;
+    const pages = [];
+    for (let i = 0; i < cards.length; i += per) {
+      const pg = cards.slice(i, i + per);
+      while (pg.length < per) pg.push(null);
+      pages.push(pg);
+    }
+    while (pages.length < 2 || pages.length % 2) pages.push(Array(per).fill(null));
+    const nb = { name: setName, cols: 3, rows: 3, color: 'blue', dark: true, pages };
+    const soleEmpty = store.binders.length === 1 && !store.binders[0].pages.flat().some(c => c);
+    if (soleEmpty) store.binders[0] = nb; // overtag den tomme start-binder
+    else { store.binders.push(nb); store.active = store.binders.length - 1; }
+    spread = 0;
+    save(); renderBinderSelect(); renderBinder();
+    toast(T('Tap ✓ on cards you own — the bar tracks your progress'));
+    coachShow([['#modeOwned', T('Have/Need: decides whether new cards count as owned or wishlist')]]);
+  } catch (e) { toast(T('Could not load the set')); }
+});
+
 // ---------- tastatur: ←/→ bladrer binderen ----------
 document.addEventListener('keydown', e => {
   if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -6109,6 +6391,7 @@ if (packMode) {
 }
 ensureModeActive();
 checkHash();
+applyLang();
 renderBinderSelect();
 renderBinder();
 renderRecent();
@@ -6123,6 +6406,7 @@ if (location.hostname.includes('pokebinder')) {
 }
 const friendParam = location.search.match(/[?&]friend=([\w-]+)/);
 if (friendParam) openFriend(friendParam[1]);
+setTimeout(maybeOnboard, 1200); // konto-synk faar en chance foerst
 </script>
 </body>
 </html>
