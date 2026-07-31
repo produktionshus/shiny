@@ -165,7 +165,7 @@ function stripPrivate(store) {
       ...b,
       pages: (b.pages || []).map(pg => pg.map(c => {
         if (!c) return null;
-        const { pp, pd, ...rest } = c;
+        const { pp, pd, note, ...rest } = c; // condition deles (trade-relevant), noter er private
         return rest;
       })),
     })),

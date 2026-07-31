@@ -1340,6 +1340,27 @@ body.viewmode #binderSettings { display: none; }
 .zi-row .zi-l { color: #ffd95e; font-family: 'Fredoka', sans-serif; font-weight: 600; flex: 0 0 auto; }
 .zi-row span:last-child { text-align: right; }
 @media (max-width: 900px) { #zoomInfo, #pileInfo { display: none !important; } } /* lille skaerm: kortet er pointen */
+#zoomMeta {
+  position: fixed; left: 50%; bottom: 108px; transform: translateX(-50%);
+  display: none; align-items: center; gap: 8px;
+  background: rgba(20,26,36,.92);
+  border: 1.5px solid rgba(255,217,94,.4);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font: 700 .82rem 'Nunito', sans-serif;
+  color: #ffe9a8;
+  z-index: 610;
+}
+#zoomMeta input, #zoomMeta select {
+  font: 700 .82rem 'Nunito', sans-serif;
+  background: rgba(0,0,0,.35);
+  border: 1.5px solid rgba(255,217,94,.35);
+  border-radius: 8px;
+  color: #ffe9a8;
+  padding: 3px 8px;
+}
+#zoomMeta select option { background: #1b2430; }
+#noteInput { width: 210px; }
 #zoomPurchase {
   position: fixed; left: 50%; bottom: 62px; transform: translateX(-50%);
   display: none; align-items: center; gap: 8px;
@@ -1911,6 +1932,13 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   </div>
   <div id="zoomName"></div>
   <div id="zoomInfo" style="display:none"></div>
+  <div id="zoomMeta">
+    <select id="condInput" title="Condition">
+      <option value="">Cond.</option>
+      <option>NM</option><option>LP</option><option>MP</option><option>HP</option><option>DMG</option>
+    </select>
+    <input id="noteInput" placeholder="Private note… (e.g. traded with Emil)" maxlength="120">
+  </div>
   <div id="zoomPurchase">
     <span>Paid</span>
     <input id="ppInput" type="number" step="0.01" min="0" placeholder="0.00">
@@ -2464,7 +2492,7 @@ document.getElementById('delBinder').addEventListener('click', () => {
 function encodeBinder(b) {
   const pubPages = b.pages.map(pg => pg.map(cd => { // koebsdata er privat
     if (!cd) return null;
-    const { pp, pd, ...rest } = cd;
+    const { pp, pd, note, ...rest } = cd;
     return rest;
   }));
   const json = JSON.stringify({ v: 1, n: b.name, p: pubPages, c: b.cols, r: b.rows, col: b.color, d: b.dark ? 1 : 0, cv: b.cover || undefined });
@@ -2785,6 +2813,8 @@ async function fillInfo(panelId, card, stillCurrent) {
   if (card.pp != null) {
     rows.push(['Bought', fmtMoneyEUR(card.pp) + (card.pd ? ' · ' + card.pd : '')]);
   }
+  if (card.cond) rows.push(['Condition', card.cond]);
+  if (card.note) rows.push(['Note', card.note]);
   for (const [l, v] of rows) {
     const row = document.createElement('div');
     row.className = 'zi-row';
@@ -2897,7 +2927,10 @@ function openZoom(card, from) {
   purchaseCard = inBinder ? card : null;
   const pw = document.getElementById('zoomPurchase');
   pw.style.display = inBinder ? 'flex' : 'none';
+  document.getElementById('zoomMeta').style.display = inBinder ? 'flex' : 'none';
   if (inBinder) {
+    document.getElementById('condInput').value = card.cond || '';
+    document.getElementById('noteInput').value = card.note || '';
     document.getElementById('ppCur').textContent = store.dispCurrency === 'dkk' ? 'kr' : '€';
     document.getElementById('ppInput').value = card.pp != null
       ? (store.dispCurrency === 'dkk' ? (card.pp * DKK_RATE).toFixed(2) : card.pp.toFixed(2)) : '';
@@ -2911,6 +2944,7 @@ function closeZoom() {
   zoomedCard = null;
   purchaseCard = null;
   document.getElementById('zoomPurchase').style.display = 'none';
+  document.getElementById('zoomMeta').style.display = 'none';
   document.getElementById('zoomInfo').style.display = 'none';
   $overlay.classList.remove('open');
 }
@@ -2960,6 +2994,17 @@ document.getElementById('pdInput').addEventListener('change', () => {
     purchaseCard.pd = document.getElementById('pdInput').value;
     save();
   }
+});
+document.getElementById('condInput').addEventListener('change', e => {
+  if (!purchaseCard) return;
+  if (e.target.value) purchaseCard.cond = e.target.value; else delete purchaseCard.cond;
+  save();
+});
+document.getElementById('noteInput').addEventListener('change', e => {
+  if (!purchaseCard) return;
+  const v = e.target.value.trim();
+  if (v) purchaseCard.note = v; else delete purchaseCard.note;
+  save();
 });
 document.getElementById('zoomCover').addEventListener('click', () => {
   const card = zoomedCard;
@@ -3710,7 +3755,7 @@ function tradeRow(label, cards, spareCounts) {
     const t = document.createElement('div');
     t.style.cssText = 'position:relative;width:42px;aspect-ratio:63/88;border-radius:4px;overflow:hidden;cursor:pointer;background:rgba(0,0,0,.12);';
     const spare = spareCounts && spareCounts.get(c.id);
-    t.title = c.n + ' (' + c.id + ')' + (spare ? ' — ' + spare + ' spare' : '');
+    t.title = c.n + ' (' + c.id + ')' + (c.cond ? ' · ' + c.cond : '') + (spare ? ' — ' + spare + ' spare' : '');
     if (c.img) {
       const im = document.createElement('img');
       im.loading = 'lazy';
