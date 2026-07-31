@@ -163,6 +163,17 @@ body.viewmode #drawerTab { display: none; }
 .search-row select option { background: #1b2430; }
 .search-row input::placeholder { color: rgba(255,233,168,.45); }
 .search-hint { font-size: .75rem; opacity: .65; margin-bottom: 8px; min-height: 1em; }
+#recentChips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+#recentChips button {
+  font: 700 .72rem 'Nunito', sans-serif;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,217,94,.35);
+  background: rgba(0,0,0,.3);
+  color: #cbbf9f;
+  cursor: pointer;
+}
+#recentChips button:hover { color: #ffe9a8; border-color: var(--stitch); }
 .results {
   overflow-y: auto;
   display: grid;
@@ -1591,6 +1602,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <button class="btn" id="packBtn" style="flex:1" title="Open a virtual booster pack from the chosen set">🎁 Pack</button>
     </div>
     <div class="search-hint" id="hint">Click a card, then click pockets — the same card can be placed as many times as you like.</div>
+    <div id="recentChips"></div>
     <div class="results" id="results"></div>
   </div>
 
@@ -2087,15 +2099,51 @@ async function loadSets() {
     pocketSets = new Set((tcgp.sets || []).map(x => x.id.toLowerCase()));
     readyResolve();
     while ($set.options.length > 1) $set.remove(1); // genindlaesning ved sprogskifte
+    // nye saet siden sidst -> 🆕-markering + diskret toast
+    let seenSets = null;
+    try { seenSets = JSON.parse(localStorage.getItem('tcg-seen-sets')); } catch (e) {}
+    const firstVisit = !Array.isArray(seenSets);
+    const seen = new Set(seenSets || []);
+    const fresh = [];
     for (const s of sets) {
       if (pocketSets.has(s.id.toLowerCase())) continue; // kun rigtige kort
+      const isNew = !firstVisit && !seen.has(s.id);
+      if (isNew) fresh.push(s);
       const o = document.createElement('option');
       o.value = s.id;
-      o.textContent = s.name + ' (' + (s.cardCount?.official ?? s.cardCount?.total ?? '?') + ')';
+      o.textContent = (isNew ? '🆕 ' : '') + s.name + ' (' + (s.cardCount?.official ?? s.cardCount?.total ?? '?') + ')';
       $set.appendChild(o);
     }
+    localStorage.setItem('tcg-seen-sets', JSON.stringify(sets.map(s => s.id)));
+    if (fresh.length) toast('New set' + (fresh.length > 1 ? 's' : '') + ': ' + fresh.slice(0, 2).map(s => s.name).join(', ') + ' 🆕');
   } catch (e) { $hint.textContent = 'Could not load the set list.'; }
   readyResolve(); // moenster-fallback filtrerer selv uden listen
+}
+
+const RECENT_KEY = 'tcg-recent-searches';
+function renderRecent() {
+  const box = document.getElementById('recentChips');
+  box.innerHTML = '';
+  let recent = [];
+  try { recent = JSON.parse(localStorage.getItem(RECENT_KEY)) || []; } catch (e) {}
+  for (const term of recent) {
+    const b = document.createElement('button');
+    b.textContent = term;
+    b.addEventListener('click', () => {
+      $q.value = term;
+      $set.value = '';
+      doSearch();
+    });
+    box.appendChild(b);
+  }
+}
+function saveRecent(term) {
+  if (!term) return;
+  let recent = [];
+  try { recent = JSON.parse(localStorage.getItem(RECENT_KEY)) || []; } catch (e) {}
+  recent = [term, ...recent.filter(t => t !== term)].slice(0, 6);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
+  renderRecent();
 }
 
 function scheduleSearch() {
@@ -2135,6 +2183,7 @@ async function doSearch() {
     }
     if (seq !== searchSeq) return; // forældet svar
     renderResults(cards);
+    if (q && cards.length) saveRecent(q);
   } catch (e) {
     if (seq === searchSeq) $hint.textContent = 'Search failed — try again.';
   }
@@ -5796,6 +5845,7 @@ ensureModeActive();
 checkHash();
 renderBinderSelect();
 renderBinder();
+renderRecent();
 loadSets();
 const friendParam = location.search.match(/[?&]friend=([\w-]+)/);
 if (friendParam) openFriend(friendParam[1]);
