@@ -523,6 +523,17 @@ body.viewmode #binderSettings { display: none; }
   color: #ffe9a8;
 }
 #pileSort option { background: #1b2430; }
+#pileFind {
+  font: 700 .8rem 'Nunito', sans-serif;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255,217,94,.4);
+  background: rgba(0,0,0,.35);
+  color: #ffe9a8;
+  width: 170px;
+  outline: none;
+}
+#pileFind::placeholder { color: rgba(255,233,168,.45); }
 #pileClose, #packClose { /* safe-area: standalone-PWA laegger indholdet under statusbaren */
   position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); right: calc(18px + env(safe-area-inset-right, 0px));
   font-size: 1.6rem;
@@ -1435,7 +1446,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   <div class="search-panel">
     <h2>Find cards</h2>
     <div class="search-row">
-      <input id="q" placeholder="Search card name, e.g. Mew…" autocomplete="off">
+      <input id="q" placeholder="Mew · Mew rc24 · artist:koizumi" autocomplete="off">
       <select id="setSelect"><option value="">All sets (search by name)</option></select>
     </div>
     <div class="place-mode" style="margin-bottom:6px">
@@ -1566,6 +1577,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <option value="search">Search order</option>
       <option value="set">Set &amp; number</option>
     </select>
+    <input id="pileFind" placeholder="Find… (Mew rc24)" autocomplete="off">
   </div>
   <div id="pileStack">
     <div class="pile-back b3"></div>
@@ -1851,6 +1863,11 @@ let allResults = [];  // ukapped — til 'Add all'
 
 let pocketSets = new Set(); // TCG Pocket (digital) — vises ikke blandt fysiske kort
 let pocketReady = null;       // saettes af loadSets; soegning afventer den
+function normNum(t) { return String(t).toLowerCase().replace(/^([a-z]*)0*/, '$1'); }
+function parseQuery(q) { // samler-syntaks: sidste token som kortnummer
+  const m = q.match(/^(.*\S)\s+([A-Za-z]{0,3}\d{1,4}[A-Za-z]?)$/);
+  return m ? { name: m[1], num: normNum(m[2]) } : { name: q, num: null };
+}
 function isPocketCard(id) {
   const setId = id.slice(0, id.lastIndexOf('-')).toLowerCase();
   // moenster-fallback daekker hvis serie-opslaget fejler: A1/A2b/B1/P-A-skemaet er Pocket-eksklusivt
@@ -1892,11 +1909,8 @@ async function doSearch() {
   const seq = ++searchSeq;
   $hint.textContent = 'Searching…';
   try {
-    // samler-syntaks: "Mew rc24" / "Pikachu 069" — sidste token som kortnummer
-    const normNum = t => String(t).toLowerCase().replace(/^([a-z]*)0*/, '$1');
-    let name = q, num = null;
-    const nm = q.match(/^(.*\S)\s+([A-Za-z]{0,3}\d{1,4}[A-Za-z]?)$/);
-    if (nm) { name = nm[1]; num = normNum(nm[2]); }
+    const artistM = q.match(/^(?:artist|illustrator):\s*(.+)$/i);
+    const pq = parseQuery(q);
     let cards;
     if (setId) {
       const set = await (await fetch(sAPI() + '/sets/' + setId)).json();
@@ -1904,11 +1918,16 @@ async function doSearch() {
       if (q) cards = cards.filter(c => c.name.toLowerCase().includes(q.toLowerCase()));
     } else {
       if (pocketReady) await pocketReady;
-      cards = await (await fetch(sAPI() + '/cards?name=' + encodeURIComponent(name))).json();
-      cards = cards.filter(c => !isPocketCard(c.id));
-      if (num) {
-        const hits = cards.filter(c => normNum(c.localId || '') === num);
-        if (hits.length) cards = hits; // ellers: tallet var nok del af navnet — vis fuld liste
+      if (artistM) {
+        cards = await (await fetch(sAPI() + '/cards?illustrator=' + encodeURIComponent(artistM[1]))).json();
+        cards = cards.filter(c => !isPocketCard(c.id));
+      } else {
+        cards = await (await fetch(sAPI() + '/cards?name=' + encodeURIComponent(pq.name))).json();
+        cards = cards.filter(c => !isPocketCard(c.id));
+        if (pq.num) {
+          const hits = cards.filter(c => normNum(c.localId || '') === pq.num);
+          if (hits.length) cards = hits; // ellers: tallet var nok del af navnet — vis fuld liste
+        }
       }
     }
     if (seq !== searchSeq) return; // forældet svar
@@ -2675,6 +2694,7 @@ document.getElementById('pileBtn').addEventListener('click', () => {
   if (!allResults.length) { toast('Search first — then you can browse the pile'); return; }
   pile = { cards: allResults.slice(), orig: allResults.slice(), i: 0 };
   document.getElementById('pileSort').value = 'search';
+  document.getElementById('pileFind').value = '';
   $pileOverlay.classList.add('open');
   buildStrip();
   renderPile();
@@ -2737,20 +2757,41 @@ function splitId(id) {
   const k = id.lastIndexOf('-');
   return [id.slice(0, k), parseInt(String(id.slice(k + 1)).replace(/\D/g, ''), 10) || 0];
 }
-document.getElementById('pileSort').addEventListener('change', e => {
-  if (!pile) return;
-  const cur = pile.cards[pile.i];
-  if (e.target.value === 'set') {
-    pile.cards = pile.orig.slice().sort((a, b) => {
+function pileBase() { // orig i aktuel sortering
+  const base = pile.orig.slice();
+  if (document.getElementById('pileSort').value === 'set') {
+    base.sort((a, b) => {
       const [sa, la] = splitId(a.id), [sb, lb] = splitId(b.id);
       return sa === sb ? (la - lb || a.id.localeCompare(b.id)) : sa.localeCompare(sb);
     });
-  } else {
-    pile.cards = pile.orig.slice();
   }
-  pile.i = Math.max(0, pile.cards.indexOf(cur));
+  return base;
+}
+function applyPileFilter() {
+  if (!pile) return;
+  const q = document.getElementById('pileFind').value.trim();
+  const cur = pile.cards[pile.i];
+  let cards = pileBase();
+  if (q) {
+    let pq = parseQuery(q);
+    if (!pq.num && /^[A-Za-z]{0,3}\d{1,4}[A-Za-z]?$/.test(q)) pq = { name: '', num: normNum(q) }; // "rc24" alene
+    cards = cards.filter(c => {
+      if (!c.n.toLowerCase().includes(pq.name.toLowerCase())) return false;
+      if (!pq.num) return true;
+      return normNum(c.id.slice(c.id.lastIndexOf('-') + 1)) === pq.num;
+    });
+  }
+  if (!cards.length) { pileToast('No cards match'); return; } // behold nuvaerende visning
+  pile.cards = cards;
+  pile.i = Math.max(0, cards.indexOf(cur));
   buildStrip();
   renderPile();
+}
+document.getElementById('pileSort').addEventListener('change', applyPileFilter);
+let pileFindTimer;
+document.getElementById('pileFind').addEventListener('input', () => {
+  clearTimeout(pileFindTimer);
+  pileFindTimer = setTimeout(applyPileFilter, 220);
 });
 
 let pileToastTimer;
