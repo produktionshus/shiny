@@ -6046,6 +6046,10 @@ renderBinderSelect();
 renderBinder();
 renderRecent();
 loadSets();
+// offline-support: kortbilleder og app-shell caches (springes over i dev)
+if ('serviceWorker' in navigator && location.hostname !== 'localhost') {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
 const friendParam = location.search.match(/[?&]friend=([\w-]+)/);
 if (friendParam) openFriend(friendParam[1]);
 </script>
