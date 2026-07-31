@@ -181,6 +181,24 @@ app.get('/api/tcg/shared/:token', (req, res) => {
   res.json({ username: user.username, store: row ? stripPrivate(JSON.parse(row.data)) : null });
 });
 
+// image proxy for canvas rendering (TCGdex CDN sends no CORS headers, so
+// drawing directly would taint the canvas and block PNG export)
+app.get('/api/img/*', async (req, res) => {
+  const imgPath = req.params[0] || '';
+  if (!/^[\w/.-]{5,160}\.webp$/.test(imgPath) || imgPath.includes('..')) {
+    return res.status(400).end();
+  }
+  try {
+    const r = await fetch('https://assets.tcgdex.net/' + imgPath);
+    if (!r.ok) return res.status(404).end();
+    res.set('Content-Type', 'image/webp');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(Buffer.from(await r.arrayBuffer()));
+  } catch (e) {
+    res.status(502).end();
+  }
+});
+
 // ===== price history (daily snapshot of cards present in any binder) =====
 function extractPrices(d) {
   const blocks = [];

@@ -94,6 +94,46 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
 }
 
 /* ===== Search panel ===== */
+.shelfrow { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: flex-end; }
+.spine {
+  width: 46px; height: 175px;
+  border-radius: 6px 10px 10px 6px;
+  cursor: pointer;
+  position: relative;
+  writing-mode: vertical-rl;
+  display: flex; align-items: center; justify-content: center;
+  font: 600 .8rem 'Fredoka', sans-serif;
+  color: #ffe9a8;
+  text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  border: 2px solid rgba(0,0,0,.35);
+  box-shadow: inset 2px 0 4px rgba(255,255,255,.2), 2px 3px 6px rgba(0,0,0,.3);
+  padding: 8px 0;
+  overflow: hidden;
+}
+.spine.cur { outline: 3px solid #ffd95e; }
+.spine .ms-star { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); writing-mode: horizontal-tb; font-size: .8rem; }
+.spine.newspine { background: rgba(0,0,0,.15); border-style: dashed; color: #6b5d3f; text-shadow: none; }
+
+body.presenting header, body.presenting .toolbar, body.presenting .binder-switch,
+body.presenting #drawerTab, body.presenting .search-panel, body.presenting .binder-controls,
+body.presenting .progress-wrap, body.presenting #setProgress, body.presenting .spread-label,
+body.presenting .viewbar { display: none !important; }
+body.presenting .navbtn { opacity: .12; }
+body.presenting .layout { padding-top: 2vh; }
+body.presenting .page, body.presenting #cover {
+  width: min(calc((100vw - 180px) / 2), calc((100vh - 90px) * 0.716 * var(--cols, 3) / var(--rows, 3)), calc(var(--cols, 3) * 430px));
+}
+#presentExit {
+  position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 16px;
+  z-index: 700;
+  display: none;
+  font-size: 1.3rem;
+  background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.25);
+  border-radius: 50%; width: 42px; height: 42px;
+  color: #ffe9a8; cursor: pointer;
+}
+body.presenting #presentExit { display: block; }
+
 .pagegrid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .pagegrid .pg {
   width: 64px;
@@ -1564,6 +1604,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 </header>
 
 <div class="toolbar">
+  <button class="btn" id="shelfBtn" title="Binder shelf">🗄</button>
   <select id="binderSelect" title="Choose binder"></select>
   <input id="binderName" placeholder="Binder name" size="14">
   <button class="btn" id="newBinder">+ New binder</button>
@@ -1645,6 +1686,8 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <button class="btn" id="valueBtn" title="Estimated Cardmarket value of the cards in this binder">💰 Value</button>
       <button class="btn" id="curveBtn" title="Binder value over time">📈</button>
       <button class="btn" id="factsBtn">📊 Facts</button>
+      <button class="btn" id="presentBtn" title="Fullscreen presentation with auto page turns">▶ Present</button>
+      <button class="btn" id="snapBtn" title="Save/share the open spread as an image">📷 Spread</button>
       <button class="btn" id="sendTcgBtn" style="display:none" title="Copy this pull binder into your real TCG binders">📤 Send copy to TCG</button>
     </div>
     <div id="binderSettings">
@@ -1710,6 +1753,16 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <button id="mysharelink" class="authaction secondary">🔗 Copy my share link</button>
     <button id="tradesBtn" class="authaction secondary">🤝 Trade matches</button>
     <button id="myGuestbook" class="authaction secondary">💬 My guestbook</button>
+  </div>
+</div>
+
+<button id="presentExit" title="Exit presentation (Esc)">✕</button>
+
+<div id="shelfmodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 style="font: 700 1.3rem 'Fredoka', sans-serif; margin-bottom: 12px;">🗄 Your shelf</h2>
+    <div class="shelfrow" id="shelfrow"></div>
   </div>
 </div>
 
@@ -5815,6 +5868,152 @@ document.getElementById('curveBtn').addEventListener('click', async () => {
 });
 curvemodal.addEventListener('click', e => {
   if (e.target === curvemodal || e.target.closest('.modal-close')) curvemodal.hidden = true;
+});
+
+// ---------- binder-reolen ----------
+const shelfmodal = document.getElementById('shelfmodal');
+document.getElementById('shelfBtn').addEventListener('click', () => {
+  const row = document.getElementById('shelfrow');
+  row.innerHTML = '';
+  store.binders.forEach((b, i) => {
+    const sp = document.createElement('div');
+    sp.className = 'spine' + (i === store.active ? ' cur' : '');
+    const leather = BINDER_COLORS[b.color] || BINDER_COLORS.blue;
+    sp.style.background = 'linear-gradient(90deg, ' + leather[0] + ', ' + leather[2] + ')';
+    sp.textContent = b.name;
+    if (b.msDone) {
+      const st = document.createElement('div');
+      st.className = 'ms-star';
+      st.textContent = '✦';
+      sp.appendChild(st);
+    }
+    sp.addEventListener('click', () => {
+      store.active = i;
+      spread = -1; // tag binderen ned fra hylden -> forsiden
+      save(); renderBinderSelect(); renderBinder();
+      shelfmodal.hidden = true;
+    });
+    row.appendChild(sp);
+  });
+  const add = document.createElement('div');
+  add.className = 'spine newspine';
+  add.textContent = '+ New';
+  add.addEventListener('click', () => {
+    shelfmodal.hidden = true;
+    document.getElementById('newBinder').click();
+  });
+  row.appendChild(add);
+  shelfmodal.hidden = false;
+});
+shelfmodal.addEventListener('click', e => {
+  if (e.target === shelfmodal || e.target.closest('.modal-close')) shelfmodal.hidden = true;
+});
+
+// ---------- praesentations-mode ----------
+let presentTimer = null;
+function presentStep() {
+  spread = spread >= maxSpread() ? -1 : spread + 1; // loop: forside -> sidste -> forside
+  renderBinder();
+}
+function startPresent() {
+  document.body.classList.add('presenting');
+  spread = -1;
+  renderBinder();
+  presentTimer = setInterval(presentStep, 5000);
+  try { document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
+}
+function stopPresent() {
+  if (!document.body.classList.contains('presenting')) return;
+  document.body.classList.remove('presenting');
+  clearInterval(presentTimer);
+  presentTimer = null;
+  try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {}
+  renderBinder();
+}
+document.getElementById('presentBtn').addEventListener('click', startPresent);
+document.getElementById('presentExit').addEventListener('click', stopPresent);
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) stopPresent();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') stopPresent(); });
+document.querySelector('.binder-wrap').addEventListener('click', () => {
+  if (!document.body.classList.contains('presenting')) return;
+  presentStep(); // klik = bladr nu, og nulstil rytmen
+  clearInterval(presentTimer);
+  presentTimer = setInterval(presentStep, 5000);
+});
+
+// ---------- del opslag som billede ----------
+function loadImg(src) {
+  return new Promise(resolve => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = () => resolve(null);
+    im.src = src;
+  });
+}
+document.getElementById('snapBtn').addEventListener('click', async () => {
+  if (spread < 0) { toast('Open the binder to a spread first'); return; }
+  const b = binder();
+  toast('Rendering image…');
+  const cols = b.cols || 3, rows = b.rows || 3;
+  const CW = 220, CH = Math.round(CW * 88 / 63), GAP = 12, PAD = 24;
+  const pageW = cols * CW + (cols - 1) * GAP + PAD * 2;
+  const pageH = rows * CH + (rows - 1) * GAP + PAD * 2;
+  const W = pageW * 2 + 70, H = pageH + 100;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  const leather = BINDER_COLORS[b.color] || BINDER_COLORS.blue;
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, leather[0]); bg.addColorStop(1, leather[2]);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  const pageIdxs = [spread * 2 - 1, spread * 2];
+  for (let side = 0; side < 2; side++) {
+    const px = 25 + side * (pageW + 20);
+    const py = 25;
+    const pageIdx = pageIdxs[side];
+    const page = b.pages[pageIdx];
+    ctx.fillStyle = page ? (b.dark ? '#222429' : '#f6efdd') : leather[1];
+    ctx.fillRect(px, py, pageW, pageH);
+    if (!page) continue;
+    for (let slot = 0; slot < page.length; slot++) {
+      const card = page[slot];
+      const cx = px + PAD + (slot % cols) * (CW + GAP);
+      const cy = py + PAD + Math.floor(slot / cols) * (CH + GAP);
+      ctx.fillStyle = b.dark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.07)';
+      ctx.fillRect(cx, cy, CW, CH);
+      if (card && card.img) {
+        const im = await loadImg('/api/img/' + card.img + '/high.webp'); // egen proxy: CDN mangler CORS
+        if (im) {
+          ctx.drawImage(im, cx, cy, CW, CH);
+          if (card.o === false) {
+            ctx.fillStyle = 'rgba(30,30,35,.55)';
+            ctx.fillRect(cx, cy, CW, CH);
+          }
+        }
+      }
+    }
+  }
+  ctx.fillStyle = '#ffd95e';
+  ctx.font = "600 30px Fredoka, sans-serif";
+  ctx.textAlign = 'center';
+  ctx.fillText(b.name + ' · pages ' + Math.max(1, spread * 2) + '–' + (spread * 2 + 1), W / 2, H - 32);
+  try {
+    cv.toBlob(async blob => {
+      if (!blob) { toast('Could not render image'); return; }
+      const file = new File([blob], (b.name || 'binder').replace(/[^\w.-]+/g, '_') + '-spread.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file] }); return; } catch (e) { /* annulleret -> download */ }
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = file.name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }, 'image/png');
+  } catch (e) { toast('Image export failed'); }
 });
 
 // ---------- tastatur: ←/→ bladrer binderen ----------
