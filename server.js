@@ -109,6 +109,20 @@ app.post('/api/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/change-password', requireLogin, (req, res) => {
+  const { oldPassword, newPassword } = req.body || {};
+  if (typeof newPassword !== 'string' || newPassword.length < 6) {
+    return res.status(400).json({ error: 'invalid_input' });
+  }
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
+  if (!user || !bcrypt.compareSync(String(oldPassword || ''), user.hash)) {
+    return res.status(401).json({ error: 'bad_credentials' });
+  }
+  db.prepare('UPDATE users SET hash = ? WHERE id = ?')
+    .run(bcrypt.hashSync(newPassword, 10), user.id);
+  res.json({ ok: true });
+});
+
 app.get('/api/me', (req, res) => {
   res.json({ username: req.session.username || null });
 });

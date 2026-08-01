@@ -575,6 +575,29 @@ body.viewmode #drawerTab { display: none; }
   padding: 0;
 }
 .swatch.on { border-color: #ffd95e; box-shadow: 0 0 0 2px rgba(255,217,94,.5); }
+.dot { position: relative; }
+.dot::after {
+  content: '';
+  position: absolute; top: 2px; right: 2px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: #e8554d;
+  box-shadow: 0 0 6px rgba(232,85,77,.8);
+}
+.pocket.wanted.alarm-hit::before {
+  content: '🔔 PRICE';
+  background: rgba(46,125,79,.95);
+}
+.missgrid { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-height: 55vh; overflow-y: auto; }
+.missgrid .mg {
+  width: 62px;
+  cursor: pointer;
+  text-align: center;
+  font: 700 .6rem 'Nunito', sans-serif;
+  color: var(--ink);
+}
+.missgrid .mg img { width: 100%; aspect-ratio: 63/88; object-fit: cover; border-radius: 5px; display: block; }
+.missgrid .mg .mgn { opacity: .7; }
 #customColor {
   width: 26px; height: 26px;
   padding: 0;
@@ -2004,6 +2027,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <button id="mysharelink" class="authaction secondary">🔗 Copy my share link</button>
     <button id="tradesBtn" class="authaction secondary">🤝 Trade matches</button>
     <button id="myGuestbook" class="authaction secondary">💬 My guestbook</button>
+    <button id="circleBtn" class="authaction secondary" data-l="🏆 Circle stats">🏆 Circle stats</button>
   </div>
 </div>
 
@@ -2055,6 +2079,22 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   </div>
 </div>
 
+<div id="missingmodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 id="missingTitle" style="font: 700 1.3rem 'Fredoka', sans-serif; margin-bottom: 8px;"></h2>
+    <div class="missgrid" id="missgrid"></div>
+  </div>
+</div>
+
+<div id="circlemodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 style="font: 700 1.3rem 'Fredoka', sans-serif; margin-bottom: 8px;" data-l="🏆 Circle stats">🏆 Circle stats</h2>
+    <div id="circlebody" style="text-align:left; font: 700 .9rem 'Nunito', sans-serif;"></div>
+  </div>
+</div>
+
 <div id="setsmodal" class="modal" hidden>
   <div class="modal-card">
     <button class="modal-close" aria-label="Close">✕</button>
@@ -2097,9 +2137,12 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <h2 id="aheading" style="font: 700 1.4rem 'Fredoka', sans-serif; margin-bottom: 10px;">👤 Log in</h2>
     <input id="auser" data-lp="Username" placeholder="Username" autocomplete="username">
     <input id="apass" type="password" data-lp="Password (min. 6 characters)" placeholder="Password (min. 6 characters)" autocomplete="current-password">
+    <input id="apass2" type="password" data-lp="New password (min. 6 characters)" placeholder="New password (min. 6 characters)" autocomplete="new-password" style="display:none">
     <div id="aerr"></div>
     <button id="dologin" class="authaction" data-l="Log in">Log in</button>
     <button id="doregister" class="authaction secondary" data-l="Create account">Create account</button>
+    <button id="dochange" class="authaction" style="display:none" data-l="Change password">Change password</button>
+    <button id="dologout" class="authaction secondary" style="display:none" data-l="Log out">Log out</button>
   </div>
 </div>
 
@@ -2285,6 +2328,9 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <option>NM</option><option>LP</option><option>MP</option><option>HP</option><option>DMG</option>
     </select>
     <input id="noteInput" placeholder="Private note… (e.g. traded with Emil)" maxlength="120">
+    <span id="alarmWrap" style="display:none"><span data-l="Alert:">Alert:</span>
+      <input id="alarmInput" type="number" step="0.01" min="0" style="width:72px" title="Notify when market price drops to this">
+      <span id="alarmCur">€</span></span>
   </div>
   <div id="zoomPurchase">
     <span>Paid</span>
@@ -2358,6 +2404,18 @@ const STR_DA = {
   'Filter sets…': 'Filtrér sæt…',
   'Choose a set': 'Vælg et sæt',
   'Search sets… (name or year)': 'Søg i sæt… (navn eller år)',
+  'Old password': 'Gammelt kodeord',
+  'New password (min. 6 characters)': 'Nyt kodeord (mindst 6 tegn)',
+  'Change password': 'Skift kodeord',
+  'Log out': 'Log ud',
+  'Password changed ✔': 'Kodeord skiftet ✔',
+  'Alert:': 'Alarm:',
+  'Missing in ': 'Mangler i ',
+  '🏆 Circle stats': '🏆 Kreds-tavlen',
+  'You': 'Dig',
+  ' cards · ': ' kort · ',
+  ' unique': ' unikke',
+  'price alert': 'prisalarm',
   'Prices:': 'Priser:',
   'Show as:': 'Vis som:',
   '🧹 Clear binder': '🧹 Tøm binder',
@@ -2863,6 +2921,7 @@ function renderProgress() {
     const sid = top[0];
     const inSet = cards.filter(c => c.id.startsWith(sid + '-'));
     const ownedUnique = new Set(inSet.filter(c => c.o !== false).map(c => c.id)).size;
+    lastSetGoal = { sid, lang: cardLang(inSet[0]) };
     setEl.style.display = '';
     setEl.textContent = ownedUnique + ' · ' + sid;
     getSetInfo(sid, cardLang(inSet[0])).then(si => {
@@ -2899,6 +2958,7 @@ function renderPage(grid, pageIdx) {
     if (picked && picked.page === pageIdx && picked.slot === slot) div.classList.add('picked');
     if (card) {
       if (card.o === false) div.classList.add('wanted');
+      if (card.o === false && alarmHits.has(card.id)) div.classList.add('alarm-hit');
       if (card.img) {
         const im = document.createElement('img');
         im.src = imgUrl(card.img, q);
@@ -3281,6 +3341,7 @@ const RARITY_ODDS = {
 };
 const detailCache = new Map();
 const setInfoCache = new Map();
+let lastSetGoal = null; // {sid, lang} — klik paa fremdriften viser manglerne
 function getSetInfo(setId, lang) {
   const key = (lang || 'en') + ':' + setId;
   if (!setInfoCache.has(key)) {
@@ -3523,6 +3584,10 @@ function openZoom(card, from) {
   pw.style.display = inBinder ? 'flex' : 'none';
   document.getElementById('zoomMeta').style.display = inBinder ? 'flex' : 'none';
   if (inBinder) {
+    document.getElementById('alarmWrap').style.display = card.o === false ? '' : 'none';
+    document.getElementById('alarmCur').textContent = store.dispCurrency === 'dkk' ? 'kr' : '€';
+    document.getElementById('alarmInput').value = card.al != null
+      ? (store.dispCurrency === 'dkk' ? (card.al * DKK_RATE).toFixed(2) : card.al.toFixed(2)) : '';
     document.getElementById('condInput').value = card.cond || '';
     document.getElementById('noteInput').value = card.note || '';
     document.getElementById('ppCur').textContent = store.dispCurrency === 'dkk' ? 'kr' : '€';
@@ -3598,6 +3663,13 @@ document.getElementById('noteInput').addEventListener('change', e => {
   if (!purchaseCard) return;
   const v = e.target.value.trim();
   if (v) purchaseCard.note = v; else delete purchaseCard.note;
+  save();
+});
+document.getElementById('alarmInput').addEventListener('change', e => {
+  if (!purchaseCard) return;
+  const v = parseFloat(e.target.value);
+  if (isNaN(v) || v <= 0) delete purchaseCard.al;
+  else purchaseCard.al = store.dispCurrency === 'dkk' ? +(v / DKK_RATE).toFixed(4) : v; // kanonisk EUR
   save();
 });
 document.getElementById('zoomCover').addEventListener('click', () => {
@@ -4053,16 +4125,38 @@ async function loadServerStore() {
     }
   } catch (e) { /* offline: localStorage daekker */ }
 }
-authbtn.addEventListener('click', async () => {
-  if (me) {
-    await api('/api/logout', { method: 'POST' }).catch(() => {});
-    me = null;
-    updateAuthUI();
-  } else {
-    aerr.textContent = '';
-    authmodal.hidden = false;
-    document.getElementById('auser').focus();
-  }
+authbtn.addEventListener('click', () => {
+  aerr.textContent = '';
+  const acct = !!me;
+  document.getElementById('aheading').textContent = acct ? '👤 ' + me : T('👤 Log in');
+  document.getElementById('auser').style.display = acct ? 'none' : '';
+  document.getElementById('apass').placeholder = acct ? T('Old password') : T('Password (min. 6 characters)');
+  document.getElementById('apass').value = '';
+  document.getElementById('apass2').style.display = acct ? '' : 'none';
+  document.getElementById('apass2').value = '';
+  document.getElementById('dologin').style.display = acct ? 'none' : '';
+  document.getElementById('doregister').style.display = acct ? 'none' : '';
+  document.getElementById('dochange').style.display = acct ? '' : 'none';
+  document.getElementById('dologout').style.display = acct ? '' : 'none';
+  authmodal.hidden = false;
+  if (!acct) document.getElementById('auser').focus();
+});
+document.getElementById('dologout').addEventListener('click', async () => {
+  await api('/api/logout', { method: 'POST' }).catch(() => {});
+  me = null;
+  updateAuthUI();
+  authmodal.hidden = true;
+});
+document.getElementById('dochange').addEventListener('click', async () => {
+  aerr.textContent = '';
+  try {
+    await api('/api/change-password', { method: 'POST', body: JSON.stringify({
+      oldPassword: document.getElementById('apass').value,
+      newPassword: document.getElementById('apass2').value,
+    }) });
+    authmodal.hidden = true;
+    toast(T('Password changed ✔'));
+  } catch (e) { aerr.textContent = AUTH_ERR[e.message] || e.message; }
 });
 async function doAuth(endpoint) {
   aerr.textContent = '';
@@ -4086,7 +4180,7 @@ async function doAuth(endpoint) {
 document.getElementById('dologin').addEventListener('click', () => doAuth('/api/login'));
 document.getElementById('doregister').addEventListener('click', () => doAuth('/api/register'));
 document.getElementById('apass').addEventListener('keydown', e => {
-  if (e.key === 'Enter') doAuth('/api/login');
+  if (e.key === 'Enter') (me ? document.getElementById('dochange') : document.getElementById('dologin')).click();
 });
 authmodal.addEventListener('click', e => {
   if (e.target === authmodal || e.target.closest('.modal-close')) authmodal.hidden = true;
@@ -4329,6 +4423,9 @@ $viewBinderSelect.addEventListener('change', () => {
 // ---------- trades: match need/have mod venner ----------
 const tradesmodal = document.getElementById('tradesmodal');
 document.getElementById('tradesBtn').addEventListener('click', async () => {
+  localStorage.setItem('tcg-trade-seen', String(window.__tradeCount || 0));
+  document.getElementById('friendsBtn').classList.remove('dot');
+  document.getElementById('bbFriends').classList.remove('dot');
   friendsmodal.hidden = true;
   const body = document.getElementById('tradesbody');
   body.textContent = 'Checking friends…';
@@ -6767,6 +6864,138 @@ document.getElementById('bbPile').addEventListener('click', () => document.getEl
 document.getElementById('bbNeed').addEventListener('click', () => document.getElementById('needBtn').click());
 document.getElementById('bbFriends').addEventListener('click', () => document.getElementById('friendsBtn').click());
 document.getElementById('bbAccount').addEventListener('click', () => authbtn.click());
+
+// ---------- hvad mangler jeg i saettet? ----------
+const missingmodal = document.getElementById('missingmodal');
+document.getElementById('setProgress').style.cursor = 'pointer';
+document.getElementById('setProgress').addEventListener('click', async () => {
+  if (!lastSetGoal) return;
+  const si = await getSetInfo(lastSetGoal.sid, lastSetGoal.lang);
+  if (!si) return;
+  const ownedNums = new Set(binder().pages.flat()
+    .filter(c => c && c.o !== false && c.id.startsWith(lastSetGoal.sid + '-'))
+    .map(c => normNum(c.id.slice(c.id.lastIndexOf('-') + 1))));
+  const missing = (si.cards || []).filter(c => !ownedNums.has(normNum(c.localId || '')));
+  document.getElementById('missingTitle').textContent =
+    T('Missing in ') + si.name + ' (' + missing.length + ')';
+  const grid = document.getElementById('missgrid');
+  grid.innerHTML = '';
+  for (const c of missing) {
+    const box = document.createElement('div');
+    box.className = 'mg';
+    if (c.image) {
+      const im = document.createElement('img');
+      im.loading = 'lazy';
+      im.src = c.image.replace(ASSETS, '') ? ASSETS + c.image.replace(ASSETS, '') + '/low.webp' : '';
+      box.appendChild(im);
+    }
+    const n = document.createElement('div');
+    n.className = 'mgn';
+    n.textContent = '#' + (c.localId || '?');
+    box.appendChild(n);
+    box.title = c.name;
+    box.addEventListener('click', () => {
+      $set.value = lastSetGoal.sid;
+      setPickLabel();
+      $q.value = c.name;
+      missingmodal.hidden = true;
+      doSearch();
+    });
+    grid.appendChild(box);
+  }
+  missingmodal.hidden = false;
+});
+missingmodal.addEventListener('click', e => {
+  if (e.target === missingmodal || e.target.closest('.modal-close')) missingmodal.hidden = true;
+});
+
+// ---------- prisalarm paa oenskekort ----------
+const alarmHits = new Set();
+async function checkPriceAlarms() {
+  const cards = store.binders.flatMap(b => b.pages.flat())
+    .filter(c => c && c.o === false && c.al != null && cardLang(c) === 'en');
+  const ids = [...new Set(cards.map(c => c.id))];
+  if (!ids.length) return;
+  const queue = ids.slice();
+  const hits = [];
+  await Promise.all(Array.from({ length: 4 }, async () => {
+    while (queue.length) {
+      const id = queue.shift();
+      const pr = cmEUR(await getDetail(id));
+      const c = cards.find(x => x.id === id);
+      if (pr != null && pr <= c.al) { alarmHits.add(id); hits.push(c.n + ' ' + fmtMoneyEUR(pr)); }
+    }
+  }));
+  if (hits.length) {
+    renderBinder();
+    toast('🔔 ' + T('price alert') + ': ' + hits.slice(0, 3).join(' · '));
+  }
+}
+setTimeout(checkPriceAlarms, 4000);
+
+// ---------- trade-badge: nye matches siden sidst ----------
+async function checkTradeBadge() {
+  if (!me) return;
+  try { friends = (await api('/api/friends')).friends; } catch (e) { return; }
+  if (!friends.length) return;
+  const mine = store.binders.flatMap(b => b.pages.flat()).filter(c => c);
+  const myNeed = new Set(), own = new Map();
+  for (const c of mine) { if (c.o === false) myNeed.add(c.id); else own.set(c.id, (own.get(c.id) || 0) + 1); }
+  for (const id of [...myNeed]) if (own.has(id)) myNeed.delete(id);
+  const spares = new Set([...own].filter(kv => kv[1] > 1).map(kv => kv[0]));
+  let count = 0;
+  for (const f of friends) {
+    try {
+      const j = await api('/api/tcg/shared/' + f.token);
+      const theirs = ((j.store && j.store.binders) || []).flatMap(b => (b.pages || []).flat()).filter(c => c);
+      const tHave = new Set(), tNeed = new Set();
+      for (const c of theirs) (c.o === false ? tNeed : tHave).add(c.id);
+      for (const id of [...tNeed]) if (tHave.has(id)) tNeed.delete(id);
+      for (const id of myNeed) if (tHave.has(id)) count++;
+      for (const id of spares) if (tNeed.has(id)) count++;
+    } catch (e) {}
+  }
+  window.__tradeCount = count;
+  if (count > +(localStorage.getItem('tcg-trade-seen') || 0)) {
+    document.getElementById('friendsBtn').classList.add('dot');
+    document.getElementById('bbFriends').classList.add('dot');
+  }
+}
+setTimeout(checkTradeBadge, 5000);
+
+// ---------- kreds-tavlen ----------
+const circlemodal = document.getElementById('circlemodal');
+document.getElementById('circleBtn').addEventListener('click', async () => {
+  friendsmodal.hidden = true;
+  const body = document.getElementById('circlebody');
+  body.textContent = '…';
+  circlemodal.hidden = false;
+  const statsOf = (name, binders) => {
+    const owned = binders.flatMap(b => b.pages.flat()).filter(c => c && c.o !== false);
+    return { name, owned: owned.length, unique: new Set(owned.map(c => c.id)).size,
+      ms: binders.filter(b => b.msDone).length };
+  };
+  const rows = [statsOf(me || T('You'), store.binders)];
+  for (const f of friends) {
+    try {
+      const j = await api('/api/tcg/shared/' + f.token);
+      if (j.store) rows.push(statsOf(f.name, j.store.binders || []));
+    } catch (e) {}
+  }
+  rows.sort((a, b) => b.owned - a.owned);
+  body.innerHTML = '';
+  const medals = ['🥇', '🥈', '🥉'];
+  rows.forEach((r, i) => {
+    const div = document.createElement('div');
+    div.style.margin = '6px 0';
+    div.textContent = (medals[i] || '·') + ' ' + r.name + ' — ' + r.owned + T(' cards · ')
+      + r.unique + T(' unique') + (r.ms ? ' · ' + '✦'.repeat(Math.min(r.ms, 5)) : '');
+    body.appendChild(div);
+  });
+});
+circlemodal.addEventListener('click', e => {
+  if (e.target === circlemodal || e.target.closest('.modal-close')) circlemodal.hidden = true;
+});
 
 // ---------- tastatur: ←/→ bladrer binderen ----------
 document.addEventListener('keydown', e => {
