@@ -722,6 +722,62 @@ body.viewmode #binderSettings { display: none; }
 }
 
 /* ===== Bunke-visning: bladr gennem soegeresultater som fysisk bunke ===== */
+#scanOverlay {
+  position: fixed; inset: 0;
+  background: #0a0c12;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  z-index: 620;
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+}
+#scanOverlay.open { display: flex; }
+#scanVideoWrap {
+  position: relative;
+  width: min(92vw, 420px);
+  aspect-ratio: 3/4;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #000;
+}
+#scanVideo { width: 100%; height: 100%; object-fit: cover; }
+#scanFrame {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  height: 82%;
+  aspect-ratio: 63/88;
+  border: 3px dashed rgba(255,217,94,.75);
+  border-radius: 10px;
+  pointer-events: none;
+}
+#scanStatus { font: 600 .85rem 'Fredoka', sans-serif; color: #cbbf9f; min-height: 1.2em; text-align: center; padding: 0 16px; }
+#scanResult {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  background: rgba(20,26,36,.95);
+  border: 2px solid var(--stitch);
+  border-radius: 14px;
+  padding: 10px 14px;
+  max-width: 92vw;
+}
+#scanResult img { height: 96px; border-radius: 6px; }
+#scanResult .sr-name { font: 700 .95rem 'Nunito', sans-serif; color: #ffe9a8; }
+#scanBtns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+#scanClose {
+  position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 16px;
+  z-index: 630;
+  font-size: 1.4rem;
+  background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.25);
+  border-radius: 50%; width: 42px; height: 42px;
+  color: #ffe9a8; cursor: pointer;
+  display: none;
+}
+#scanOverlay.open ~ #scanClose, body.scanopen #scanClose { display: block; }
+body.scanopen #bottomBar { display: none !important; }
 #pileOverlay {
   position: fixed; inset: 0;
   background: rgba(8,12,18,.9);
@@ -1894,6 +1950,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <button class="btn" id="pileBtn" style="flex:1" data-l="🂠 Browse as a pile">🂠 Browse as a pile</button>
       <button class="btn" id="fillBtn" style="flex:1" title="Adds every search result to the binder in order, using the Have/Need toggle" data-l="📥 Add all">📥 Add all</button>
       <button class="btn" id="packBtn" style="flex:1" title="Open a virtual booster pack from the chosen set">🎁 Pack</button>
+      <button class="btn" id="scanBtn" style="flex:1" title="Scan a physical card with the camera" data-l="📷 Scan">📷 Scan</button>
     </div>
     <div class="search-hint" id="hint" data-l="Click a card, then click pockets — the same card can be placed as many times as you like.">Click a card, then click pockets — the same card can be placed as many times as you like.</div>
     <div id="recentChips"></div>
@@ -2148,6 +2205,29 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <button id="dologout" class="authaction secondary" style="display:none" data-l="Log out">Log out</button>
   </div>
 </div>
+
+<div id="scanOverlay">
+  <div id="scanVideoWrap">
+    <video id="scanVideo" autoplay playsinline muted></video>
+    <div id="scanFrame"></div>
+  </div>
+  <div id="scanStatus"></div>
+  <div id="scanResult">
+    <img id="scanResImg" alt="">
+    <div>
+      <div class="sr-name" id="scanResName"></div>
+      <div id="scanBtns" style="margin-top:8px">
+        <button class="btn primary" id="scanAdd" data-l="✓ Add to binder">✓ Add to binder</button>
+        <button class="btn" id="scanSkip" data-l="↻ Keep scanning">↻ Keep scanning</button>
+      </div>
+    </div>
+  </div>
+  <div id="scanBtns2" style="display:flex; gap:8px">
+    <label class="btn" style="cursor:pointer" data-l-skip>🖼 <span data-l="From photo">From photo</span>
+      <input type="file" id="scanFile" accept="image/*" style="display:none"></label>
+  </div>
+</div>
+<button id="scanClose" title="Close (Esc)">✕</button>
 
 <div id="pileOverlay">
   <button id="pileClose" title="Close (Esc)">✕</button>
@@ -2419,6 +2499,17 @@ const STR_DA = {
   ' cards · ': ' kort · ',
   ' unique': ' unikke',
   'price alert': 'prisalarm',
+  '📷 Scan': '📷 Scan',
+  '✓ Add to binder': '✓ Læg i binder',
+  '↻ Keep scanning': '↻ Scan videre',
+  'From photo': 'Fra foto',
+  'Loading card index…': 'Henter kort-indekset…',
+  'Point the camera at a card': 'Ret kameraet mod et kort',
+  'Hold the card inside the frame': 'Hold kortet inden for rammen',
+  'No camera — use a photo instead': 'Intet kamera — brug et foto i stedet',
+  'Scanner index not ready yet — try again in a few minutes': 'Scanner-indekset er ikke klar endnu — prøv igen om få minutter',
+  'No match — try more light or fill the frame': 'Intet match — prøv mere lys eller fyld rammen',
+  'Added ': 'Tilføjede ',
   'Prices:': 'Priser:',
   'Show as:': 'Vis som:',
   '🧹 Clear binder': '🧹 Tøm binder',
@@ -6999,6 +7090,205 @@ document.getElementById('circleBtn').addEventListener('click', async () => {
 });
 circlemodal.addEventListener('click', e => {
   if (e.target === circlemodal || e.target.closest('.modal-close')) circlemodal.hidden = true;
+});
+
+// ---------- kortscanner: grid-pHash mod serverens indeks ----------
+const scanOverlay = document.getElementById('scanOverlay');
+const SHW = 32, SHH = 44; // SKAL matche serverens HW/HH — algoritmen er portet 1:1
+let scanIdx = null;       // { ids: [], hashes: Uint8Array(n*40) }
+let scanStream = null, scanTimer = null, scanCandidate = null, scanStableId = null, scanStableCount = 0;
+const POP = new Uint8Array(256);
+for (let i = 0; i < 256; i++) POP[i] = (i & 1) + POP[i >> 1];
+
+function scanHashFromGray(g) { // identisk med serverens hashFromGray
+  const bits = new Uint8Array(40);
+  let idx = 0;
+  const setBit = on => { if (on) bits[idx >> 3] |= 128 >> (idx & 7); idx++; };
+  const mean8 = [];
+  for (let cy = 0; cy < 8; cy++) for (let cx = 0; cx < 8; cx++) {
+    let sum = 0, n = 0;
+    for (let y = Math.floor(cy * SHH / 8); y < Math.floor((cy + 1) * SHH / 8); y++)
+      for (let x = Math.floor(cx * SHW / 8); x < Math.floor((cx + 1) * SHW / 8); x++) { sum += g[y * SHW + x]; n++; }
+    mean8.push(sum / n);
+  }
+  const gm = mean8.reduce((a, b) => a + b, 0) / 64;
+  for (const m of mean8) setBit(m > gm);
+  for (let gy = 0; gy < 4; gy++) for (let gx = 0; gx < 4; gx++) {
+    const x0 = Math.floor(gx * SHW / 4), x1 = Math.floor((gx + 1) * SHW / 4);
+    const y0 = Math.floor(gy * SHH / 4), y1 = Math.floor((gy + 1) * SHH / 4);
+    const sub = [];
+    for (let sy = 0; sy < 4; sy++) for (let sx = 0; sx < 4; sx++) {
+      let sum = 0, n = 0;
+      for (let y = y0 + Math.floor(sy * (y1 - y0) / 4); y < y0 + Math.floor((sy + 1) * (y1 - y0) / 4); y++)
+        for (let x = x0 + Math.floor(sx * (x1 - x0) / 4); x < x0 + Math.floor((sx + 1) * (x1 - x0) / 4); x++) { sum += g[y * SHW + x]; n++; }
+      sub.push(n ? sum / n : 0);
+    }
+    const cm = sub.reduce((a, b) => a + b, 0) / 16;
+    for (const m of sub) setBit(m > cm);
+  }
+  return bits;
+}
+
+async function loadScanIndex() {
+  if (scanIdx) return true;
+  document.getElementById('scanStatus').textContent = T('Loading card index…');
+  try {
+    const j = await (await fetch('/api/scan-index')).json();
+    if (!j.cards || !j.cards.length) return false;
+    const ids = new Array(j.cards.length);
+    const hashes = new Uint8Array(j.cards.length * 40);
+    j.cards.forEach(([id, b64], i) => {
+      ids[i] = id;
+      const bin = atob(b64);
+      for (let k = 0; k < 40; k++) hashes[i * 40 + k] = bin.charCodeAt(k);
+    });
+    scanIdx = { ids, hashes };
+    return true;
+  } catch (e) { return false; }
+}
+
+function scanMatch(h) {
+  let best = 9999, second = 9999, bestI = -1;
+  const H = scanIdx.hashes, n = scanIdx.ids.length;
+  for (let i = 0; i < n; i++) {
+    let d = 0;
+    const off = i * 40;
+    for (let k = 0; k < 40; k++) d += POP[H[off + k] ^ h[k]];
+    if (d < best) { second = best; best = d; bestI = i; }
+    else if (d < second) second = d;
+  }
+  return { id: scanIdx.ids[bestI], d: best, margin: second - best };
+}
+
+const scanCv = document.createElement('canvas');
+scanCv.width = SHW; scanCv.height = SHH;
+const scanCtx = scanCv.getContext('2d', { willReadFrequently: true });
+
+function grayFromSource(src, sx, sy, sw, sh) {
+  scanCtx.drawImage(src, sx, sy, sw, sh, 0, 0, SHW, SHH);
+  const d = scanCtx.getImageData(0, 0, SHW, SHH).data;
+  const g = new Uint8Array(SHW * SHH);
+  for (let i = 0; i < g.length; i++) {
+    g[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0;
+  }
+  return g;
+}
+
+function scanFrameOnce(src, w, h) {
+  // rammen: centreret 63:88-udsnit, ~82% af hoejden; prov 3 skalaer
+  let bestRes = null;
+  for (const scale of [0.82, 0.72, 0.92]) {
+    const ch = h * scale, cw = ch * 63 / 88;
+    if (cw > w) continue;
+    const g = grayFromSource(src, (w - cw) / 2, (h - ch) / 2, cw, ch);
+    const res = scanMatch(scanHashFromGray(g));
+    if (!bestRes || res.d < bestRes.d) bestRes = res;
+  }
+  return bestRes;
+}
+
+async function presentScanHit(id) {
+  scanCandidate = id;
+  const d = await getDetail(id);
+  if (scanCandidate !== id) return;
+  document.getElementById('scanResImg').src = d && d.image ? d.image + '/low.webp' : '';
+  document.getElementById('scanResName').textContent = (d ? d.name : id) + (d && d.set ? ' · ' + d.set.name : '');
+  document.getElementById('scanResult').style.display = 'flex';
+  document.getElementById('scanStatus').textContent = '';
+}
+
+function scanTick() {
+  const v = document.getElementById('scanVideo');
+  if (!scanIdx || !v.videoWidth || document.getElementById('scanResult').style.display === 'flex') return;
+  const res = scanFrameOnce(v, v.videoWidth, v.videoHeight);
+  if (res && res.d <= 85 && res.margin >= 8) { // maalt paa perturberede kort: hits d=36-75, margin 5-34
+    if (res.id === scanStableId) scanStableCount++;
+    else { scanStableId = res.id; scanStableCount = 1; }
+    if (scanStableCount >= 2) presentScanHit(res.id); // to ens frames i traek = stabilt match
+  } else {
+    scanStableId = null;
+    scanStableCount = 0;
+  }
+}
+
+async function openScanner() {
+  document.body.classList.add('scanopen');
+  scanOverlay.classList.add('open');
+  document.getElementById('scanResult').style.display = 'none';
+  const ok = await loadScanIndex();
+  if (!ok) {
+    document.getElementById('scanStatus').textContent = T('Scanner index not ready yet — try again in a few minutes');
+    return;
+  }
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: false,
+    });
+    document.getElementById('scanVideo').srcObject = scanStream;
+    document.getElementById('scanStatus').textContent = T('Hold the card inside the frame');
+    scanTimer = setInterval(scanTick, 650);
+  } catch (e) {
+    document.getElementById('scanStatus').textContent = T('No camera — use a photo instead');
+  }
+}
+function closeScanner() {
+  document.body.classList.remove('scanopen');
+  scanOverlay.classList.remove('open');
+  clearInterval(scanTimer);
+  scanTimer = null;
+  scanCandidate = null;
+  scanStableId = null;
+  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+}
+document.getElementById('scanBtn').addEventListener('click', openScanner);
+document.getElementById('scanClose').addEventListener('click', closeScanner);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeScanner(); });
+
+document.getElementById('scanSkip').addEventListener('click', () => {
+  document.getElementById('scanResult').style.display = 'none';
+  scanCandidate = null;
+  scanStableId = null;
+  scanStableCount = 0;
+  document.getElementById('scanStatus').textContent = T('Hold the card inside the frame');
+});
+
+document.getElementById('scanAdd').addEventListener('click', async () => {
+  const id = scanCandidate;
+  if (!id) return;
+  const d = await getDetail(id);
+  const card = {
+    id,
+    n: d ? d.name : id,
+    img: d && d.image ? d.image.replace(ASSETS, '') : null,
+    o: placeMode === 'owned',
+  };
+  const t = firstFreeSlot();
+  binder().pages[t.page][t.slot] = card;
+  lastPlaced = t;
+  jumpPage(t.page);
+  snick();
+  save(); renderBinder();
+  toast(T('Added ') + card.n + ' ✔');
+  document.getElementById('scanSkip').click();
+});
+
+document.getElementById('scanFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file || !(await loadScanIndex())) return;
+  const im = new Image();
+  im.onload = () => {
+    const res = scanFrameOnce(im, im.naturalWidth, im.naturalHeight)
+      || { d: 999, margin: 0 };
+    // fotos er ofte hele kortet uden ramme — prov ogsaa fuld flade
+    const g = grayFromSource(im, 0, 0, im.naturalWidth, im.naturalHeight);
+    const full = scanMatch(scanHashFromGray(g));
+    const pick = full.d < res.d ? full : res;
+    if (pick.d <= 95) presentScanHit(pick.id);
+    else document.getElementById('scanStatus').textContent = T('No match — try more light or fill the frame');
+    URL.revokeObjectURL(im.src);
+  };
+  im.src = URL.createObjectURL(file);
 });
 
 // ---------- tastatur: ←/→ bladrer binderen ----------

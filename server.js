@@ -49,6 +49,10 @@ db.exec(`
     official INTEGER,
     PRIMARY KEY (lang, set_id)
   );
+  CREATE TABLE IF NOT EXISTS card_hashes (
+    card_id TEXT PRIMARY KEY,
+    hash BLOB NOT NULL
+  );
   CREATE TABLE IF NOT EXISTS tcg_comments (
     id INTEGER PRIMARY KEY,
     owner_id INTEGER NOT NULL REFERENCES users(id),
@@ -219,6 +223,80 @@ app.get('/api/img/*', async (req, res) => {
   } catch (e) {
     res.status(502).end();
   }
+});
+
+// ===== card scan index (grid perceptual hashes of every EN card image) =====
+let sharp = null;
+try { sharp = require('sharp'); } catch (e) { console.error('sharp mangler — scan-indeks deaktiveret'); }
+
+const HW = 32, HH = 44; // hash-oploesning, ca. 63:88
+// SAMME algoritme er portet 1:1 til klienten i tcg.html — aendringer skal ske begge steder
+function hashFromGray(g) {
+  const bits = Buffer.alloc(40); // 64 globale bits + 16 celler x 16 bits
+  let idx = 0;
+  const setBit = on => { if (on) bits[idx >> 3] |= 128 >> (idx & 7); idx++; };
+  const mean8 = [];
+  for (let cy = 0; cy < 8; cy++) for (let cx = 0; cx < 8; cx++) {
+    let sum = 0, n = 0;
+    for (let y = Math.floor(cy * HH / 8); y < Math.floor((cy + 1) * HH / 8); y++)
+      for (let x = Math.floor(cx * HW / 8); x < Math.floor((cx + 1) * HW / 8); x++) { sum += g[y * HW + x]; n++; }
+    mean8.push(sum / n);
+  }
+  const gm = mean8.reduce((a, b) => a + b, 0) / 64;
+  for (const m of mean8) setBit(m > gm);
+  for (let gy = 0; gy < 4; gy++) for (let gx = 0; gx < 4; gx++) {
+    const x0 = Math.floor(gx * HW / 4), x1 = Math.floor((gx + 1) * HW / 4);
+    const y0 = Math.floor(gy * HH / 4), y1 = Math.floor((gy + 1) * HH / 4);
+    const sub = [];
+    for (let sy = 0; sy < 4; sy++) for (let sx = 0; sx < 4; sx++) {
+      let sum = 0, n = 0;
+      for (let y = y0 + Math.floor(sy * (y1 - y0) / 4); y < y0 + Math.floor((sy + 1) * (y1 - y0) / 4); y++)
+        for (let x = x0 + Math.floor(sx * (x1 - x0) / 4); x < x0 + Math.floor((sx + 1) * (x1 - x0) / 4); x++) { sum += g[y * HW + x]; n++; }
+      sub.push(n ? sum / n : 0);
+    }
+    const cm = sub.reduce((a, b) => a + b, 0) / 16;
+    for (const m of sub) setBit(m > cm);
+  }
+  return bits;
+}
+
+let scanIndexBuilding = false;
+async function buildScanIndex() {
+  if (!sharp || scanIndexBuilding) return;
+  scanIndexBuilding = true;
+  try {
+    const sets = await fetch('https://api.tcgdex.net/v2/en/sets').then(r => r.json());
+    const have = new Set(db.prepare('SELECT card_id FROM card_hashes').all().map(r => r.card_id));
+    const ins = db.prepare('INSERT OR REPLACE INTO card_hashes (card_id, hash) VALUES (?, ?)');
+    for (const st of sets) {
+      let detail = null;
+      try {
+        const r = await fetch('https://api.tcgdex.net/v2/en/sets/' + encodeURIComponent(st.id));
+        if (r.ok) detail = await r.json();
+      } catch (e) { /* videre */ }
+      if (!detail) continue;
+      for (const c of detail.cards || []) {
+        if (!c.image || have.has(c.id)) continue;
+        try {
+          const buf = Buffer.from(await (await fetch(c.image + '/low.webp')).arrayBuffer());
+          const g = await sharp(buf).resize(HW, HH, { fit: 'fill' }).grayscale().raw().toBuffer();
+          ins.run(c.id, hashFromGray(g));
+        } catch (e) { /* enkelt kort fejler: videre */ }
+        await new Promise(r => setTimeout(r, 60)); // skaansom takt
+      }
+    }
+    console.log('scan-indeks:', db.prepare('SELECT COUNT(*) AS n FROM card_hashes').get().n, 'kort');
+  } finally {
+    scanIndexBuilding = false;
+  }
+}
+setTimeout(() => buildScanIndex().catch(e => console.error('scan-indeks fejlede:', e)), 2 * 60 * 1000);
+setInterval(() => buildScanIndex().catch(() => {}), 24 * 60 * 60 * 1000); // nye kort samles op dagligt
+
+app.get('/api/scan-index', (req, res) => {
+  const rows = db.prepare('SELECT card_id, hash FROM card_hashes').all();
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.json({ v: 1, cards: rows.map(r => [r.card_id, Buffer.from(r.hash).toString('base64')]) });
 });
 
 // ===== sets metadata (release dates live only in per-set details; cached here) =====
