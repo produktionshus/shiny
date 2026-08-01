@@ -40,6 +40,99 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+/* ===== Display case theme (ported from the TCG binder) ===== */
+body.theme-display {
+  background:
+    radial-gradient(900px 520px at 50% 6%, #1a2233 0%, transparent 58%),
+    #0a0c12;
+}
+body.theme-display::before { opacity: .03; }
+/* room vignette */
+body.theme-display::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, transparent 52%, rgba(0,0,0,.55) 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+body.theme-display .binder-wrap { position: relative; }
+body.theme-display .binder-wrap::before {
+  content: '';
+  position: absolute; inset: -50px -90px;
+  background: radial-gradient(50% 62% at 50% 28%, rgba(255,236,180,.10), transparent 72%);
+  pointer-events: none;
+}
+/* slow light sweep across the case */
+body.theme-display .binder-wrap::after {
+  content: '';
+  position: absolute; inset: -20px;
+  background: linear-gradient(115deg, transparent 42%, rgba(255,244,214,.06) 50%, transparent 58%);
+  background-size: 300% 100%;
+  animation: caseSweep 9s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes caseSweep {
+  0%, 55% { background-position: 120% 0; }
+  85%, 100% { background-position: -60% 0; }
+}
+body.theme-display .binder {
+  background: linear-gradient(155deg, #23262f 0%, #171a22 45%, #0f1118 100%);
+  box-shadow:
+    0 45px 100px rgba(0,0,0,.9),
+    0 0 70px rgba(255,217,94,.08),
+    inset 0 2px 4px rgba(255,255,255,.12),
+    inset 0 -3px 8px rgba(0,0,0,.5);
+}
+body.theme-display .binder::before { border-color: rgba(190,205,235,.28); }
+/* velvet pages instead of paper */
+body.theme-display .page {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(120,140,190,.10), transparent 60%),
+    linear-gradient(180deg, #191c26 0%, #10121a 100%);
+  box-shadow: inset 0 0 34px rgba(0,0,0,.5);
+}
+body.theme-display .page.left  { box-shadow: inset -18px 0 24px -18px rgba(0,0,0,.6), inset 0 0 34px rgba(0,0,0,.45); }
+body.theme-display .page.right { box-shadow: inset 18px 0 24px -18px rgba(0,0,0,.6), inset 0 0 34px rgba(0,0,0,.45); }
+body.theme-display .page.left::after, body.theme-display .page.right::after {
+  background: repeating-linear-gradient(90deg, #2a2e3c 0 1.6px, #14161e 1.6px 2.6px);
+}
+body.theme-display .page-num { color: #7f87a0; }
+body.theme-display .ring {
+  border-color: rgba(150,158,175,.6);
+  box-shadow: inset 1px 1px 2px rgba(255,255,255,.25), 2px 3px 5px rgba(0,0,0,.4);
+}
+/* glass pockets that lift on hover */
+body.theme-display .pocket {
+  border-color: rgba(190,205,235,.22);
+  background: linear-gradient(160deg, rgba(190,205,235,.10), rgba(190,205,235,.02) 55%);
+  box-shadow: inset 0 1px 3px rgba(255,255,255,.12), 0 1px 2px rgba(0,0,0,.5);
+  transition: border-color .12s, box-shadow .18s, transform .18s;
+}
+body.theme-display .pocket:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 10px 26px rgba(0,0,0,.6), 0 0 20px rgba(255,217,94,.25);
+  z-index: 6;
+}
+body.theme-display .pocket.empty { background: rgba(255,255,255,.02); }
+body.theme-display .navbtn { background: rgba(0,0,0,.65); }
+body.theme-display .toolbar input {
+  background: rgba(255,255,255,.06);
+  border-color: rgba(255,255,255,.14);
+}
+body.theme-display #showall, body.theme-display #top50, body.theme-display #authbtn,
+body.theme-display #sharebtn, body.theme-display #comparebtn, body.theme-display #costumes,
+body.theme-display #regionals, body.theme-display #specials, body.theme-display #themebtn,
+body.theme-display .gens button, body.theme-display .gridpick select {
+  background: rgba(255,255,255,.06);
+  border-color: rgba(255,255,255,.16);
+}
+/* glass-floor reflection under the binder (desktop only; Firefox skips it) */
+@media (min-width: 801px) {
+  body.theme-display .binder {
+    -webkit-box-reflect: below 10px linear-gradient(transparent 78%, rgba(255,255,255,.05));
+  }
+}
+
 header {
   text-align: center;
   padding: 28px 16px 10px;
@@ -300,7 +393,8 @@ body.show-all .card:not(.owned) { filter: none; opacity: 1; }
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0,0,0,.35);
 }
-#showall, #top50, #authbtn, #sharebtn, #comparebtn, #costumes, #regionals, #specials {
+#helpbtn { min-width: 34px; }
+#showall, #top50, #authbtn, #sharebtn, #comparebtn, #costumes, #regionals, #specials, #themebtn, #helpbtn {
   font: 700 .8rem 'Fredoka', sans-serif;
   padding: 8px 14px;
   border-radius: 999px;
@@ -602,6 +696,18 @@ footer a { color: inherit; }
   cursor: pointer; color: var(--ink);
 }
 
+/* onboarding guide */
+.guide { list-style: none; margin: 0 0 14px; }
+.guide li {
+  font: 600 .92rem 'Nunito', sans-serif;
+  line-height: 1.35;
+  padding: 7px 4px 7px 26px;
+  position: relative;
+  border-bottom: 1px solid rgba(150,130,90,.18);
+}
+.guide li::before { content: '›'; position: absolute; left: 8px; color: var(--gold); font-weight: 800; }
+.guide li b { color: #6b4a12; }
+
 /* auth modal */
 .modal-card input {
   width: 100%;
@@ -641,7 +747,19 @@ footer a { color: inherit; }
 @media (max-width: 800px), ((pointer: coarse) and (max-width: 1024px)) {
   header { padding: 14px 10px 2px; }
   .legend { display: none; }
-  .toolbar { padding: 8px 8px 0; gap: 6px; }
+  /* keep the toolbar to one scrollable row so the binder gets the screen */
+  .toolbar {
+    padding: 8px 10px 2px;
+    gap: 6px;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .toolbar::-webkit-scrollbar { display: none; }
+  .toolbar > * { flex: 0 0 auto; white-space: nowrap; }
+  .toolbar input { width: 44vw; }
   .gridpick { display: none; }
   .page { width: min(94vw, 460px); }
   .binder-wrap { position: relative; gap: 0; padding: 14px 0 6px; }
@@ -698,6 +816,7 @@ footer a { color: inherit; }
   <a class="tcg" href="/tcg">🗂️ PokéBinder</a>
   <a class="packs" href="/packs">🎁 Packs</a>
   <a class="go active" href="/go">✨ GO-Shinies</a>
+  <a class="about" href="/about" title="Om PokéBinder">ℹ️</a>
 </nav>
 
 <header>
@@ -716,6 +835,8 @@ footer a { color: inherit; }
   <button id="authbtn">👤 Log in</button>
   <button id="sharebtn" title="Copy a read-only link to your collection" style="display:none">🔗 Share</button>
   <button id="comparebtn" title="Compare with friends via their share links">👥 Compare</button>
+  <button id="themebtn" title="Switch between Classic desk and Display case">🖼️ Display case</button>
+  <button id="helpbtn" title="How it works">?</button>
   <label class="gridpick"><span id="pocklabel">Pockets:</span>
     <select id="cols"></select> ×
     <select id="rows"></select>
@@ -747,6 +868,22 @@ footer a { color: inherit; }
     <button id="mcry" title="Play cry">🔊</button>
     <div class="msources" id="msources"></div>
     <button id="mcollect"></button>
+  </div>
+</div>
+
+<div id="welcomemodal" class="modal" hidden>
+  <div class="modal-card" style="text-align:left">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 style="font: 700 1.5rem 'Fredoka', sans-serif; text-align:center; margin-bottom: 10px;">✨ Welcome to Shiny Binder ✨</h2>
+    <ul class="guide">
+      <li><b>Tap a card</b> to mark a shiny as caught — it lights up with a sparkle. Tap again to undo.</li>
+      <li><b>Search</b> or use the <b>region tabs</b> (Kanto, Johto…) to jump around the binder.</li>
+      <li><b>🏆 Top 50</b> ranks the rarest shinies; <b>🎩 Costumes</b>, <b>🌍 Regionals</b> and <b>⭐ Specials</b> have their own checklists.</li>
+      <li><b>👤 Log in</b> to save your collection and sync it across devices.</li>
+      <li><b>🔗 Share</b> a read-only link, then <b>👥 Compare</b> to see friends' catches as colored rings.</li>
+      <li><b>🖼️ Display case</b> switches to a museum-style dark theme.</li>
+    </ul>
+    <button id="wsClose" class="authaction">Got it — let's go!</button>
   </div>
 </div>
 
@@ -1033,6 +1170,26 @@ function playSparkleSynth() {
   } catch (e) { /* no audio: skip */ }
 }
 
+// soft page-flip sound: short filtered noise burst (ported idea from the TCG binder)
+function playFlipSound() {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const dur = 0.18;
+    const buf = actx.createBuffer(1, actx.sampleRate * dur, actx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) {
+      const t = i / d.length;
+      d[i] = (Math.random() * 2 - 1) * (1 - t) * (1 - t); // decaying noise = paper rustle
+    }
+    const src = actx.createBufferSource(); src.buffer = buf;
+    const bp = actx.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.value = 2600; bp.Q.value = 0.7;
+    const g = actx.createGain(); g.gain.value = 0.14;
+    src.connect(bp).connect(g).connect(actx.destination);
+    src.start();
+  } catch (e) { /* no audio: skip */ }
+}
+
 function sparkleBurst(el) {
   const r = el.getBoundingClientRect();
   const holder = document.createElement('div');
@@ -1165,7 +1322,7 @@ modal.addEventListener('click', e => {
   if (e.target === modal || e.target.closest('.modal-close')) modal.hidden = true;
 });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { modal.hidden = true; authmodal.hidden = true; }
+  if (e.key === 'Escape') document.querySelectorAll('.modal').forEach(m => m.hidden = true);
 });
 
 // ===== login & server sync =====
@@ -1405,6 +1562,32 @@ showallBtn.onclick = () =>
   applyShowAll(!document.body.classList.contains('show-all'));
 applyShowAll(!!localStorage.getItem('shinyShowAll'));
 
+// theme toggle: Classic desk / Display case
+const themebtn = document.getElementById('themebtn');
+function applyTheme(display) {
+  document.body.classList.toggle('theme-display', display);
+  themebtn.textContent = display ? '🗄️ Classic desk' : '🖼️ Display case';
+  localStorage.setItem('shinyTheme', display ? 'display' : 'classic');
+}
+themebtn.onclick = () => applyTheme(!document.body.classList.contains('theme-display'));
+applyTheme(localStorage.getItem('shinyTheme') === 'display');
+
+// onboarding guide
+const welcomemodal = document.getElementById('welcomemodal');
+const closeWelcome = () => {
+  welcomemodal.hidden = true;
+  localStorage.setItem('shinyOnboarded', '1');
+};
+document.getElementById('helpbtn').onclick = () => { welcomemodal.hidden = false; };
+document.getElementById('wsClose').onclick = closeWelcome;
+welcomemodal.addEventListener('click', e => {
+  if (e.target === welcomemodal || e.target.closest('.modal-close')) closeWelcome();
+});
+// show on first visit, unless arriving via a share link or already collecting
+if (!localStorage.getItem('shinyOnboarded') && !readonly && collected.size === 0) {
+  welcomemodal.hidden = false;
+}
+
 // top 50 + extras views
 Object.entries(VIEW_BTNS).forEach(([v, id]) => {
   document.getElementById(id).onclick = () => {
@@ -1511,6 +1694,7 @@ function toggleKey(key, el) {
 function flip(dir) {
   const target = cur + dir;
   if (view !== 'binder' || animating || target < 0 || target >= spreads.length) return;
+  playFlipSound();
   if (mqMobile.matches) { cur = target; render(); return; }
 
   animating = true;

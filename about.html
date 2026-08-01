@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Om PokéBinder</title>
+<link rel="icon" href="/tcg-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { overflow-x: clip; }
+body {
+  min-height: 100vh;
+  font-family: 'Nunito', sans-serif;
+  color: #f0e6d0;
+  background:
+    radial-gradient(900px 520px at 50% 6%, #1a2233 0%, transparent 58%),
+    #0a0c12;
+  padding-bottom: 60px;
+}
+.binder-switch {
+  display: flex; gap: 4px;
+  width: max-content;
+  margin: calc(14px + env(safe-area-inset-top, 0px)) auto 6px;
+  background: rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 999px;
+  padding: 4px;
+}
+.binder-switch a {
+  font: 700 .8rem 'Fredoka', sans-serif;
+  color: #cbbf9f;
+  text-decoration: none;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+.binder-switch a:hover { background: rgba(255,255,255,.12); color: #fff; }
+main { max-width: 720px; margin: 0 auto; padding: 12px 20px; }
+h1 {
+  font-family: 'Fredoka', sans-serif;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  text-align: center;
+  margin: 18px 0 6px;
+}
+h1 .brand {
+  background: linear-gradient(180deg, #ffe9a0 20%, #d9a92f 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.tagline { text-align: center; opacity: .85; margin-bottom: 6px; }
+.meta { text-align: center; font-size: .85rem; opacity: .6; margin-bottom: 26px; }
+.intro {
+  font-size: 1.02rem;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,217,94,.25);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 26px;
+}
+h2 {
+  font-family: 'Fredoka', sans-serif;
+  color: #ffd95e;
+  font-size: 1.15rem;
+  margin: 26px 0 10px;
+}
+ul { list-style: none; }
+li { margin: 9px 0; padding-left: 22px; position: relative; line-height: 1.45; }
+li::before { content: '◆'; position: absolute; left: 2px; color: #d9a92f; font-size: .7rem; top: .35em; }
+strong { color: #ffe9a8; }
+a { color: #ffd95e; }
+code {
+  background: rgba(0,0,0,.4);
+  border-radius: 6px;
+  padding: 1px 7px;
+  font-size: .9em;
+}
+.cta {
+  display: block;
+  width: max-content;
+  margin: 34px auto 8px;
+  font: 700 1.05rem 'Fredoka', sans-serif;
+  color: #5c3d00;
+  background: linear-gradient(180deg, #ffe9a0, #d9a92f);
+  border: 2px solid #a87c14;
+  border-radius: 999px;
+  padding: 12px 30px;
+  text-decoration: none;
+  box-shadow: 0 6px 24px rgba(217,169,47,.3);
+}
+.foot { text-align: center; font-size: .78rem; opacity: .55; margin-top: 26px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<nav class="binder-switch">
+  <a href="/tcg">🗂️ PokéBinder</a>
+  <a href="/packs">🎁 Packs</a>
+  <a href="/go">✨ GO-Shinies</a>
+</nav>
+
+<main>
+  <h1>🗂️ Om <span class="brand">PokéBinder</span></h1>
+  <p class="tagline">Din Pokémon TCG-samling som en rigtig binder</p>
+  <p class="meta">Gratis · dansk/engelsk · telefon, tablet og desktop</p>
+
+  <p class="intro">PokéBinder er bygget til almindelige samlere. Ikke et regneark, ikke en database — en <em>binder</em>: sider med plastiklommer, man bladrer i, fylder op og viser frem, præcis som den på hylden. Planlæg hvad du vil samle, hold styr på hvad kortene er værd, og kig i vennernes bindere live.</p>
+
+  <h2>Kernen</h2>
+  <ul>
+    <li><strong>Byg bindere som de fysiske</strong> — vælg lommer (2×2 til 4×4), læderfarve (eller din helt egen med farvevælger), lyse eller sorte sider. Kort trækkes i lommerne med fingeren, og siderne bladrer med en rigtig sidevending. Ubegrænsede dubletter — vil du have en hel side med Mew, får du en hel side med Mew.</li>
+    <li><strong>Alle kort nogensinde</strong> — søgning på tværs af samtlige sæt, inkl. japanske print. Samler-syntaks der bare virker: <code>Mew rc24</code>, <code>artist:koizumi</code>, eller vælg et helt sæt fra listen (nyeste først, med årstal).</li>
+    <li><strong>Bunke-gennemsyn</strong> — åbn en søgning eller et helt sæt som en fysisk bunke: swipe igennem kortene i fuld størrelse, swipe op for at beholde. Den hurtigste måde at lære et nyt sæt at kende.</li>
+    <li><strong>Har/Mangler-mål</strong> — ét klik fylder en binder med et helt sæt som ønskeliste. Markér det du ejer, og fremdriftsbjælken tæller mod master set. Klik på tælleren og se præcis hvilke numre du mangler. 100%? Konfetti og permanent ✦-badge på forsiden.</li>
+  </ul>
+
+  <h2>Priser & samlerværdi</h2>
+  <ul>
+    <li><strong>Markedspriser</strong> (slås til efter behov): Cardmarket i € eller kr — eller TCGplayer i $. Vises på kortet, og 💰-knappen summerer hele binderen.</li>
+    <li><strong>Prishistorik</strong> — daglige snapshots tegner kurver per kort og for binderens samlede værdi over tid.</li>
+    <li><strong>Købsregistrering</strong> — pris og dato per kort-eksemplar, med afkast mod markedsprisen. Privat: deles aldrig med andre.</li>
+    <li><strong>Prisalarmer</strong> — sæt en grænse på et ønskekort og få besked når markedet rammer den.</li>
+    <li><strong>Mangler-listen er en indkøbsliste</strong> — direkte links til Cardmarket og TCGplayer per kort, klar til byttemarked eller webshop.</li>
+  </ul>
+
+  <h2>Det sociale</h2>
+  <ul>
+    <li><strong>Konti & synk</strong> — gratis konto, samlingen følger dig på tværs af enheder.</li>
+    <li><strong>Venners bindere, live</strong> — del ét link, og vennerne kan altid kigge i dine bindere som de ser ud <em>nu</em>. Gæstebog til kommentarer.</li>
+    <li><strong>Trade-match</strong> — appen krydser automatisk din mangler-liste med vennernes samlinger: "Du mangler — Emil har" og "Emil mangler — du har i overskud".</li>
+    <li><strong>Kreds-tavlen</strong> — venlig rangliste: flest kort, flest master sets.</li>
+  </ul>
+
+  <h2>Vis samlingen frem</h2>
+  <ul>
+    <li><strong>Præsentations-mode</strong> — ét klik: al UI forsvinder, binderen fylder skærmen og bladrer selv, med valgfri musik og sidevendings-lyd. Perfekt på TV'et når familien eller byttekredsen kigger forbi.</li>
+    <li><strong>Kort-zoom med 3D-tilt</strong> — kortet vinkles som et fysisk kort i hånden; ægte holo-kort glimter med regnbueeffekt.</li>
+    <li><strong>Del et opslag som billede</strong> — render det åbne opslag til PNG, direkte til del-arket.</li>
+    <li><strong>To temaer</strong> — varmt "skrivebord" eller mørk "montre" med spotlight.</li>
+  </ul>
+
+  <h2>Og det praktiske</h2>
+  <ul>
+    <li><strong>Telefon-først</strong>: én side ad gangen på mobil, tommelfinger-bar, swipe overalt. Læg den på hjemmeskærmen som app.</li>
+    <li><strong>Virker offline</strong> — kortbilleder caches, så binderen kan vises frem på messer uden net.</li>
+    <li><strong>Eksport/import</strong> af bindere som filer. Pakke-åbner og battles i søstermodulet 🎁 Packs.</li>
+  </ul>
+
+  <a class="cta" href="/tcg">Åbn binderen →</a>
+
+  <p class="foot">Gratis fan-projekt uden reklamer. Kortdata og billeder fra det åbne <a href="https://tcgdex.dev" rel="noopener">TCGdex</a>-API.<br>Ikke tilknyttet eller godkendt af The Pokémon Company eller Nintendo.</p>
+</main>
+
+</body>
+</html>
