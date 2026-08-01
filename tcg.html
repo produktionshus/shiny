@@ -4140,8 +4140,20 @@ const $pileOverlay = document.getElementById('pileOverlay');
 const $pileCard = document.getElementById('pileCard');
 let pile = null; // { cards, i }
 
-function firstFreeSlot() {
+function visiblePages() { // sider i det opslag brugeren kigger paa
+  if (isSingle()) return singleIdx >= 0 ? [singleIdx] : [];
+  if (spread < 0) return [];
+  if (spread === 0) return [0];
+  return [spread * 2 - 1, spread * 2];
+}
+function firstFreeSlot(preferVisible = true) {
   const pages = binder().pages;
+  if (preferVisible) { // ledig lomme paa det aabne opslag vinder over side 1
+    for (const pi of visiblePages()) {
+      const si = pages[pi] ? pages[pi].findIndex(c => !c) : -1;
+      if (si >= 0) return { page: pi, slot: si };
+    }
+  }
   for (let pi = 0; pi < pages.length; pi++)
     for (let si = 0; si < pages[pi].length; si++)
       if (!pages[pi][si]) return { page: pi, slot: si };
@@ -4463,7 +4475,7 @@ document.getElementById('fillBtn').addEventListener('click', () => {
   snapshot();
   let first = null;
   for (const c of allResults) { // ponytail: firstFreeSlot-scan pr. kort, fint op til nogle hundrede
-    const t = firstFreeSlot();
+    const t = firstFreeSlot(false); // bulk fylder forfra — ikke fra det aabne opslag
     binder().pages[t.page][t.slot] = { ...c, o: placeMode === 'owned' };
     if (!first) first = t;
   }
