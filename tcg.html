@@ -133,10 +133,13 @@ body.theme-display .pocket:hover {
   z-index: 6;
 }
 body.theme-display .name-only, body.theme-display .empty-hint { color: #8b93ad; }
-body.theme-display .ring { border-color: #d8dde8; }
+body.theme-display .ring {
+  border-color: rgba(150,158,175,.55);
+  box-shadow: inset 1px 1px 2px rgba(255,255,255,.25), 2px 3px 5px rgba(0,0,0,.3);
+}
 /* glasgulv: refleksion under binderen (Chrome/Safari; Firefox faar den ikke) */
 body.theme-display .binder {
-  -webkit-box-reflect: below 14px linear-gradient(transparent 62%, rgba(255,255,255,.10));
+  -webkit-box-reflect: below 10px linear-gradient(transparent 78%, rgba(255,255,255,.05));
 }
 /* langsomt lysstrejf hen over montren */
 body.theme-display .binder-wrap::after {
