@@ -60,6 +60,11 @@ db.exec(`
     text TEXT NOT NULL,
     created TEXT DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE TABLE IF NOT EXISTS tcg_snaps (
+    code TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    created TEXT DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 const app = express();
@@ -411,6 +416,21 @@ app.get('/api/pxprice/:id', async (req, res) => {
     res.set('Cache-Control', 'public, max-age=3600');
     res.json(data);
   } catch (e) { res.status(502).end(); }
+});
+
+// korte delelinks: snapshot gemmes server-side, koden er content-hash (idempotent, ingen auth noedvendig)
+app.post('/api/tcg/snap', (req, res) => {
+  const data = JSON.stringify(req.body || {});
+  if (data.length < 20 || data.length > 400000) return res.status(413).json({ error: 'bad_size' });
+  const code = crypto.createHash('sha1').update(data).digest('base64url').slice(0, 10);
+  db.prepare('INSERT OR REPLACE INTO tcg_snaps (code, data) VALUES (?, ?)').run(code, data);
+  res.json({ code });
+});
+app.get('/api/tcg/snap/:code', (req, res) => {
+  const row = db.prepare('SELECT data FROM tcg_snaps WHERE code = ?').get(String(req.params.code));
+  if (!row) return res.status(404).json({ error: 'not_found' });
+  res.set('Cache-Control', 'public, max-age=300');
+  res.type('application/json').send(row.data);
 });
 
 // ===== price history (daily snapshot of cards present in any binder) =====

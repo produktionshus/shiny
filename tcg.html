@@ -3327,42 +3327,71 @@ document.getElementById('delBinder').addEventListener('click', () => {
 });
 
 // ---------- deling ----------
-function encodeBinder(b) {
-  const pubPages = b.pages.map(pg => pg.map(cd => { // koebsdata er privat
+function binderShare(b) { // offentlig payload — koebsdata er privat
+  const pubPages = b.pages.map(pg => pg.map(cd => {
     if (!cd) return null;
     const { pp, pd, note, ...rest } = cd;
     return rest;
   }));
-  const json = JSON.stringify({ v: 1, n: b.name, p: pubPages, c: b.cols, r: b.rows, col: b.color, d: b.dark ? 1 : 0, cv: b.cover || undefined });
+  return { v: 1, n: b.name, p: pubPages, c: b.cols, r: b.rows, col: b.color, d: b.dark ? 1 : 0, cv: b.cover || undefined };
+}
+function encodeBinder(b) {
+  const json = JSON.stringify(binderShare(b));
   return btoa(unescape(encodeURIComponent(json))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
-function decodeBinder(s) {
-  const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
-  const json = decodeURIComponent(escape(atob(b64)));
-  const d = JSON.parse(json);
+function fromShare(d) {
   if (d.v !== 1 || !Array.isArray(d.p)) throw new Error('bad payload');
   return { name: String(d.n || 'Shared binder'), pages: d.p, cols: d.c || 3, rows: d.r || 3, color: d.col || 'blue', dark: !!d.d, cover: d.cv || null };
 }
+function decodeBinder(s) {
+  const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
+  return fromShare(JSON.parse(decodeURIComponent(escape(atob(b64)))));
+}
+function copyText(url) {
+  return navigator.clipboard.writeText(url).catch(() => { // fallback: iOS/gamle browsere
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    ta.style.position = 'fixed';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  });
+}
 document.getElementById('shareBtn').addEventListener('click', async () => {
-  const url = location.origin + location.pathname + '#b=' + encodeBinder(binder());
-  try {
-    await navigator.clipboard.writeText(url);
-    toast(T('Share link copied 📋'));
-  } catch (e) {
-    prompt('Copy the link:', url);
+  let url;
+  try { // kort link: snapshot bor paa serveren
+    const r = await fetch('/api/tcg/snap', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(binderShare(binder())),
+    });
+    if (!r.ok) throw new Error('snap failed');
+    url = location.origin + location.pathname + '#s=' + (await r.json()).code;
+  } catch (e) { // server nede: gammelt langt link virker stadig
+    url = location.origin + location.pathname + '#b=' + encodeBinder(binder());
   }
+  await copyText(url);
+  toast(T('Share link copied 📋'));
 });
 
 // view mode fra delelink
 function checkHash() {
+  const ms = location.hash.match(/#s=([\w-]{4,20})/);
   const m = location.hash.match(/#b=(.+)/);
-  if (!m) return;
-  try {
-    viewBinder = decodeBinder(m[1]);
+  if (!ms && !m) return;
+  const show = () => {
     document.body.classList.add('viewmode');
     document.getElementById('viewTitle').textContent = '👀 Viewing: ' + viewBinder.name;
     jumpSpread(-1);
-  } catch (e) { toast('Invalid share link'); }
+  };
+  if (m) {
+    try { viewBinder = decodeBinder(m[1]); show(); } catch (e) { toast('Invalid share link'); }
+    return;
+  }
+  fetch('/api/tcg/snap/' + ms[1]) // kort link: hent snapshottet
+    .then(r => { if (!r.ok) throw new Error('gone'); return r.json(); })
+    .then(d => { viewBinder = fromShare(d); show(); renderBinderSelect(); renderBinder(); })
+    .catch(() => toast('Invalid share link'));
 }
 document.getElementById('importBtn').addEventListener('click', () => {
   store.binders.push({ name: viewBinder.name, pages: viewBinder.pages, cols: viewBinder.cols, rows: viewBinder.rows, color: viewBinder.color, dark: viewBinder.dark });
