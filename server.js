@@ -398,6 +398,15 @@ app.get('/api/sets-meta', (req, res) => {
 });
 
 // ===== price history (daily snapshot of cards present in any binder) =====
+function cmValue(cm) { // foerste brugbare vaerdi, spike-daempet: lav-volumen promos faar vilde trends (xyp-XY110: trend 549, avg7 102)
+  if (!cm) return null;
+  let v = null;
+  for (const k of ['trend', 'avg30', 'avg', 'trend-holo', 'avg30-holo', 'avg-holo', 'low']) {
+    if (typeof cm[k] === 'number' && cm[k] > 0) { v = cm[k]; break; }
+  }
+  if (v != null && typeof cm.avg7 === 'number' && cm.avg7 > 0 && v > cm.avg7 * 3) v = cm.avg7;
+  return v;
+}
 function saneCM(cm) { // korrupt upstream-data (fx xyp-XY192: low=100000 >> trend) filtreres fra
   if (!cm) return null;
   const ref = ['trend', 'avg30', 'avg'].map(k => cm[k]).find(v => typeof v === 'number' && v > 0);
@@ -410,11 +419,9 @@ function extractPrices(d) {
   for (const v of (d && d.variants_detailed) || []) if (v.pricing) blocks.push(v.pricing);
   let eur = null, usd = null;
   for (const b of blocks) {
-    const cm = saneCM(b && b.cardmarket);
-    if (cm && eur === null) {
-      for (const k of ['trend', 'avg30', 'avg', 'trend-holo', 'avg30-holo', 'avg-holo', 'low']) {
-        if (typeof cm[k] === 'number') { eur = cm[k]; break; }
-      }
+    if (eur === null) {
+      const v = cmValue(saneCM(b && b.cardmarket));
+      if (v != null) eur = v;
     }
     const tp = b && b.tcgplayer;
     if (tp && usd === null) {
