@@ -1790,6 +1790,16 @@ body.dragging * { cursor: grabbing !important; }
 body.viewmode .search-panel, body.viewmode .toolbar, body.viewmode .binder-controls .edit-only { display: none; }
 body.viewmode .viewbar { display: flex; }
 
+#legal {
+  max-width: 760px;
+  margin: 26px auto 10px;
+  padding: 0 18px;
+  text-align: center;
+  font-size: .68rem;
+  line-height: 1.5;
+  opacity: .45;
+}
+body.presenting #legal, body.viewmode #legal { display: none; }
 #moreMenu[hidden] { display: none !important; }
 #moreMenu {
   position: fixed;
@@ -2070,6 +2080,8 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <div id="inspectZone" data-l="🔍 Drop the card here to take a closer look">🔍 Drop the card here to take a closer look</div>
   </div>
 </div>
+
+<footer id="legal" data-l="PokéBinder is a free, non-commercial fan project. Pokémon and all respective names, images and trademarks are © Nintendo, Game Freak, Creatures Inc. and The Pokémon Company. This site is not affiliated with or endorsed by them. Card data and images via TCGdex.">PokéBinder is a free, non-commercial fan project. Pokémon and all respective names, images and trademarks are © Nintendo, Game Freak, Creatures Inc. and The Pokémon Company. This site is not affiliated with or endorsed by them. Card data and images via TCGdex.</footer>
 
 <div id="bottomBar">
   <button id="bbSearch">🔍</button>
@@ -2533,6 +2545,8 @@ const STR_DA = {
   'Scanner index not ready yet — try again in a few minutes': 'Scanner-indekset er ikke klar endnu — prøv igen om få minutter',
   'No match — try more light or fill the frame': 'Intet match — prøv mere lys eller fyld rammen',
   'Added ': 'Tilføjede ',
+  'PokéBinder is a free, non-commercial fan project. Pokémon and all respective names, images and trademarks are © Nintendo, Game Freak, Creatures Inc. and The Pokémon Company. This site is not affiliated with or endorsed by them. Card data and images via TCGdex.':
+    'PokéBinder er et gratis, ikke-kommercielt fanprojekt. Pokémon og alle tilhørende navne, billeder og varemærker tilhører © Nintendo, Game Freak, Creatures Inc. og The Pokémon Company. Sitet er ikke tilknyttet eller godkendt af disse. Kortdata og billeder via TCGdex.',
   'Prices:': 'Priser:',
   'Show as:': 'Vis som:',
   '🧹 Clear binder': '🧹 Tøm binder',
