@@ -7234,7 +7234,7 @@ async function loadScanIndex() {
   if (scanIdx) return true;
   document.getElementById('scanStatus').textContent = T('Loading card index…');
   try {
-    const buf = new Uint8Array(await (await fetch('/api/scan-index-bin?v=3')).arrayBuffer());
+    const buf = new Uint8Array(await (await fetch('/api/scan-index-bin?v=3-' + new Date().toISOString().slice(0, 13))).arrayBuffer()); // timestempel: friskt indeks hver time mens det vokser
     if (buf.length < 8 || String.fromCharCode(buf[0], buf[1], buf[2], buf[3]) !== 'PBS3') return false;
     const n = buf[4] | (buf[5] << 8) | (buf[6] << 16) | (buf[7] << 24);
     if (!n) return false;
