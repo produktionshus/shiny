@@ -2516,7 +2516,7 @@ const STR_DA = {
   'From photo': 'Fra foto',
   'Loading card index…': 'Henter kort-indekset…',
   'Point the camera at a card': 'Ret kameraet mod et kort',
-  'Hold the card inside the frame': 'Hold kortet inden for rammen',
+  'Hold the card inside the frame': 'Hold kortet i rammen · 15-20 cm afstand · tap billedet for fokus',
   'No camera — use a photo instead': 'Intet kamera — brug et foto i stedet',
   'Scanner index not ready yet — try again in a few minutes': 'Scanner-indekset er ikke klar endnu — prøv igen om få minutter',
   'No match — try more light or fill the frame': 'Intet match — prøv mere lys eller fyld rammen',
@@ -7327,9 +7327,16 @@ async function openScanner() {
   }
   try {
     scanStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: false,
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false,
     });
     document.getElementById('scanVideo').srcObject = scanStream;
+    const track = scanStream.getVideoTracks()[0];
+    try { // kontinuerligt autofokus hvor kameraet kan
+      const caps = track.getCapabilities ? track.getCapabilities() : {};
+      if (caps.focusMode && caps.focusMode.includes('continuous')) {
+        await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+      }
+    } catch (e) { /* fokus-styring er best effort */ }
     document.getElementById('scanStatus').textContent = T('Hold the card inside the frame');
     scanTimer = setInterval(scanTick, 650);
   } catch (e) {
@@ -7345,6 +7352,17 @@ function closeScanner() {
   scanStableId = null;
   if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
 }
+document.getElementById('scanVideoWrap').addEventListener('click', async () => {
+  const track = scanStream && scanStream.getVideoTracks()[0];
+  if (!track || !track.getCapabilities) return;
+  try {
+    const caps = track.getCapabilities();
+    if (caps.focusMode && caps.focusMode.includes('single-shot')) {
+      await track.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] });
+      setTimeout(() => track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {}), 900);
+    }
+  } catch (e) {}
+});
 document.getElementById('scanBtn').addEventListener('click', openScanner);
 document.getElementById('scanClose').addEventListener('click', closeScanner);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeScanner(); });
