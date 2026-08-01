@@ -1845,7 +1845,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 <nav class="binder-switch">
   <a class="tcg active" href="/tcg">🗂️ PokéBinder</a>
   <a class="packs" href="/packs">🎁 Packs</a>
-  <a class="go" href="/">✨ GO</a>
+  <a class="go" href="/go">✨ GO-Shinies</a>
 </nav>
 
 <header>
@@ -7035,10 +7035,7 @@ loadSets();
 if ('serviceWorker' in navigator && location.hostname !== 'localhost') {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
-// paa pokebinder.dk bor shiny stadig paa sit eget domaene
-if (location.hostname.includes('pokebinder')) {
-  document.querySelector('.binder-switch a.go').href = 'https://shiny.kulldorf.com/';
-}
+// GO-modulet serveres som /go paa samme domaene — ingen domaeneskift
 const friendParam = location.search.match(/[?&]friend=([\w-]+)/);
 if (friendParam) openFriend(friendParam[1]);
 setTimeout(maybeOnboard, 1200); // konto-synk faar en chance foerst
