@@ -397,6 +397,22 @@ app.get('/api/sets-meta', (req, res) => {
   });
 });
 
+// cachet proxy for pokemontcg.io-priser: upstream er langsom og rate-limited, cachen deles af alle
+const pxCache = new Map(); // ptcgio-id -> {t, data}
+app.get('/api/pxprice/:id', async (req, res) => {
+  const id = String(req.params.id);
+  if (!/^[\w.-]{3,40}$/.test(id)) return res.status(400).end();
+  const hit = pxCache.get(id);
+  if (hit && Date.now() - hit.t < 6 * 3600 * 1000) return res.json(hit.data);
+  try {
+    const r = await fetch('https://api.pokemontcg.io/v2/cards/' + encodeURIComponent(id) + '?select=cardmarket,tcgplayer');
+    const data = r.ok ? ((await r.json()).data || null) : null;
+    if (data || r.status === 404) pxCache.set(id, { t: Date.now(), data });
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.json(data);
+  } catch (e) { res.status(502).end(); }
+});
+
 // ===== price history (daily snapshot of cards present in any binder) =====
 function cmValue(cm) { // foerste brugbare vaerdi, spike-daempet: lav-volumen promos faar vilde trends (xyp-XY110: trend 549, avg7 102)
   if (!cm) return null;
@@ -459,7 +475,10 @@ async function snapshotPrices() {
             if (pr.ok) {
               const p = (await pr.json()).data || {};
               const cmp = p.cardmarket && p.cardmarket.prices;
-              if (cmp && typeof cmp.trendPrice === 'number' && cmp.trendPrice > 0) eur = cmp.trendPrice;
+              if (cmp && typeof cmp.trendPrice === 'number' && cmp.trendPrice > 0) {
+                eur = cmp.trendPrice;
+                if (typeof cmp.avg7 === 'number' && cmp.avg7 > 0 && eur > cmp.avg7 * 3) eur = cmp.avg7;
+              }
               const tpp = p.tcgplayer && p.tcgplayer.prices;
               if (tpp) for (const k of Object.keys(tpp)) {
                 if (tpp[k] && typeof tpp[k].market === 'number' && tpp[k].market > 0) { usd = tpp[k].market; break; }
