@@ -575,6 +575,18 @@ body.viewmode #drawerTab { display: none; }
   padding: 0;
 }
 .swatch.on { border-color: #ffd95e; box-shadow: 0 0 0 2px rgba(255,217,94,.5); }
+#customColor {
+  width: 26px; height: 26px;
+  padding: 0;
+  border: 2px solid rgba(255,255,255,.4);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+#customColor.on { border-color: #ffd95e; box-shadow: 0 0 0 2px rgba(255,217,94,.5); }
+#customColor::-webkit-color-swatch-wrapper { padding: 0; }
+#customColor::-webkit-color-swatch { border: none; border-radius: 50%; }
 body.viewmode #binderSettings { display: none; }
 
 @media (hover: none) {
@@ -1928,7 +1940,8 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
           <option value="4x4">16 (4×4)</option>
         </select>
       </label>
-      <label><span data-l="Color:">Color:</span> <span id="swatches"></span></label>
+      <label><span data-l="Color:">Color:</span> <span id="swatches"></span>
+        <input type="color" id="customColor" title="Pick your own colour"></label>
       <label><input type="checkbox" id="darkPages"> <span data-l="Black pages">Black pages</span></label>
       <label><input type="checkbox" id="showPrices"> <span data-l="Show prices">Show prices</span></label>
       <label><input type="checkbox" id="soundFx"> <span data-l="Sounds">Sounds</span></label>
@@ -2409,6 +2422,19 @@ const BINDER_COLORS = { // [top, mellem, bund] laedergradient
   purple: ['#6a3d9c', '#53297a', '#3a1b5a'],
   black:  ['#3a3f4a', '#262a33', '#171a20'],
 };
+function shade(hex, f) { // f>0 lysner mod hvid, f<0 moerkner mod sort
+  const n = parseInt(hex.slice(1), 16);
+  const ch = i => {
+    const v = (n >> i) & 255;
+    return Math.max(0, Math.min(255, Math.round(v + (f > 0 ? (255 - v) * f : v * f))));
+  };
+  return '#' + [16, 8, 0].map(i => ch(i).toString(16).padStart(2, '0')).join('');
+}
+function leatherFor(color) { // preset-noegle ELLER egen hex
+  if (BINDER_COLORS[color]) return BINDER_COLORS[color];
+  if (/^#[0-9a-fA-F]{6}$/.test(color || '')) return [shade(color, 0.22), color, shade(color, -0.35)];
+  return BINDER_COLORS.blue;
+}
 
 // ---------- state ----------
 let store = load();
@@ -2765,7 +2791,7 @@ function renderBinder() {
   }
   wasSingle = single;
   const bb = binder();
-  const leather = BINDER_COLORS[bb.color] || BINDER_COLORS.blue;
+  const leather = leatherFor(bb.color);
   const binderEl = document.querySelector('.binder');
   binderEl.style.setProperty('--lt', leather[0]);
   binderEl.style.setProperty('--leather', leather[1]);
@@ -3608,6 +3634,18 @@ for (const key of Object.keys(BINDER_COLORS)) {
   $swatches.appendChild(sw);
 }
 
+document.getElementById('customColor').addEventListener('input', e => {
+  const leather = leatherFor(e.target.value); // live preview uden fuld re-render
+  const binderEl = document.querySelector('.binder');
+  binderEl.style.setProperty('--lt', leather[0]);
+  binderEl.style.setProperty('--leather', leather[1]);
+  binderEl.style.setProperty('--leather-dark', leather[2]);
+});
+document.getElementById('customColor').addEventListener('change', e => {
+  binder().color = e.target.value;
+  save(); renderBinder(); renderSettings();
+});
+
 function renderSettings() {
   const b = binder();
   document.getElementById('showPrices').checked = !!store.showPrices;
@@ -3620,6 +3658,10 @@ function renderSettings() {
   $darkPages.checked = !!b.dark;
   document.querySelectorAll('.swatch').forEach(sw =>
     sw.classList.toggle('on', sw.dataset.color === (b.color || 'blue')));
+  const custom = /^#/.test(b.color || '');
+  const cc = document.getElementById('customColor');
+  cc.classList.toggle('on', custom);
+  if (custom) cc.value = b.color;
 }
 
 document.getElementById('settingsBtn').addEventListener('click', () => {
@@ -6369,7 +6411,7 @@ document.getElementById('shelfBtn').addEventListener('click', () => {
   store.binders.forEach((b, i) => {
     const sp = document.createElement('div');
     sp.className = 'spine' + (i === store.active ? ' cur' : '');
-    const leather = BINDER_COLORS[b.color] || BINDER_COLORS.blue;
+    const leather = leatherFor(b.color);
     sp.style.background = 'linear-gradient(90deg, ' + leather[0] + ', ' + leather[2] + ')';
     sp.textContent = b.name;
     if (b.msDone) {
@@ -6521,7 +6563,7 @@ document.getElementById('snapBtn').addEventListener('click', async () => {
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
-  const leather = BINDER_COLORS[b.color] || BINDER_COLORS.blue;
+  const leather = leatherFor(b.color);
   const bg = ctx.createLinearGradient(0, 0, W, H);
   bg.addColorStop(0, leather[0]); bg.addColorStop(1, leather[2]);
   ctx.fillStyle = bg;
