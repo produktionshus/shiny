@@ -785,6 +785,7 @@ body.viewmode #binderSettings { display: none; }
   display: none; z-index: 350;
 }
 #pileStrip {
+  margin-top: 12px; /* luft til ▲-knappen — scrub maa ikke ramme add */
   display: flex; gap: 5px;
   max-width: min(92vw, 920px);
   overflow-x: auto;
@@ -1753,7 +1754,8 @@ body.viewmode .viewbar { display: flex; }
   color: #ffe9a8;
   cursor: pointer;
 }
-body.presenting #bottomBar, body.viewmode #bottomBar, body.packmode #bottomBar { display: none !important; }
+body.presenting #bottomBar, body.viewmode #bottomBar, body.packmode #bottomBar,
+body.pileopen #bottomBar { display: none !important; }
 
 @media (max-width: 900px) {
   .layout { flex-direction: column; align-items: stretch; }
@@ -3887,11 +3889,12 @@ document.getElementById('pileBtn').addEventListener('click', () => {
   pile = { cards: allResults.slice(), orig: allResults.slice(), i: 0 };
   document.getElementById('pileSort').value = 'search';
   document.getElementById('pileFind').value = '';
+  document.body.classList.add('pileopen');
   $pileOverlay.classList.add('open');
   buildStrip();
   renderPile();
 });
-function closePile() { pile = null; document.getElementById('pileInfo').style.display = 'none'; $pileOverlay.classList.remove('open'); }
+function closePile() { pile = null; document.body.classList.remove('pileopen'); document.getElementById('pileInfo').style.display = 'none'; $pileOverlay.classList.remove('open'); }
 document.getElementById('pileClose').addEventListener('click', closePile);
 $pileOverlay.addEventListener('click', e => { if (e.target === $pileOverlay) closePile(); });
 
