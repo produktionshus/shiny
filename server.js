@@ -268,6 +268,22 @@ async function buildScanIndex() {
     const sets = await fetch('https://api.tcgdex.net/v2/en/sets').then(r => r.json());
     const have = new Set(db.prepare('SELECT card_id FROM card_hashes').all().map(r => r.card_id));
     const ins = db.prepare('INSERT OR REPLACE INTO card_hashes (card_id, hash) VALUES (?, ?)');
+    const hashOne = async c => {
+      const buf = Buffer.from(await (await fetch(c.image + '/low.webp')).arrayBuffer());
+      const g = await sharp(buf).resize(HW, HH, { fit: 'fill' }).grayscale().raw().toBuffer();
+      ins.run(c.id, hashFromGray(g));
+      have.add(c.id);
+    };
+    // prioritetspas: Mew-kort foerst (stoerste del af brugerens fysiske samling)
+    try {
+      const prio = await fetch('https://api.tcgdex.net/v2/en/cards?name=mew').then(r => r.json());
+      for (const c of prio) {
+        if (!c.image || have.has(c.id)) continue;
+        try { await hashOne(c); } catch (e) { /* videre */ }
+        await new Promise(r => setTimeout(r, 60));
+      }
+      console.log('scan-indeks prioritet: mew-kort klar');
+    } catch (e) { /* prioritet er best effort */ }
     for (const st of sets) {
       let detail = null;
       try {
@@ -277,11 +293,7 @@ async function buildScanIndex() {
       if (!detail) continue;
       for (const c of detail.cards || []) {
         if (!c.image || have.has(c.id)) continue;
-        try {
-          const buf = Buffer.from(await (await fetch(c.image + '/low.webp')).arrayBuffer());
-          const g = await sharp(buf).resize(HW, HH, { fit: 'fill' }).grayscale().raw().toBuffer();
-          ins.run(c.id, hashFromGray(g));
-        } catch (e) { /* enkelt kort fejler: videre */ }
+        try { await hashOne(c); } catch (e) { /* enkelt kort fejler: videre */ }
         await new Promise(r => setTimeout(r, 60)); // skaansom takt
       }
     }
