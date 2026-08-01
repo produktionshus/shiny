@@ -1723,14 +1723,15 @@ body.presenting #bottomBar, body.viewmode #bottomBar, body.packmode #bottomBar {
   .binder-col { order: 1; }
   .page { width: 44vw; }
   #cover { width: 60vw; }
-  /* pileknapper oven paa binderen — ellers klippes de af overflow-x */
+  /* binderens pileknapper laegges oven paa den — ellers klippes de af overflow-x.
+     Scopet til .binder-wrap: bunkens ◀▶ er ogsaa .navbtn og skal blive i flex-raekken */
   .binder-wrap { position: relative; }
-  .navbtn {
+  .binder-wrap .navbtn {
     position: absolute; z-index: 40;
     top: 50%; transform: translateY(-50%);
     background: rgba(0,0,0,.6);
   }
-  .navbtn:hover { transform: translateY(-50%) scale(1.08); }
+  .binder-wrap .navbtn:hover { transform: translateY(-50%) scale(1.08); }
   #prev { left: 4px; }
   #next { right: 4px; }
 }
