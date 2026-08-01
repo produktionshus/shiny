@@ -398,13 +398,19 @@ app.get('/api/sets-meta', (req, res) => {
 });
 
 // ===== price history (daily snapshot of cards present in any binder) =====
+function saneCM(cm) { // korrupt upstream-data (fx xyp-XY192: low=100000 >> trend) filtreres fra
+  if (!cm) return null;
+  const ref = ['trend', 'avg30', 'avg'].map(k => cm[k]).find(v => typeof v === 'number' && v > 0);
+  if (typeof cm.low === 'number' && ref && cm.low > ref * 5) return null;
+  return cm;
+}
 function extractPrices(d) {
   const blocks = [];
   if (d && d.pricing) blocks.push(d.pricing);
   for (const v of (d && d.variants_detailed) || []) if (v.pricing) blocks.push(v.pricing);
   let eur = null, usd = null;
   for (const b of blocks) {
-    const cm = b && b.cardmarket;
+    const cm = saneCM(b && b.cardmarket);
     if (cm && eur === null) {
       for (const k of ['trend', 'avg30', 'avg', 'trend-holo', 'avg30-holo', 'avg-holo', 'low']) {
         if (typeof cm[k] === 'number') { eur = cm[k]; break; }
@@ -419,6 +425,8 @@ function extractPrices(d) {
   }
   return { eur, usd };
 }
+
+db.prepare("DELETE FROM price_history WHERE eur > 20000 OR usd > 20000 OR card_id = 'xyp-XY192'").run(); // gamle junk-snapshots
 
 async function snapshotPrices() {
   const rows = db.prepare('SELECT data FROM tcg_binders').all();
