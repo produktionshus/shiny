@@ -24,6 +24,7 @@
   --gold: #d9a92f;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
+html { overflow-x: clip; }
 
 body {
   min-height: 100vh;
@@ -1673,6 +1674,7 @@ body.dragging * { cursor: grabbing !important; }
 body.viewmode .search-panel, body.viewmode .toolbar, body.viewmode .binder-controls .edit-only { display: none; }
 body.viewmode .viewbar { display: flex; }
 
+#moreMenu[hidden] { display: none !important; }
 #moreMenu {
   position: fixed;
   left: 50%; transform: translateX(-50%);
@@ -1746,10 +1748,11 @@ body.presenting #bottomBar, body.viewmode #bottomBar, body.packmode #bottomBar {
   .binder::before { inset: 5px; }
   .binder-wrap { gap: 4px; }
   .page {
-    width: min(96vw, calc((100vh - 235px) * 0.716 * var(--cols, 3) / var(--rows, 3)));
+    width: min(calc(100vw - 52px), calc((100vh - 235px) * 0.716 * var(--cols, 3) / var(--rows, 3)));
     padding: 10px 8px 24px;
   }
-  #cover { width: min(86vw, calc((100vh - 235px) * 0.75)); }
+  #cover { width: min(calc(100vw - 64px), calc((100vh - 235px) * 0.75)); }
+  #toast { max-width: 92vw; white-space: normal; text-align: center; }
   .page.left { display: none !important; }
   .page.right { border-radius: 10px; }
   .rings { display: none; } /* ingen midterryg naar kun een side vises */
