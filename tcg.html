@@ -7174,10 +7174,11 @@ function grayFromSource(src, sx, sy, sw, sh) {
   return g;
 }
 
-function scanFrameOnce(src, w, h) {
-  // rammen: centreret 63:88-udsnit, ~82% af hoejden; prov 3 skalaer
+function scanFrameOnce(src, w, h, guideFrac) {
+  // guideFrac: rammens hoejde som andel af den SYNLIGE flade (object-fit: cover
+  // beskaerer videoen — udsnittet skal regnes i det synlige omraade, ikke raa video)
   let bestRes = null;
-  for (const scale of [0.82, 0.72, 0.92]) {
+  for (const scale of [guideFrac || 0.82, (guideFrac || 0.82) * 0.88, Math.min(0.98, (guideFrac || 0.82) * 1.12)]) {
     const ch = h * scale, cw = ch * 63 / 88;
     if (cw > w) continue;
     const g = grayFromSource(src, (w - cw) / 2, (h - ch) / 2, cw, ch);
@@ -7185,6 +7186,17 @@ function scanFrameOnce(src, w, h) {
     if (!bestRes || res.d < bestRes.d) bestRes = res;
   }
   return bestRes;
+}
+
+function scanVideoCrop() {
+  // map rammen (82% af containerens hoejde) til video-koordinater under cover-beskaering
+  const v = document.getElementById('scanVideo');
+  const box = document.getElementById('scanVideoWrap').getBoundingClientRect();
+  const VW = v.videoWidth, VH = v.videoHeight;
+  if (!VW || !box.width) return null;
+  const cover = Math.max(box.width / VW, box.height / VH);
+  const visW = box.width / cover, visH = box.height / cover; // synligt udsnit i video-px
+  return { v, x: (VW - visW) / 2, y: (VH - visH) / 2, w: visW, h: visH };
 }
 
 async function presentScanHit(id) {
@@ -7197,11 +7209,27 @@ async function presentScanHit(id) {
   document.getElementById('scanStatus').textContent = '';
 }
 
-function scanTick() {
-  const v = document.getElementById('scanVideo');
-  if (!scanIdx || !v.videoWidth || document.getElementById('scanResult').style.display === 'flex') return;
-  const res = scanFrameOnce(v, v.videoWidth, v.videoHeight);
-  if (res && res.d <= 85 && res.margin >= 8) { // maalt paa perturberede kort: hits d=36-75, margin 5-34
+let scanTmpCv = null;
+async function scanTick() {
+  if (!scanIdx || document.getElementById('scanResult').style.display === 'flex') return;
+  const crop = scanVideoCrop();
+  if (!crop) return;
+  // tegn KUN det synlige udsnit paa et mellemlaerred, saa rammen matcher det brugeren ser
+  scanTmpCv = scanTmpCv || document.createElement('canvas');
+  scanTmpCv.width = 360;
+  scanTmpCv.height = Math.round(360 * crop.h / crop.w);
+  scanTmpCv.getContext('2d').drawImage(crop.v, crop.x, crop.y, crop.w, crop.h, 0, 0, scanTmpCv.width, scanTmpCv.height);
+  const res = scanFrameOnce(scanTmpCv, scanTmpCv.width, scanTmpCv.height, 0.82);
+  if (!res) return;
+  // live-feedback: hvad ser scanneren, og hvor taet er den paa?
+  if (res.d <= 130) {
+    const d = await getDetail(res.id);
+    const st = document.getElementById('scanStatus');
+    if (document.getElementById('scanResult').style.display !== 'flex') {
+      st.textContent = (d ? d.name : res.id) + ' · ' + res.d + (res.d <= 95 ? ' ✓' : '…');
+    }
+  }
+  if (res.d <= 95 && res.margin >= 6) {
     if (res.id === scanStableId) scanStableCount++;
     else { scanStableId = res.id; scanStableCount = 1; }
     if (scanStableCount >= 2) presentScanHit(res.id); // to ens frames i traek = stabilt match
@@ -7278,7 +7306,7 @@ document.getElementById('scanFile').addEventListener('change', async e => {
   if (!file || !(await loadScanIndex())) return;
   const im = new Image();
   im.onload = () => {
-    const res = scanFrameOnce(im, im.naturalWidth, im.naturalHeight)
+    const res = scanFrameOnce(im, im.naturalWidth, im.naturalHeight, 0.9)
       || { d: 999, margin: 0 };
     // fotos er ofte hele kortet uden ramme — prov ogsaa fuld flade
     const g = grayFromSource(im, 0, 0, im.naturalWidth, im.naturalHeight);
