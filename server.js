@@ -260,17 +260,17 @@ function hashFromGray(g) {
   return bits;
 }
 
-function hashFromRGB(rgb) { // 40B bit-hash + 48B celle-farver (16 celler x RGB)
+function hashFromRGB(rgb) { // 40B bit-hash + 192B celle-farver (8x8 celler x RGB)
   const g = new Uint8Array(HW * HH);
   for (let i = 0; i < g.length; i++) {
     g[i] = (rgb[i * 3] * 0.299 + rgb[i * 3 + 1] * 0.587 + rgb[i * 3 + 2] * 0.114) | 0;
   }
   const bits = hashFromGray(g);
-  const colors = Buffer.alloc(48);
+  const colors = Buffer.alloc(192);
   let ci = 0;
-  for (let gy = 0; gy < 4; gy++) for (let gx = 0; gx < 4; gx++) {
-    const x0 = Math.floor(gx * HW / 4), x1 = Math.floor((gx + 1) * HW / 4);
-    const y0 = Math.floor(gy * HH / 4), y1 = Math.floor((gy + 1) * HH / 4);
+  for (let gy = 0; gy < 8; gy++) for (let gx = 0; gx < 8; gx++) {
+    const x0 = Math.floor(gx * HW / 8), x1 = Math.floor((gx + 1) * HW / 8);
+    const y0 = Math.floor(gy * HH / 8), y1 = Math.floor((gy + 1) * HH / 8);
     let r = 0, gr = 0, b = 0, n = 0;
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
       const o = (y * HW + x) * 3;
@@ -283,12 +283,12 @@ function hashFromRGB(rgb) { // 40B bit-hash + 48B celle-farver (16 celler x RGB)
   return Buffer.concat([bits, colors]);
 }
 
-// v2-migration: gamle 40-byte hashes uden farve kasseres og genbygges
+// migration: alt der ikke er v3-format (232B) kasseres og genbygges
 try {
   const sample = db.prepare('SELECT hash FROM card_hashes LIMIT 1').get();
-  if (sample && sample.hash.length !== 88) {
+  if (sample && sample.hash.length !== 232) {
     db.exec('DELETE FROM card_hashes');
-    console.log('scan-indeks: v1 kasseret, genbygger med farvedata');
+    console.log('scan-indeks: gammelt format kasseret, genbygger v3 (8x8 farver)');
   }
 } catch (e) {}
 
@@ -337,10 +337,19 @@ async function buildScanIndex() {
 setTimeout(() => buildScanIndex().catch(e => console.error('scan-indeks fejlede:', e)), 2 * 60 * 1000);
 setInterval(() => buildScanIndex().catch(() => {}), 24 * 60 * 60 * 1000); // nye kort samles op dagligt
 
-app.get('/api/scan-index', (req, res) => {
+app.get('/api/scan-index-bin', (req, res) => { // binaert: [u8 idLen][id][232B] per kort
   const rows = db.prepare('SELECT card_id, hash FROM card_hashes').all();
+  const parts = [Buffer.from('PBS3')];
+  const cnt = Buffer.alloc(4);
+  cnt.writeUInt32LE(rows.length);
+  parts.push(cnt);
+  for (const r of rows) {
+    const idb = Buffer.from(r.card_id, 'utf8');
+    parts.push(Buffer.from([idb.length]), idb, Buffer.from(r.hash));
+  }
+  res.set('Content-Type', 'application/octet-stream');
   res.set('Cache-Control', 'public, max-age=86400');
-  res.json({ v: 2, cards: rows.map(r => [r.card_id, Buffer.from(r.hash).toString('base64')]) });
+  res.send(Buffer.concat(parts));
 });
 
 // ===== sets metadata (release dates live only in per-set details; cached here) =====

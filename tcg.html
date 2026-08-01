@@ -753,6 +753,17 @@ body.viewmode #binderSettings { display: none; }
   border-radius: 10px;
   pointer-events: none;
 }
+#scanZoom {
+  position: absolute;
+  right: 10px; bottom: 10px;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,217,94,.6);
+  background: rgba(0,0,0,.55);
+  color: #ffe9a8;
+  font: 700 .9rem 'Fredoka', sans-serif;
+  cursor: pointer;
+}
 #scanStatus { font: 600 .85rem 'Fredoka', sans-serif; color: #cbbf9f; min-height: 1.2em; text-align: center; padding: 0 16px; }
 #scanResult {
   display: none;
@@ -2220,6 +2231,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   <div id="scanVideoWrap">
     <video id="scanVideo" autoplay playsinline muted></video>
     <div id="scanFrame"></div>
+    <button id="scanZoom" style="display:none">2×</button>
   </div>
   <div id="scanStatus"></div>
   <div id="scanCands"></div>
@@ -7108,6 +7120,8 @@ const scanOverlay = document.getElementById('scanOverlay');
 const SHW = 32, SHH = 44; // SKAL matche serverens HW/HH — algoritmen er portet 1:1
 let scanIdx = null;       // { ids: [], hashes: Uint8Array(n*40) }
 let scanStream = null, scanTimer = null, scanCandidate = null, scanStableId = null, scanStableCount = 0;
+let scanVotes = [];
+let scanZoomLevel = 1;
 const POP = new Uint8Array(256);
 for (let i = 0; i < 256; i++) POP[i] = (i & 1) + POP[i >> 1];
 
@@ -7140,13 +7154,13 @@ function scanHashFromGray(g) { // identisk med serverens hashFromGray
   return bits;
 }
 
-const REC = 88; // 40B bits + 48B cellefarver
+const NCELLS = 64, NCOL = 192; // 8x8 celler x RGB
 function normColors(arr, off) { // traek gennemsnittet fra: annullerer belysningens farvestik
   let mr = 0, mg = 0, mb = 0;
-  for (let c = 0; c < 16; c++) { mr += arr[off + c * 3]; mg += arr[off + c * 3 + 1]; mb += arr[off + c * 3 + 2]; }
-  mr /= 16; mg /= 16; mb /= 16;
-  const out = new Int16Array(48);
-  for (let c = 0; c < 16; c++) {
+  for (let c = 0; c < NCELLS; c++) { mr += arr[off + c * 3]; mg += arr[off + c * 3 + 1]; mb += arr[off + c * 3 + 2]; }
+  mr /= NCELLS; mg /= NCELLS; mb /= NCELLS;
+  const out = new Int16Array(NCOL);
+  for (let c = 0; c < NCELLS; c++) {
     out[c * 3] = arr[off + c * 3] - mr;
     out[c * 3 + 1] = arr[off + c * 3 + 1] - mg;
     out[c * 3 + 2] = arr[off + c * 3 + 2] - mb;
@@ -7157,20 +7171,23 @@ async function loadScanIndex() {
   if (scanIdx) return true;
   document.getElementById('scanStatus').textContent = T('Loading card index…');
   try {
-    const j = await (await fetch('/api/scan-index?v=2')).json(); // v-param buster 24t-cachen ved formatskifte
-    if (j.v !== 2 || !j.cards || !j.cards.length) return false;
-    const n = j.cards.length;
+    const buf = new Uint8Array(await (await fetch('/api/scan-index-bin?v=3')).arrayBuffer());
+    if (buf.length < 8 || String.fromCharCode(buf[0], buf[1], buf[2], buf[3]) !== 'PBS3') return false;
+    const n = buf[4] | (buf[5] << 8) | (buf[6] << 16) | (buf[7] << 24);
+    if (!n) return false;
     const ids = new Array(n);
     const bits = new Uint8Array(n * 40);
-    const cols = new Int16Array(n * 48);
-    j.cards.forEach(([id, b64], i) => {
-      ids[i] = id;
-      const bin = atob(b64);
-      const raw = new Uint8Array(REC);
-      for (let k = 0; k < REC; k++) raw[k] = bin.charCodeAt(k);
-      bits.set(raw.subarray(0, 40), i * 40);
-      cols.set(normColors(raw, 40), i * 48);
-    });
+    const cols = new Int16Array(n * NCOL);
+    let o = 8;
+    const dec = new TextDecoder();
+    for (let i = 0; i < n; i++) {
+      const idLen = buf[o++];
+      ids[i] = dec.decode(buf.subarray(o, o + idLen));
+      o += idLen;
+      bits.set(buf.subarray(o, o + 40), i * 40);
+      cols.set(normColors(buf, o + 40), i * NCOL);
+      o += 232;
+    }
     scanIdx = { ids, bits, cols };
     return true;
   } catch (e) { return false; }
@@ -7184,9 +7201,9 @@ function scanMatch(h) { // h: {bits: Uint8Array(40), cols: Int16Array(48)}
     const bo = i * 40;
     for (let k = 0; k < 40; k++) ham += POP[B[bo + k] ^ h.bits[k]];
     let cd = 0;
-    const co = i * 48;
-    for (let k = 0; k < 48; k++) cd += Math.abs(C[co + k] - h.cols[k]);
-    const d = ham + cd / 24; // farveled skaleret til hamming-niveau
+    const co = i * NCOL;
+    for (let k = 0; k < NCOL; k++) cd += Math.abs(C[co + k] - h.cols[k]);
+    const d = ham + cd / 96; // farveled skaleret til hamming-niveau (4x flere celler end v2)
     if (top.length < 4 || d < top[3].d) {
       top.push({ i, d });
       top.sort((a, b) => a.d - b.d);
@@ -7212,11 +7229,11 @@ function hashFromSource(src, sx, sy, sw, sh) { // graa-bits + normaliserede cell
   for (let i = 0; i < g.length; i++) {
     g[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0;
   }
-  const raw = new Uint8Array(48);
+  const raw = new Uint8Array(NCOL);
   let ci = 0;
-  for (let gy = 0; gy < 4; gy++) for (let gx = 0; gx < 4; gx++) {
-    const x0 = Math.floor(gx * SHW / 4), x1 = Math.floor((gx + 1) * SHW / 4);
-    const y0 = Math.floor(gy * SHH / 4), y1 = Math.floor((gy + 1) * SHH / 4);
+  for (let gy = 0; gy < 8; gy++) for (let gx = 0; gx < 8; gx++) {
+    const x0 = Math.floor(gx * SHW / 8), x1 = Math.floor((gx + 1) * SHW / 8);
+    const y0 = Math.floor(gy * SHH / 8), y1 = Math.floor((gy + 1) * SHH / 8);
     let r = 0, gr = 0, b = 0, n = 0;
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
       const o = (y * SHW + x) * 4;
@@ -7306,13 +7323,33 @@ async function scanTick() {
       st.textContent = (d ? d.name : res.id) + ' · ' + Math.round(res.d) + (res.d <= 148 ? ' ✓' : '…');
     }
   }
-  if (res.d <= 148 && res.margin >= 5) { // aegte kamera maalt: korrekt kort ved d~128
-    if (res.id === scanStableId) scanStableCount++;
-    else { scanStableId = res.id; scanStableCount = 1; }
-    if (scanStableCount >= 2) presentScanHit(res.id, res.top); // to ens frames i traek = stabilt match
-  } else {
-    scanStableId = null;
-    scanStableCount = 0;
+  if (res.d <= 148 && res.margin >= 4) {
+    scanVotes.push(res);
+    if (scanVotes.length > 5) scanVotes.shift();
+    // afstem: laveste gennemsnitsscore blandt kandidater set i mindst 3 af de sidste 5 frames
+    const agg = new Map();
+    for (const v of scanVotes) for (const t of v.top) {
+      const e = agg.get(t.id) || { sum: 0, n: 0 };
+      e.sum += t.d; e.n++;
+      agg.set(t.id, e);
+    }
+    let winner = null;
+    for (const [id, e] of agg) {
+      if (e.n >= Math.min(3, scanVotes.length)) {
+        const avg = e.sum / e.n;
+        if (!winner || avg < winner.avg) winner = { id, avg };
+      }
+    }
+    if (scanVotes.length >= 3 && winner) {
+      const mergedTop = [...agg.entries()]
+        .map(([id, e]) => ({ id, d: e.sum / e.n + (5 - e.n) * 15 })) // sjaeldent sete straffes
+        .sort((a, b) => a.d - b.d)
+        .slice(0, 4);
+      scanVotes = [];
+      presentScanHit(winner.id, mergedTop);
+    }
+  } else if (scanVotes.length) {
+    scanVotes.shift(); // daarlig frame udvander vinduet
   }
 }
 
@@ -7336,7 +7373,17 @@ async function openScanner() {
       if (caps.focusMode && caps.focusMode.includes('continuous')) {
         await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
       }
-    } catch (e) { /* fokus-styring er best effort */ }
+      // zoom: start paa 2x hvor det findes — kortscanning er naerarbejde
+      const zb = document.getElementById('scanZoom');
+      if (caps.zoom && caps.zoom.max >= 2) {
+        scanZoomLevel = Math.min(2, caps.zoom.max);
+        await track.applyConstraints({ advanced: [{ zoom: scanZoomLevel }] });
+        zb.textContent = '1×';
+        zb.style.display = '';
+      } else {
+        zb.style.display = 'none';
+      }
+    } catch (e) { /* fokus/zoom-styring er best effort */ }
     document.getElementById('scanStatus').textContent = T('Hold the card inside the frame');
     scanTimer = setInterval(scanTick, 650);
   } catch (e) {
@@ -7363,6 +7410,17 @@ document.getElementById('scanVideoWrap').addEventListener('click', async () => {
     }
   } catch (e) {}
 });
+document.getElementById('scanZoom').addEventListener('click', async e => {
+  e.stopPropagation(); // tap paa knappen maa ikke udloese genfokusering ovenpaa
+  const track = scanStream && scanStream.getVideoTracks()[0];
+  if (!track) return;
+  try {
+    const caps = track.getCapabilities();
+    scanZoomLevel = scanZoomLevel >= 2 ? (caps.zoom ? Math.max(1, caps.zoom.min) : 1) : Math.min(2, caps.zoom.max);
+    await track.applyConstraints({ advanced: [{ zoom: scanZoomLevel }] });
+    e.target.textContent = scanZoomLevel >= 2 ? '1×' : '2×'; // viser hvad naeste tap goer
+  } catch (err) {}
+});
 document.getElementById('scanBtn').addEventListener('click', openScanner);
 document.getElementById('scanClose').addEventListener('click', closeScanner);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeScanner(); });
@@ -7373,6 +7431,7 @@ document.getElementById('scanSkip').addEventListener('click', () => {
   scanCandidate = null;
   scanStableId = null;
   scanStableCount = 0;
+  scanVotes = [];
   document.getElementById('scanStatus').textContent = T('Hold the card inside the frame');
 });
 
