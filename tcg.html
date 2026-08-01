@@ -1901,6 +1901,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <label><span data-l="Color:">Color:</span> <span id="swatches"></span></label>
       <label><input type="checkbox" id="darkPages"> <span data-l="Black pages">Black pages</span></label>
       <label><input type="checkbox" id="showPrices"> <span data-l="Show prices">Show prices</span></label>
+      <label><input type="checkbox" id="soundFx"> <span data-l="Sounds">Sounds</span></label>
       <label><span data-l="Prices:">Prices:</span>
         <select id="priceSourceSel">
           <option value="cardmarket">Cardmarket (EU, €)</option>
@@ -2300,6 +2301,7 @@ const STR_DA = {
   'Color:': 'Farve:',
   'Black pages': 'Sorte sider',
   'Show prices': 'Vis priser',
+  'Sounds': 'Lyde',
   'Prices:': 'Priser:',
   'Show as:': 'Vis som:',
   '🧹 Clear binder': '🧹 Tøm binder',
@@ -2844,6 +2846,7 @@ function pocketClick(pageIdx, slot) {
     pages[pageIdx][slot] = { ...placing, o: placeMode === 'owned' }; // kopi — samme kort ubegrænset
     if (existing) toast(T('Replaced ') + existing.n, true);
     lastPlaced = { page: pageIdx, slot };
+    snick();
     save(); renderBinder();
     return;
   }
@@ -3132,6 +3135,7 @@ function endDrag(x, y) {
     pages[t.page][t.slot] = { ...card, o: placeMode === 'owned' }; // dubletter altid tilladt
     if (existing) toast(T('Replaced ') + existing.n, true);
     lastPlaced = { page: t.page, slot: t.slot };
+    snick();
     save(); renderBinder();
   }
 }
@@ -3503,6 +3507,7 @@ for (const key of Object.keys(BINDER_COLORS)) {
 function renderSettings() {
   const b = binder();
   document.getElementById('showPrices').checked = !!store.showPrices;
+  document.getElementById('soundFx').checked = musicOn;
   document.getElementById('themeSel').value = store.theme === 'classic' ? 'classic' : 'display';
   document.getElementById('uiLangSel').value = store.uiLang === 'da' ? 'da' : 'en';
   document.getElementById('priceSourceSel').value = priceSource();
@@ -3617,6 +3622,13 @@ document.getElementById('themeSel').addEventListener('change', e => {
   store.theme = e.target.value; // globalt, foelger kontoen via synk
   applyTheme();
   save();
+});
+
+document.getElementById('soundFx').addEventListener('change', e => {
+  musicOn = e.target.checked;
+  localStorage.setItem(MUSIC_KEY, musicOn ? '1' : '0');
+  updateMusicBtn();
+  if (!musicOn) stopMusic();
 });
 
 document.getElementById('showPrices').addEventListener('change', e => {
@@ -3785,6 +3797,7 @@ function pileAddCard() {
   binder().pages[t.page][t.slot] = { ...c, o: placeMode === 'owned' };
   lastPlaced = t;
   jumpPage(t.page);
+  snick();
   save(); renderBinder();
   pileToast(c.n + ' → page ' + (t.page + 1) + ', pocket ' + (t.slot + 1) + ' ✔');
   flyOut(0, -150, 3, () => {
@@ -3947,6 +3960,7 @@ document.getElementById('fillBtn').addEventListener('click', () => {
   }
   save();
   jumpPage(first.page);
+  snick(); // een lyd for hele bunken — 80 snick er stoej
   renderBinder();
   toast(allResults.length + ' ' + T('cards added as') + ' "' + T(placeMode === 'owned' ? 'have' : 'need') + '"', true);
 });
@@ -6309,6 +6323,35 @@ function whoosh() { // syntetisk sideblad: filtreret stoej-sweep gennem musik-ka
     g.gain.value = 0.32;
     src.connect(f); f.connect(g); g.connect(musicDest);
     src.start();
+  } catch (e) { /* lyd er flair */ }
+}
+function snick() { // kort-i-lomme: bloedt snap + papir-brus
+  if (!musicOn) return;
+  try {
+    primeMusicAudio();
+    const t = musicCtx.currentTime;
+    const o = musicCtx.createOscillator();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(1900, t);
+    o.frequency.exponentialRampToValueAtTime(700, t + 0.05);
+    const g = musicCtx.createGain();
+    g.gain.setValueAtTime(0.16, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+    o.connect(g); g.connect(musicDest);
+    o.start(t); o.stop(t + 0.08);
+    const dur = 0.06;
+    const buf = musicCtx.createBuffer(1, Math.floor(musicCtx.sampleRate * dur), musicCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const src = musicCtx.createBufferSource();
+    src.buffer = buf;
+    const f = musicCtx.createBiquadFilter();
+    f.type = 'highpass';
+    f.frequency.value = 2500;
+    const g2 = musicCtx.createGain();
+    g2.gain.value = 0.07;
+    src.connect(f); f.connect(g2); g2.connect(musicDest);
+    src.start(t);
   } catch (e) { /* lyd er flair */ }
 }
 function updatePresentSound() {
