@@ -35,11 +35,20 @@ PokéBinder er bygget til almindelige samlere. Ikke et regneark, ikke en databas
 - **Del et opslag som billede** — render det åbne opslag til PNG med lædereffekt, direkte til del-arket/download.
 - **To temaer** — varmt "skrivebord" eller mørk "montre" med spotlight og glasgulv.
 
+## 🎁 Packs — åbn pakker uden at flå folie
+
+Sidemodulet for dopaminen: en virtuel booster-åbner med ægte rarity-fordeling fra det sæt du vælger.
+
+- **Åbn pakker** fra ethvert sæt (eller lad 🎲 vælge for dig) — kort for kort med folie-riv, eller 5 pakker i træk. Pity-bar bygger op mod en garanteret secret, og 1 ud af 50 pakker er en *golden pack* hvor det hele skinner.
+- **Dine pulls samles** automatisk i en simulations-binder med det dyreste hit på forsiden — og kan kopieres over i dine rigtige bindere.
+- **⚔️ Duel** — to spillere, samme sæt, højeste pakkeværdi vinder. Fair PvP: ingen pity eller golden packs, og I skiftes til at åbne først.
+- **👥 Multiplayer** — hold på op til 6 spillere (1v1, 2v2, 3v3, 2v2v2) på én enhed eller via online-lobby med delekode, så I kan spille på tværs af hjem.
+
 ## Og det praktiske
 
 - **Telefon-først**: én side ad gangen på mobil, tommelfinger-bar, swipe overalt. Læg den på hjemmeskærmen som app.
 - **Virker offline** — kortbilleder caches, så binderen kan vises frem på messer uden net.
-- **Eksport/import** af bindere som filer. Pakke-åbner og battles i søstermodulet 🎁 Packs.
+- **Eksport/import** af bindere som filer.
 - Gratis fan-projekt uden reklamer. Kortdata og billeder fra det åbne [TCGdex](https://tcgdex.dev)-API. Ikke tilknyttet The Pokémon Company.
 
 ---
