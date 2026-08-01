@@ -320,6 +320,8 @@ body.viewmode #drawerTab { display: none; }
   display: flex;
   flex-direction: column;
 }
+.search-panel > * { flex-shrink: 0; } /* kun resultatlisten maa skrumpe — ellers maser 45vh-loftet togglerne flade */
+.search-panel .results { flex-shrink: 1; }
 .search-panel h2 { font: 600 1rem 'Fredoka', sans-serif; color: #ffd95e; margin-bottom: 8px; }
 .search-row { display: flex; flex-direction: column; gap: 7px; margin-bottom: 10px; }
 .search-row input, .search-row select {
@@ -1839,8 +1841,8 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <h2 data-l="Find cards">Find cards</h2>
     <div class="search-row">
       <input id="q" placeholder="Mew · Mew rc24 · artist:koizumi" autocomplete="off">
-      <input id="setFilter" data-lp="Filter sets…" placeholder="Filter sets…" autocomplete="off">
-      <select id="setSelect"><option value="" data-l="All sets (search by name)">All sets (search by name)</option></select>
+      <button class="btn" id="setPickBtn" style="width:100%; text-align:left"></button>
+      <select id="setSelect" style="display:none"><option value="" data-l="All sets (search by name)">All sets (search by name)</option></select>
     </div>
     <div class="place-mode" style="margin-bottom:6px">
       <button id="langEN" class="on" title="Search English cards">EN</button>
@@ -2037,6 +2039,15 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <button class="modal-close" aria-label="Close">✕</button>
     <h2 style="font: 700 1.3rem 'Fredoka', sans-serif; margin-bottom: 8px;">📈 Value over time</h2>
     <div id="curvebody" style="font: 700 .9rem 'Nunito', sans-serif;"></div>
+  </div>
+</div>
+
+<div id="setsmodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 style="font: 700 1.3rem 'Fredoka', sans-serif; margin-bottom: 8px;" data-l="Choose a set">Choose a set</h2>
+    <input id="setSearch" data-lp="Search sets… (name or year)" placeholder="Search sets… (name or year)" autocomplete="off">
+    <div id="setsList" style="text-align:left; max-height: 52vh; overflow-y: auto; margin-top: 6px; font: 700 .9rem 'Nunito', sans-serif;"></div>
   </div>
 </div>
 
@@ -2332,6 +2343,8 @@ const STR_DA = {
   'Show prices': 'Vis priser',
   'Sounds': 'Lyde',
   'Filter sets…': 'Filtrér sæt…',
+  'Choose a set': 'Vælg et sæt',
+  'Search sets… (name or year)': 'Søg i sæt… (navn eller år)',
   'Prices:': 'Priser:',
   'Show as:': 'Vis som:',
   '🧹 Clear binder': '🧹 Tøm binder',
@@ -2513,16 +2526,20 @@ function isPocketCard(id) {
 }
 let allSetEntries = [];   // {id, label, isNew}
 let setsNewestFirst = false;
-function buildSetOptions(filter) {
-  const f = (filter || '').toLowerCase();
+function buildSetOptions() {
   while ($set.options.length > 1) $set.remove(1);
   for (const e of allSetEntries) {
-    if (f && !e.label.toLowerCase().includes(f)) continue;
     const o = document.createElement('option');
     o.value = e.id;
     o.textContent = (e.isNew ? '🆕 ' : '') + e.label;
     $set.appendChild(o);
   }
+  setPickLabel();
+}
+function setPickLabel() {
+  const e = allSetEntries.find(x => x.id === $set.value);
+  document.getElementById('setPickBtn').textContent =
+    '📦 ' + (e ? e.label : T('All sets (search by name)'));
 }
 async function loadSets() {
   let readyResolve;
@@ -2555,15 +2572,50 @@ async function loadSets() {
       const year = m && m.date ? m.date.slice(0, 4) + ' · ' : '';
       return { id: x.id, isNew, label: year + x.name + ' (' + (x.cardCount?.official ?? x.cardCount?.total ?? '?') + ')' };
     });
-    buildSetOptions(document.getElementById('setFilter').value.trim());
+    buildSetOptions();
     localStorage.setItem('tcg-seen-sets', JSON.stringify(sets.map(x => x.id)));
     if (fresh.length) toast('New set' + (fresh.length > 1 ? 's' : '') + ': ' + fresh.slice(0, 2).map(x => x.name).join(', ') + ' 🆕');
   } catch (e) { $hint.textContent = 'Could not load the set list.'; }
   readyResolve(); // moenster-fallback filtrerer selv uden listen
 }
-document.getElementById('setFilter').addEventListener('input', () => {
-  buildSetOptions(document.getElementById('setFilter').value.trim());
+// saet-vaelgeren: eet kontrol der aabner soegbart panel
+const setsmodal = document.getElementById('setsmodal');
+function renderSetsList(filter) {
+  const f = (filter || '').toLowerCase();
+  const list = document.getElementById('setsList');
+  list.innerHTML = '';
+  const row = (label, id) => {
+    const div = document.createElement('div');
+    div.textContent = label;
+    div.style.cssText = 'padding:8px 10px; border-radius:8px; cursor:pointer;';
+    div.addEventListener('mouseenter', () => div.style.background = 'rgba(0,0,0,.08)');
+    div.addEventListener('mouseleave', () => div.style.background = '');
+    div.addEventListener('click', () => {
+      $set.value = id;
+      setsmodal.hidden = true;
+      setPickLabel();
+      doSearch();
+    });
+    list.appendChild(div);
+  };
+  if (!f) row('— ' + T('All sets (search by name)'), '');
+  for (const e of allSetEntries) {
+    if (f && !e.label.toLowerCase().includes(f)) continue;
+    row((e.isNew ? '🆕 ' : '') + e.label, e.id);
+  }
+}
+document.getElementById('setPickBtn').addEventListener('click', () => {
+  const inp = document.getElementById('setSearch');
+  inp.value = '';
+  renderSetsList('');
+  setsmodal.hidden = false;
+  if (!('ontouchstart' in window)) inp.focus();
 });
+document.getElementById('setSearch').addEventListener('input', e => renderSetsList(e.target.value.trim()));
+setsmodal.addEventListener('click', e => {
+  if (e.target === setsmodal || e.target.closest('.modal-close')) setsmodal.hidden = true;
+});
+setPickLabel();
 
 const RECENT_KEY = 'tcg-recent-searches';
 function renderRecent() {
