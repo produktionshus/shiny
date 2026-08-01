@@ -747,7 +747,7 @@ body.viewmode #binderSettings { display: none; }
   position: absolute;
   left: 50%; top: 50%;
   transform: translate(-50%, -50%);
-  height: 82%;
+  height: 46%; /* matcher kortstoerrelsen ved reel fokusafstand (~15-20 cm) */
   aspect-ratio: 63/88;
   border: 3px dashed rgba(255,217,94,.75);
   border-radius: 10px;
@@ -7233,7 +7233,7 @@ function scanFrameOnce(src, w, h, guideFrac) {
   // guideFrac: rammens hoejde som andel af den SYNLIGE flade (object-fit: cover
   // beskaerer videoen — udsnittet skal regnes i det synlige omraade, ikke raa video)
   let bestRes = null;
-  for (const scale of [guideFrac || 0.82, (guideFrac || 0.82) * 0.88, Math.min(0.98, (guideFrac || 0.82) * 1.12)]) {
+  for (const scale of [guideFrac || 0.46, (guideFrac || 0.46) * 0.7, (guideFrac || 0.46) * 1.35, Math.min(0.95, (guideFrac || 0.46) * 1.8)]) {
     const ch = h * scale, cw = ch * 63 / 88;
     if (cw > w) continue;
     const res = scanMatch(hashFromSource(src, (w - cw) / 2, (h - ch) / 2, cw, ch));
@@ -7296,7 +7296,7 @@ async function scanTick() {
   scanTmpCv.width = 360;
   scanTmpCv.height = Math.round(360 * crop.h / crop.w);
   scanTmpCv.getContext('2d').drawImage(crop.v, crop.x, crop.y, crop.w, crop.h, 0, 0, scanTmpCv.width, scanTmpCv.height);
-  const res = scanFrameOnce(scanTmpCv, scanTmpCv.width, scanTmpCv.height, 0.82);
+  const res = scanFrameOnce(scanTmpCv, scanTmpCv.width, scanTmpCv.height, 0.46);
   if (!res) return;
   // live-feedback: hvad ser scanneren, og hvor taet er den paa?
   if (res.d <= 160) {
