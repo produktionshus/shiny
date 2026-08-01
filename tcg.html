@@ -3070,7 +3070,7 @@ function getDetail(id, lang) {
 }
 function priceSource() { return store.priceSource === 'tcgplayer' ? 'tcgplayer' : 'cardmarket'; }
 function applyTheme() {
-  document.body.classList.toggle('theme-display', store.theme === 'display');
+  document.body.classList.toggle('theme-display', (store.theme || 'display') === 'display'); // montre er standard
   applyLang();
 }
 function updatePriceUI() {
@@ -3405,7 +3405,7 @@ for (const key of Object.keys(BINDER_COLORS)) {
 function renderSettings() {
   const b = binder();
   document.getElementById('showPrices').checked = !!store.showPrices;
-  document.getElementById('themeSel').value = store.theme === 'display' ? 'display' : 'classic';
+  document.getElementById('themeSel').value = store.theme === 'classic' ? 'classic' : 'display';
   document.getElementById('uiLangSel').value = store.uiLang === 'da' ? 'da' : 'en';
   document.getElementById('priceSourceSel').value = priceSource();
   document.getElementById('dispCurrency').value = store.dispCurrency === 'dkk' ? 'dkk' : 'eur';
