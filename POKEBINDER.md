@@ -2,7 +2,7 @@
 
 **www.pokebinder.dk** · gratis · dansk/engelsk · virker på telefon, tablet og desktop
 
-PokéBinder er en digital ringbinder til Pokémon-kort. Ikke et regneark, ikke en database — en *binder*: sider med plastiklommer, man bladrer i, fylder op og viser frem. Byg mål for hvad du vil samle, følg priserne, og kig i vennernes bindere live.
+PokéBinder er bygget til almindelige samlere. Ikke et regneark, ikke en database — en *binder*: sider med plastiklommer, man bladrer i, fylder op og viser frem, præcis som den på hylden. Planlæg hvad du vil samle, hold styr på hvad kortene er værd, og kig i vennernes bindere live.
 
 ---
 
@@ -28,9 +28,9 @@ PokéBinder er en digital ringbinder til Pokémon-kort. Ikke et regneark, ikke e
 - **Trade-match** — appen krydser automatisk din mangler-liste med vennernes samlinger: "Du mangler — Emil har" og "Emil mangler — du har i overskud". Rød prik når der er nye matches.
 - **Kreds-tavlen** — venlig rangliste: flest kort, flest master sets.
 
-## Fremvisning (streamer-venligt 🎥)
+## Vis samlingen frem
 
-- **Præsentations-mode** — ét klik: al UI forsvinder, binderen fylder skærmen og bladrer selv hvert 5. sekund, med valgfri chiptune-musik og sidevendings-lyd. Perfekt som overlay/scene.
+- **Præsentations-mode** — ét klik: al UI forsvinder, binderen fylder skærmen og bladrer selv hvert 5. sekund, med valgfri chiptune-musik og sidevendings-lyd. Perfekt på TV'et når familien eller byttekredsen kigger forbi — og streamer man, fungerer det direkte som scene.
 - **Kort-zoom med 3D-tilt** — kortet vinkles efter musen som et fysisk kort i hånden; ægte holo-kort glimter med regnbueeffekt.
 - **Del et opslag som billede** — render det åbne opslag til PNG med lædereffekt, direkte til del-arket/download.
 - **To temaer** — varmt "skrivebord" eller mørk "montre" med spotlight og glasgulv.
