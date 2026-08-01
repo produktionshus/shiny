@@ -138,8 +138,10 @@ body.theme-display .ring {
   box-shadow: inset 1px 1px 2px rgba(255,255,255,.25), 2px 3px 5px rgba(0,0,0,.3);
 }
 /* glasgulv: refleksion under binderen (Chrome/Safari; Firefox faar den ikke) */
-body.theme-display .binder {
-  -webkit-box-reflect: below 10px linear-gradient(transparent 78%, rgba(255,255,255,.05));
+@media (min-width: 641px) { /* Chrome afviser 'box-reflect: none' — saa telefonen faar den aldrig */
+  body.theme-display .binder {
+    -webkit-box-reflect: below 10px linear-gradient(transparent 78%, rgba(255,255,255,.05));
+  }
 }
 /* langsomt lysstrejf hen over montren */
 body.theme-display .binder-wrap::after {
@@ -1715,6 +1717,9 @@ body.presenting #bottomBar, body.viewmode #bottomBar { display: none !important;
 
 @media (max-width: 900px) {
   .layout { flex-direction: column; align-items: stretch; }
+  .search-panel { position: static; flex: none; max-height: 45vh; order: 2; }
+  .binder-col { order: 1; }
+  .page { width: 44vw; }
   #cover { width: 60vw; }
   /* pileknapper oven paa binderen — ellers klippes de af overflow-x */
   .binder-wrap { position: relative; }
@@ -1728,21 +1733,35 @@ body.presenting #bottomBar, body.viewmode #bottomBar { display: none !important;
   #next { right: 4px; }
 }
 
-/* telefon: een side ad gangen, slank UI, tommelfinger-bar */
+/* telefon: een side ad gangen, binderen faar pladsen */
 @media (max-width: 640px) {
-  .page { width: min(94vw, calc((100vh - 320px) * 0.716 * var(--cols, 3) / var(--rows, 3))); }
-  #cover { width: min(82vw, calc((100vh - 320px) * 0.75)); }
+  header { display: none; } /* navnet staar i modul-pillen */
+  .binder-switch { position: static; margin: calc(8px + env(safe-area-inset-top, 0px)) auto 2px; width: max-content; }
+  .toolbar { padding: 4px 10px 0; gap: 6px; }
+  .toolbar #friendsBtn, .toolbar #helpBtn, .toolbar #authbtn,
+  .toolbar #binderSelect, .toolbar #newBinder, .toolbar #delBinder { display: none; }
+  #binderName { width: 130px; }
+  .layout { padding: 6px; gap: 8px; }
+  .binder { padding: 12px; }
+  .binder::before { inset: 5px; }
+  .binder-wrap { gap: 4px; }
+  .page {
+    width: min(96vw, calc((100vh - 235px) * 0.716 * var(--cols, 3) / var(--rows, 3)));
+    padding: 10px 8px 24px;
+  }
+  #cover { width: min(86vw, calc((100vh - 235px) * 0.75)); }
   .page.left { display: none !important; }
   .page.right { border-radius: 10px; }
   .rings { display: none; } /* ingen midterryg naar kun een side vises */
-  .toolbar #binderSelect, .toolbar #newBinder, .toolbar #delBinder { display: none; } /* reolen daekker */
-  .binder-controls .sec { display: none; }
+  .spread-label { font-size: .74rem; }
+  .progress-wrap { transform: scale(.92); }
+  #setProgress { font-size: .72rem; }
+  .binder-controls { gap: 6px; }
+  .binder-controls .sec, #needBtn { display: none; } /* 📋 bor i bundbaren */
   #moreBtn { display: inline-block !important; }
+  #drawerTab { display: none; } /* 🔍 i bundbaren aabner soegningen */
   #bottomBar { display: flex; }
   body { padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
-  .search-panel { position: static; flex: none; max-height: 45vh; order: 2; }
-  .binder-col { order: 1; }
-  .page { width: 44vw; }
 }
 </style>
 </head>
@@ -1932,7 +1951,8 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   <button id="bbSearch">🔍</button>
   <button id="bbPile">🂠</button>
   <button id="bbNeed">📋</button>
-  <button id="bbShelf">🗄</button>
+  <button id="bbFriends">👥</button>
+  <button id="bbAccount">👤</button>
 </div>
 
 <div id="placeBanner">
@@ -6623,11 +6643,11 @@ const moreMenu = document.getElementById('moreMenu');
 document.getElementById('moreBtn').addEventListener('click', () => {
   if (!moreMenu.hidden) { moreMenu.hidden = true; return; }
   moreMenu.innerHTML = '';
-  for (const id of ['delPages', 'presentBtn', 'snapBtn', 'factsBtn', 'curveBtn']) {
+  for (const id of ['delPages', 'presentBtn', 'snapBtn', 'factsBtn', 'curveBtn', 'helpBtn']) {
     const orig = document.getElementById(id);
     if (id === 'curveBtn' && !store.showPrices) continue;
     const b = document.createElement('button');
-    b.textContent = orig.textContent + (orig.title && orig.textContent.length < 3 ? ' ' + orig.title : '');
+    b.textContent = id === 'helpBtn' ? '❓ Guide' : orig.textContent + (orig.title && orig.textContent.length < 3 ? ' ' + orig.title : '');
     b.addEventListener('click', () => { moreMenu.hidden = true; orig.click(); });
     moreMenu.appendChild(b);
   }
@@ -6646,7 +6666,8 @@ document.getElementById('bbSearch').addEventListener('click', () => {
 });
 document.getElementById('bbPile').addEventListener('click', () => document.getElementById('pileBtn').click());
 document.getElementById('bbNeed').addEventListener('click', () => document.getElementById('needBtn').click());
-document.getElementById('bbShelf').addEventListener('click', () => document.getElementById('shelfBtn').click());
+document.getElementById('bbFriends').addEventListener('click', () => document.getElementById('friendsBtn').click());
+document.getElementById('bbAccount').addEventListener('click', () => authbtn.click());
 
 // ---------- tastatur: ←/→ bladrer binderen ----------
 document.addEventListener('keydown', e => {
