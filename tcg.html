@@ -1800,6 +1800,11 @@ body.viewmode .viewbar { display: flex; }
   opacity: .45;
 }
 body.presenting #legal, body.viewmode #legal { display: none; }
+.ptag {
+  position: absolute; bottom: 3px; right: 3px; z-index: 5; pointer-events: none;
+  font: 600 .6rem 'Fredoka', sans-serif; color: #ffd76a;
+  background: rgba(10, 12, 20, .72); padding: 1px 5px; border-radius: 6px;
+}
 #moreMenu[hidden] { display: none !important; }
 #moreMenu {
   position: fixed;
@@ -2058,6 +2063,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
         <input type="color" id="customColor" title="Pick your own colour"></label>
       <label><input type="checkbox" id="darkPages"> <span data-l="Black pages">Black pages</span></label>
       <label><input type="checkbox" id="showPrices"> <span data-l="Show prices">Show prices</span></label>
+      <label><input type="checkbox" id="priceTags"> <span data-l="Price on cards">Price on cards</span></label>
       <label><input type="checkbox" id="soundFx"> <span data-l="Sounds">Sounds</span></label>
       <label><span data-l="Prices:">Prices:</span>
         <select id="priceSourceSel">
@@ -2545,6 +2551,7 @@ const STR_DA = {
   'Scanner index not ready yet — try again in a few minutes': 'Scanner-indekset er ikke klar endnu — prøv igen om få minutter',
   'No match — try more light or fill the frame': 'Intet match — prøv mere lys eller fyld rammen',
   'Added ': 'Tilføjede ',
+  'Price on cards': 'Pris på kort',
   'PokéBinder is a free, non-commercial fan project. Pokémon and all respective names, images and trademarks are © Nintendo, Game Freak, Creatures Inc. and The Pokémon Company. This site is not affiliated with or endorsed by them. Card data and images via TCGdex.':
     'PokéBinder er et gratis, ikke-kommercielt fanprojekt. Pokémon og alle tilhørende navne, billeder og varemærker tilhører © Nintendo, Game Freak, Creatures Inc. og The Pokémon Company. Sitet er ikke tilknyttet eller godkendt af disse. Kortdata og billeder via TCGdex.',
   'Prices:': 'Priser:',
@@ -3150,6 +3157,15 @@ function renderPage(grid, pageIdx) {
             sh.className = 'holo-sheen';
             div.appendChild(sh);
           }
+          if (store.showPrices && store.priceTags && div.isConnected && !div.querySelector('.ptag')) {
+            const pr = cardPrice(d);
+            if (pr != null) {
+              const t = document.createElement('div');
+              t.className = 'ptag';
+              t.textContent = fmtPrice(pr);
+              div.appendChild(t);
+            }
+          }
         });
       } else {
         div.innerHTML = '<div class="name-only">' + card.n + '</div>';
@@ -3547,6 +3563,7 @@ function updatePriceUI() {
   document.getElementById('valueBtn').style.display = store.showPrices ? '' : 'none';
   document.getElementById('curveBtn').style.display = store.showPrices ? '' : 'none';
   document.getElementById('priceSourceSel').disabled = !store.showPrices;
+  document.getElementById('priceTags').disabled = !store.showPrices;
   document.getElementById('dispCurrency').disabled = !store.showPrices || priceSource() === 'tcgplayer';
 }
 function priceSourceName() { return priceSource() === 'tcgplayer' ? 'TCGplayer' : 'Cardmarket'; }
@@ -3903,6 +3920,7 @@ document.getElementById('customColor').addEventListener('change', e => {
 function renderSettings() {
   const b = binder();
   document.getElementById('showPrices').checked = !!store.showPrices;
+  document.getElementById('priceTags').checked = !!store.priceTags;
   document.getElementById('soundFx').checked = musicOn;
   document.getElementById('themeSel').value = store.theme === 'classic' ? 'classic' : 'display';
   document.getElementById('uiLangSel').value = store.uiLang === 'da' ? 'da' : 'en';
@@ -4031,6 +4049,10 @@ document.getElementById('soundFx').addEventListener('change', e => {
   if (!musicOn) stopMusic();
 });
 
+document.getElementById('priceTags').addEventListener('change', e => {
+  store.priceTags = e.target.checked;
+  save(); renderBinder();
+});
 document.getElementById('showPrices').addEventListener('change', e => {
   store.showPrices = e.target.checked; // global, foelger kontoen via synk
   updatePriceUI();
@@ -6605,10 +6627,39 @@ document.getElementById('factsBtn').addEventListener('click', async () => {
     .map(([r, n]) => r + ' ×' + n).join(' · ') || '—';
   line('Rarities', rarStr);
   if (store.showPrices && priced.length) {
-    const topStr = priced.slice(0, 3)
-      .map(([id]) => { const c = cards.find(x => x.id === id); return c ? c.n : id; })
-      .map((n, i) => n + ' (' + fmtPrice(priced[i][1]) + ')').join(' · ');
-    line('Most valuable', topStr);
+    const row = document.createElement('div');
+    row.style.margin = '4px 0';
+    const lb = document.createElement('span');
+    lb.textContent = 'Most valuable: ';
+    lb.style.cssText = "font-family:'Fredoka',sans-serif;font-weight:600;";
+    row.appendChild(lb);
+    priced.slice(0, 3).forEach(([id, pr], i) => {
+      const d = details.get(id);
+      const c = cards.find(x => x.id === id);
+      const a = document.createElement('a');
+      a.href = '#';
+      a.style.cssText = 'color:inherit;text-decoration:underline;cursor:pointer;';
+      a.textContent = (c ? c.n : id)
+        + (d && d.set ? ' · ' + d.set.name + (d.localId ? ' ' + d.localId : '') : '')
+        + ' (' + fmtPrice(pr) + ')';
+      a.addEventListener('click', ev => { // hop til kortets side og lad det poppe
+        ev.preventDefault();
+        const pgs = binder().pages;
+        for (let pi = 0; pi < pgs.length; pi++) {
+          const sl = pgs[pi].findIndex(x => x && x.id === id);
+          if (sl >= 0) {
+            factsmodal.hidden = true;
+            lastPlaced = { page: pi, slot: sl };
+            jumpPage(pi);
+            renderBinder();
+            break;
+          }
+        }
+      });
+      if (i) row.append(' · ');
+      row.appendChild(a);
+    });
+    body.appendChild(row);
   }
 });
 factsmodal.addEventListener('click', e => {
