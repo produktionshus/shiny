@@ -7303,10 +7303,10 @@ async function scanTick() {
     const d = await getDetail(res.id);
     const st = document.getElementById('scanStatus');
     if (document.getElementById('scanResult').style.display !== 'flex') {
-      st.textContent = (d ? d.name : res.id) + ' · ' + res.d + (res.d <= 95 ? ' ✓' : '…');
+      st.textContent = (d ? d.name : res.id) + ' · ' + Math.round(res.d) + (res.d <= 148 ? ' ✓' : '…');
     }
   }
-  if (res.d <= 115 && res.margin >= 6) { // farveled haever niveauet ~15-25 for aegte hits
+  if (res.d <= 148 && res.margin >= 5) { // aegte kamera maalt: korrekt kort ved d~128
     if (res.id === scanStableId) scanStableCount++;
     else { scanStableId = res.id; scanStableCount = 1; }
     if (scanStableCount >= 2) presentScanHit(res.id, res.top); // to ens frames i traek = stabilt match
@@ -7389,7 +7389,7 @@ document.getElementById('scanFile').addEventListener('change', async e => {
     // fotos er ofte hele kortet uden ramme — prov ogsaa fuld flade
     const full = scanMatch(hashFromSource(im, 0, 0, im.naturalWidth, im.naturalHeight));
     const pick = full.d < res.d ? full : res;
-    if (pick.d <= 110) presentScanHit(pick.id, pick.top);
+    if (pick.d <= 160) presentScanHit(pick.id, pick.top);
     else document.getElementById('scanStatus').textContent = T('No match — try more light or fill the frame');
     URL.revokeObjectURL(im.src);
   };
