@@ -3544,12 +3544,43 @@ function getSetInfo(setId, lang) {
   }
   return setInfoCache.get(key);
 }
+function hasAnyPrice(d) {
+  const blocks = [d.pricing, ...(d.variants_detailed || []).map(v => v.pricing)].filter(Boolean);
+  return blocks.some(b =>
+    (b.cardmarket && ['trend', 'avg30', 'avg', 'low'].some(k => typeof b.cardmarket[k] === 'number' && b.cardmarket[k] > 0))
+    || (b.tcgplayer && Object.values(b.tcgplayer).some(v => v && typeof v.marketPrice === 'number')));
+}
+function ptcgioPricing(p) { // pokemontcg.io-priser omformet til TCGdex-form, saa alle laesere bare virker
+  const cmp = p && p.cardmarket && p.cardmarket.prices;
+  const tpp = p && p.tcgplayer && p.tcgplayer.prices;
+  const num = v => (typeof v === 'number' && v > 0) ? v : null;
+  const cm = cmp ? { unit: 'EUR', trend: num(cmp.trendPrice), avg30: num(cmp.avg30), avg: num(cmp.averageSellPrice), low: num(cmp.lowPrice) } : null;
+  let tp = null;
+  if (tpp) {
+    tp = {};
+    for (const k of Object.keys(tpp)) if (tpp[k] && num(tpp[k].market)) tp[k] = { marketPrice: tpp[k].market };
+    if (!Object.keys(tp).length) tp = null;
+  }
+  return ((cm && (cm.trend || cm.avg30 || cm.avg || cm.low)) || tp) ? { cardmarket: cm, tcgplayer: tp } : null;
+}
 function getDetail(id, lang) {
   lang = lang || 'en';
   const key = lang + ':' + id;
   if (!detailCache.has(key)) {
     detailCache.set(key, fetch(API_ROOT + '/' + lang + '/cards/' + id)
       .then(r => r.ok ? r.json() : null)
+      .then(async d => {
+        if (d && lang === 'en' && !hasAnyPrice(d)) { // TCGdex-prishul: proev pokemontcg.io
+          try {
+            const pr = await fetch('https://api.pokemontcg.io/v2/cards/' + encodeURIComponent(id.replace('.', 'pt')) + '?select=cardmarket,tcgplayer');
+            if (pr.ok) {
+              const gp = ptcgioPricing((await pr.json()).data);
+              if (gp) d.pricing = gp;
+            }
+          } catch (e) { /* fallback er best effort */ }
+        }
+        return d;
+      })
       .catch(() => null));
   }
   return detailCache.get(key);

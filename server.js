@@ -445,7 +445,21 @@ async function snapshotPrices() {
     try {
       const r = await fetch('https://api.tcgdex.net/v2/en/cards/' + encodeURIComponent(id));
       if (r.ok) {
-        const { eur, usd } = extractPrices(await r.json());
+        let { eur, usd } = extractPrices(await r.json());
+        if (eur === null && usd === null) { // TCGdex-prishul: proev pokemontcg.io
+          try {
+            const pr = await fetch('https://api.pokemontcg.io/v2/cards/' + encodeURIComponent(id.replace('.', 'pt')) + '?select=cardmarket,tcgplayer');
+            if (pr.ok) {
+              const p = (await pr.json()).data || {};
+              const cmp = p.cardmarket && p.cardmarket.prices;
+              if (cmp && typeof cmp.trendPrice === 'number' && cmp.trendPrice > 0) eur = cmp.trendPrice;
+              const tpp = p.tcgplayer && p.tcgplayer.prices;
+              if (tpp) for (const k of Object.keys(tpp)) {
+                if (tpp[k] && typeof tpp[k].market === 'number' && tpp[k].market > 0) { usd = tpp[k].market; break; }
+              }
+            }
+          } catch (e) { /* best effort */ }
+        }
         if (eur !== null || usd !== null) ins.run(id, day, eur, usd);
       }
     } catch (e) { /* enkelt kort fejler: videre */ }
