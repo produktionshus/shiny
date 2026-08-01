@@ -260,6 +260,38 @@ function hashFromGray(g) {
   return bits;
 }
 
+function hashFromRGB(rgb) { // 40B bit-hash + 48B celle-farver (16 celler x RGB)
+  const g = new Uint8Array(HW * HH);
+  for (let i = 0; i < g.length; i++) {
+    g[i] = (rgb[i * 3] * 0.299 + rgb[i * 3 + 1] * 0.587 + rgb[i * 3 + 2] * 0.114) | 0;
+  }
+  const bits = hashFromGray(g);
+  const colors = Buffer.alloc(48);
+  let ci = 0;
+  for (let gy = 0; gy < 4; gy++) for (let gx = 0; gx < 4; gx++) {
+    const x0 = Math.floor(gx * HW / 4), x1 = Math.floor((gx + 1) * HW / 4);
+    const y0 = Math.floor(gy * HH / 4), y1 = Math.floor((gy + 1) * HH / 4);
+    let r = 0, gr = 0, b = 0, n = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      const o = (y * HW + x) * 3;
+      r += rgb[o]; gr += rgb[o + 1]; b += rgb[o + 2]; n++;
+    }
+    colors[ci++] = Math.round(r / n);
+    colors[ci++] = Math.round(gr / n);
+    colors[ci++] = Math.round(b / n);
+  }
+  return Buffer.concat([bits, colors]);
+}
+
+// v2-migration: gamle 40-byte hashes uden farve kasseres og genbygges
+try {
+  const sample = db.prepare('SELECT hash FROM card_hashes LIMIT 1').get();
+  if (sample && sample.hash.length !== 88) {
+    db.exec('DELETE FROM card_hashes');
+    console.log('scan-indeks: v1 kasseret, genbygger med farvedata');
+  }
+} catch (e) {}
+
 let scanIndexBuilding = false;
 async function buildScanIndex() {
   if (!sharp || scanIndexBuilding) return;
@@ -270,8 +302,8 @@ async function buildScanIndex() {
     const ins = db.prepare('INSERT OR REPLACE INTO card_hashes (card_id, hash) VALUES (?, ?)');
     const hashOne = async c => {
       const buf = Buffer.from(await (await fetch(c.image + '/low.webp')).arrayBuffer());
-      const g = await sharp(buf).resize(HW, HH, { fit: 'fill' }).grayscale().raw().toBuffer();
-      ins.run(c.id, hashFromGray(g));
+      const rgb = await sharp(buf).resize(HW, HH, { fit: 'fill' }).removeAlpha().raw().toBuffer();
+      ins.run(c.id, hashFromRGB(rgb));
       have.add(c.id);
     };
     // prioritetspas: Mew-kort foerst (stoerste del af brugerens fysiske samling)
@@ -308,7 +340,7 @@ setInterval(() => buildScanIndex().catch(() => {}), 24 * 60 * 60 * 1000); // nye
 app.get('/api/scan-index', (req, res) => {
   const rows = db.prepare('SELECT card_id, hash FROM card_hashes').all();
   res.set('Cache-Control', 'public, max-age=86400');
-  res.json({ v: 1, cards: rows.map(r => [r.card_id, Buffer.from(r.hash).toString('base64')]) });
+  res.json({ v: 2, cards: rows.map(r => [r.card_id, Buffer.from(r.hash).toString('base64')]) });
 });
 
 // ===== sets metadata (release dates live only in per-set details; cached here) =====

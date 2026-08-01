@@ -765,6 +765,16 @@ body.viewmode #binderSettings { display: none; }
   max-width: 92vw;
 }
 #scanResult img { height: 96px; border-radius: 6px; }
+#scanCands { display: none; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 94vw; }
+#scanCands .sc {
+  width: 76px;
+  cursor: pointer;
+  text-align: center;
+  font: 700 .62rem 'Nunito', sans-serif;
+  color: #cbbf9f;
+}
+#scanCands .sc img { width: 100%; aspect-ratio: 63/88; object-fit: cover; border-radius: 6px; border: 2px solid transparent; }
+#scanCands .sc:first-child img { border-color: rgba(255,217,94,.7); }
 #scanResult .sr-name { font: 700 .95rem 'Nunito', sans-serif; color: #ffe9a8; }
 #scanBtns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 #scanClose {
@@ -2212,6 +2222,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <div id="scanFrame"></div>
   </div>
   <div id="scanStatus"></div>
+  <div id="scanCands"></div>
   <div id="scanResult">
     <img id="scanResImg" alt="">
     <div>
@@ -7129,49 +7140,93 @@ function scanHashFromGray(g) { // identisk med serverens hashFromGray
   return bits;
 }
 
+const REC = 88; // 40B bits + 48B cellefarver
+function normColors(arr, off) { // traek gennemsnittet fra: annullerer belysningens farvestik
+  let mr = 0, mg = 0, mb = 0;
+  for (let c = 0; c < 16; c++) { mr += arr[off + c * 3]; mg += arr[off + c * 3 + 1]; mb += arr[off + c * 3 + 2]; }
+  mr /= 16; mg /= 16; mb /= 16;
+  const out = new Int16Array(48);
+  for (let c = 0; c < 16; c++) {
+    out[c * 3] = arr[off + c * 3] - mr;
+    out[c * 3 + 1] = arr[off + c * 3 + 1] - mg;
+    out[c * 3 + 2] = arr[off + c * 3 + 2] - mb;
+  }
+  return out;
+}
 async function loadScanIndex() {
   if (scanIdx) return true;
   document.getElementById('scanStatus').textContent = T('Loading card index…');
   try {
-    const j = await (await fetch('/api/scan-index')).json();
-    if (!j.cards || !j.cards.length) return false;
-    const ids = new Array(j.cards.length);
-    const hashes = new Uint8Array(j.cards.length * 40);
+    const j = await (await fetch('/api/scan-index?v=2')).json(); // v-param buster 24t-cachen ved formatskifte
+    if (j.v !== 2 || !j.cards || !j.cards.length) return false;
+    const n = j.cards.length;
+    const ids = new Array(n);
+    const bits = new Uint8Array(n * 40);
+    const cols = new Int16Array(n * 48);
     j.cards.forEach(([id, b64], i) => {
       ids[i] = id;
       const bin = atob(b64);
-      for (let k = 0; k < 40; k++) hashes[i * 40 + k] = bin.charCodeAt(k);
+      const raw = new Uint8Array(REC);
+      for (let k = 0; k < REC; k++) raw[k] = bin.charCodeAt(k);
+      bits.set(raw.subarray(0, 40), i * 40);
+      cols.set(normColors(raw, 40), i * 48);
     });
-    scanIdx = { ids, hashes };
+    scanIdx = { ids, bits, cols };
     return true;
   } catch (e) { return false; }
 }
 
-function scanMatch(h) {
-  let best = 9999, second = 9999, bestI = -1;
-  const H = scanIdx.hashes, n = scanIdx.ids.length;
+function scanMatch(h) { // h: {bits: Uint8Array(40), cols: Int16Array(48)}
+  const n = scanIdx.ids.length, B = scanIdx.bits, C = scanIdx.cols;
+  const top = []; // top-4 som [{i, d}]
   for (let i = 0; i < n; i++) {
-    let d = 0;
-    const off = i * 40;
-    for (let k = 0; k < 40; k++) d += POP[H[off + k] ^ h[k]];
-    if (d < best) { second = best; best = d; bestI = i; }
-    else if (d < second) second = d;
+    let ham = 0;
+    const bo = i * 40;
+    for (let k = 0; k < 40; k++) ham += POP[B[bo + k] ^ h.bits[k]];
+    let cd = 0;
+    const co = i * 48;
+    for (let k = 0; k < 48; k++) cd += Math.abs(C[co + k] - h.cols[k]);
+    const d = ham + cd / 24; // farveled skaleret til hamming-niveau
+    if (top.length < 4 || d < top[3].d) {
+      top.push({ i, d });
+      top.sort((a, b) => a.d - b.d);
+      if (top.length > 4) top.pop();
+    }
   }
-  return { id: scanIdx.ids[bestI], d: best, margin: second - best };
+  return {
+    id: scanIdx.ids[top[0].i],
+    d: top[0].d,
+    margin: (top[1] ? top[1].d : 9999) - top[0].d,
+    top: top.map(t => ({ id: scanIdx.ids[t.i], d: t.d })),
+  };
 }
 
 const scanCv = document.createElement('canvas');
 scanCv.width = SHW; scanCv.height = SHH;
 const scanCtx = scanCv.getContext('2d', { willReadFrequently: true });
 
-function grayFromSource(src, sx, sy, sw, sh) {
+function hashFromSource(src, sx, sy, sw, sh) { // graa-bits + normaliserede cellefarver
   scanCtx.drawImage(src, sx, sy, sw, sh, 0, 0, SHW, SHH);
   const d = scanCtx.getImageData(0, 0, SHW, SHH).data;
   const g = new Uint8Array(SHW * SHH);
   for (let i = 0; i < g.length; i++) {
     g[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0;
   }
-  return g;
+  const raw = new Uint8Array(48);
+  let ci = 0;
+  for (let gy = 0; gy < 4; gy++) for (let gx = 0; gx < 4; gx++) {
+    const x0 = Math.floor(gx * SHW / 4), x1 = Math.floor((gx + 1) * SHW / 4);
+    const y0 = Math.floor(gy * SHH / 4), y1 = Math.floor((gy + 1) * SHH / 4);
+    let r = 0, gr = 0, b = 0, n = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      const o = (y * SHW + x) * 4;
+      r += d[o]; gr += d[o + 1]; b += d[o + 2]; n++;
+    }
+    raw[ci++] = Math.round(r / n);
+    raw[ci++] = Math.round(gr / n);
+    raw[ci++] = Math.round(b / n);
+  }
+  return { bits: scanHashFromGray(g), cols: normColors(raw, 0) };
 }
 
 function scanFrameOnce(src, w, h, guideFrac) {
@@ -7181,8 +7236,7 @@ function scanFrameOnce(src, w, h, guideFrac) {
   for (const scale of [guideFrac || 0.82, (guideFrac || 0.82) * 0.88, Math.min(0.98, (guideFrac || 0.82) * 1.12)]) {
     const ch = h * scale, cw = ch * 63 / 88;
     if (cw > w) continue;
-    const g = grayFromSource(src, (w - cw) / 2, (h - ch) / 2, cw, ch);
-    const res = scanMatch(scanHashFromGray(g));
+    const res = scanMatch(hashFromSource(src, (w - cw) / 2, (h - ch) / 2, cw, ch));
     if (!bestRes || res.d < bestRes.d) bestRes = res;
   }
   return bestRes;
@@ -7199,7 +7253,7 @@ function scanVideoCrop() {
   return { v, x: (VW - visW) / 2, y: (VH - visH) / 2, w: visW, h: visH };
 }
 
-async function presentScanHit(id) {
+async function presentScanHit(id, top) {
   scanCandidate = id;
   const d = await getDetail(id);
   if (scanCandidate !== id) return;
@@ -7207,6 +7261,29 @@ async function presentScanHit(id) {
   document.getElementById('scanResName').textContent = (d ? d.name : id) + (d && d.set ? ' · ' + d.set.name : '');
   document.getElementById('scanResult').style.display = 'flex';
   document.getElementById('scanStatus').textContent = '';
+  const box = document.getElementById('scanCands'); // ramte vi forkert, tapper man bare det rigtige
+  box.innerHTML = '';
+  box.style.display = 'flex';
+  for (const t of (top || []).slice(0, 4)) {
+    const td = await getDetail(t.id);
+    if (scanCandidate !== id && !(top || []).some(x => x.id === scanCandidate)) return;
+    const el = document.createElement('div');
+    el.className = 'sc';
+    if (td && td.image) {
+      const im = document.createElement('img');
+      im.src = td.image + '/low.webp';
+      el.appendChild(im);
+    }
+    const nm = document.createElement('div');
+    nm.textContent = td ? td.name : t.id;
+    el.appendChild(nm);
+    el.addEventListener('click', () => {
+      scanCandidate = t.id;
+      document.getElementById('scanResImg').src = td && td.image ? td.image + '/low.webp' : '';
+      document.getElementById('scanResName').textContent = (td ? td.name : t.id) + (td && td.set ? ' · ' + td.set.name : '');
+    });
+    box.appendChild(el);
+  }
 }
 
 let scanTmpCv = null;
@@ -7222,17 +7299,17 @@ async function scanTick() {
   const res = scanFrameOnce(scanTmpCv, scanTmpCv.width, scanTmpCv.height, 0.82);
   if (!res) return;
   // live-feedback: hvad ser scanneren, og hvor taet er den paa?
-  if (res.d <= 130) {
+  if (res.d <= 160) {
     const d = await getDetail(res.id);
     const st = document.getElementById('scanStatus');
     if (document.getElementById('scanResult').style.display !== 'flex') {
       st.textContent = (d ? d.name : res.id) + ' · ' + res.d + (res.d <= 95 ? ' ✓' : '…');
     }
   }
-  if (res.d <= 95 && res.margin >= 6) {
+  if (res.d <= 115 && res.margin >= 6) { // farveled haever niveauet ~15-25 for aegte hits
     if (res.id === scanStableId) scanStableCount++;
     else { scanStableId = res.id; scanStableCount = 1; }
-    if (scanStableCount >= 2) presentScanHit(res.id); // to ens frames i traek = stabilt match
+    if (scanStableCount >= 2) presentScanHit(res.id, res.top); // to ens frames i traek = stabilt match
   } else {
     scanStableId = null;
     scanStableCount = 0;
@@ -7274,6 +7351,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeScanner
 
 document.getElementById('scanSkip').addEventListener('click', () => {
   document.getElementById('scanResult').style.display = 'none';
+  document.getElementById('scanCands').style.display = 'none';
   scanCandidate = null;
   scanStableId = null;
   scanStableCount = 0;
@@ -7309,10 +7387,9 @@ document.getElementById('scanFile').addEventListener('change', async e => {
     const res = scanFrameOnce(im, im.naturalWidth, im.naturalHeight, 0.9)
       || { d: 999, margin: 0 };
     // fotos er ofte hele kortet uden ramme — prov ogsaa fuld flade
-    const g = grayFromSource(im, 0, 0, im.naturalWidth, im.naturalHeight);
-    const full = scanMatch(scanHashFromGray(g));
+    const full = scanMatch(hashFromSource(im, 0, 0, im.naturalWidth, im.naturalHeight));
     const pick = full.d < res.d ? full : res;
-    if (pick.d <= 95) presentScanHit(pick.id);
+    if (pick.d <= 110) presentScanHit(pick.id, pick.top);
     else document.getElementById('scanStatus').textContent = T('No match — try more light or fill the frame');
     URL.revokeObjectURL(im.src);
   };
