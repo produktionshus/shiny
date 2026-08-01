@@ -5,7 +5,14 @@
       "name": "app",
       "runtimeExecutable": "node",
       "runtimeArgs": ["server.js"],
-      "port": 3000
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "projektion",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["C:/Users/mail/Claude/Projektion/server.js"],
+      "port": 5199
     }
   ]
 }
