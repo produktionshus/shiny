@@ -41,6 +41,14 @@ db.exec(`
     usd REAL,
     PRIMARY KEY (card_id, day)
   );
+  CREATE TABLE IF NOT EXISTS sets_meta (
+    lang TEXT NOT NULL,
+    set_id TEXT NOT NULL,
+    name TEXT,
+    date TEXT,
+    official INTEGER,
+    PRIMARY KEY (lang, set_id)
+  );
   CREATE TABLE IF NOT EXISTS tcg_comments (
     id INTEGER PRIMARY KEY,
     owner_id INTEGER NOT NULL REFERENCES users(id),
@@ -197,6 +205,39 @@ app.get('/api/img/*', async (req, res) => {
   } catch (e) {
     res.status(502).end();
   }
+});
+
+// ===== sets metadata (release dates live only in per-set details; cached here) =====
+async function refreshSetsMeta(lang) {
+  const list = await fetch('https://api.tcgdex.net/v2/' + lang + '/sets').then(r => r.json());
+  const have = new Set(db.prepare('SELECT set_id FROM sets_meta WHERE lang = ?').all(lang).map(r => r.set_id));
+  const ins = db.prepare('INSERT OR REPLACE INTO sets_meta (lang, set_id, name, date, official) VALUES (?, ?, ?, ?, ?)');
+  for (const sset of list) {
+    if (have.has(sset.id)) continue; // saet aendrer ikke udgivelsesdato
+    try {
+      const r = await fetch('https://api.tcgdex.net/v2/' + lang + '/sets/' + encodeURIComponent(sset.id));
+      if (r.ok) {
+        const d = await r.json();
+        ins.run(lang, sset.id, d.name || sset.id, d.releaseDate || null,
+          (d.cardCount && d.cardCount.official) || null);
+      }
+    } catch (e) { /* enkelt saet fejler: videre */ }
+    await new Promise(r => setTimeout(r, 120)); // skaansom takt
+  }
+}
+function maybeRefreshSets() {
+  refreshSetsMeta('en').then(() => refreshSetsMeta('ja'))
+    .catch(e => console.error('sets meta fejlede:', e));
+}
+setTimeout(maybeRefreshSets, 20 * 1000);
+setInterval(maybeRefreshSets, 24 * 60 * 60 * 1000); // nye saet samles op dagligt
+
+app.get('/api/sets-meta', (req, res) => {
+  const lang = req.query.lang === 'ja' ? 'ja' : 'en';
+  res.json({
+    sets: db.prepare(
+      'SELECT set_id AS id, name, date, official FROM sets_meta WHERE lang = ? ORDER BY date DESC').all(lang),
+  });
 });
 
 // ===== price history (daily snapshot of cards present in any binder) =====

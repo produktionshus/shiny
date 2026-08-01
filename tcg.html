@@ -1815,6 +1815,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <h2 data-l="Find cards">Find cards</h2>
     <div class="search-row">
       <input id="q" placeholder="Mew · Mew rc24 · artist:koizumi" autocomplete="off">
+      <input id="setFilter" data-lp="Filter sets…" placeholder="Filter sets…" autocomplete="off">
       <select id="setSelect"><option value="" data-l="All sets (search by name)">All sets (search by name)</option></select>
     </div>
     <div class="place-mode" style="margin-bottom:6px">
@@ -2305,6 +2306,7 @@ const STR_DA = {
   'Black pages': 'Sorte sider',
   'Show prices': 'Vis priser',
   'Sounds': 'Lyde',
+  'Filter sets…': 'Filtrér sæt…',
   'Prices:': 'Priser:',
   'Show as:': 'Vis som:',
   '🧹 Clear binder': '🧹 Tøm binder',
@@ -2484,37 +2486,59 @@ function isPocketCard(id) {
   // moenster-fallback daekker hvis serie-opslaget fejler: A1/A2b/B1/P-A-skemaet er Pocket-eksklusivt
   return pocketSets.has(setId) || /^(a\d+[a-z]?|b\d+[a-z]?|p-a)$/.test(setId);
 }
+let allSetEntries = [];   // {id, label, isNew}
+let setsNewestFirst = false;
+function buildSetOptions(filter) {
+  const f = (filter || '').toLowerCase();
+  while ($set.options.length > 1) $set.remove(1);
+  for (const e of allSetEntries) {
+    if (f && !e.label.toLowerCase().includes(f)) continue;
+    const o = document.createElement('option');
+    o.value = e.id;
+    o.textContent = (e.isNew ? '🆕 ' : '') + e.label;
+    $set.appendChild(o);
+  }
+}
 async function loadSets() {
   let readyResolve;
   pocketReady = new Promise(r => readyResolve = r);
   try {
-    const [sets, tcgp] = await Promise.all([
+    const lang = store.searchLang === 'ja' ? 'ja' : 'en';
+    const [meta, sets, tcgp] = await Promise.all([
+      fetch('/api/sets-meta?lang=' + lang).then(r => r.json()).catch(() => ({ sets: [] })),
       fetch(sAPI() + '/sets').then(r => r.json()),
       fetch(sAPI() + '/series/tcgp').then(r => r.json()).catch(() => ({ sets: [] })),
     ]);
     pocketSets = new Set((tcgp.sets || []).map(x => x.id.toLowerCase()));
     readyResolve();
-    while ($set.options.length > 1) $set.remove(1); // genindlaesning ved sprogskifte
-    // nye saet siden sidst -> 🆕-markering + diskret toast
     let seenSets = null;
     try { seenSets = JSON.parse(localStorage.getItem('tcg-seen-sets')); } catch (e) {}
     const firstVisit = !Array.isArray(seenSets);
     const seen = new Set(seenSets || []);
     const fresh = [];
-    for (const s of sets) {
-      if (pocketSets.has(s.id.toLowerCase())) continue; // kun rigtige kort
-      const isNew = !firstVisit && !seen.has(s.id);
-      if (isNew) fresh.push(s);
-      const o = document.createElement('option');
-      o.value = s.id;
-      o.textContent = (isNew ? '🆕 ' : '') + s.name + ' (' + (s.cardCount?.official ?? s.cardCount?.total ?? '?') + ')';
-      $set.appendChild(o);
+    const metaById = new Map((meta.sets || []).map(m => [m.id, m]));
+    setsNewestFirst = metaById.size > 0;
+    let list = sets.filter(x => !pocketSets.has(x.id.toLowerCase())); // kun rigtige kort
+    if (setsNewestFirst) {
+      list = list.slice().sort((a, b) =>
+        String((metaById.get(b.id) || {}).date || '').localeCompare(String((metaById.get(a.id) || {}).date || '')));
     }
-    localStorage.setItem('tcg-seen-sets', JSON.stringify(sets.map(s => s.id)));
-    if (fresh.length) toast('New set' + (fresh.length > 1 ? 's' : '') + ': ' + fresh.slice(0, 2).map(s => s.name).join(', ') + ' 🆕');
+    allSetEntries = list.map(x => {
+      const isNew = !firstVisit && !seen.has(x.id);
+      if (isNew) fresh.push(x);
+      const m = metaById.get(x.id);
+      const year = m && m.date ? m.date.slice(0, 4) + ' · ' : '';
+      return { id: x.id, isNew, label: year + x.name + ' (' + (x.cardCount?.official ?? x.cardCount?.total ?? '?') + ')' };
+    });
+    buildSetOptions(document.getElementById('setFilter').value.trim());
+    localStorage.setItem('tcg-seen-sets', JSON.stringify(sets.map(x => x.id)));
+    if (fresh.length) toast('New set' + (fresh.length > 1 ? 's' : '') + ': ' + fresh.slice(0, 2).map(x => x.name).join(', ') + ' 🆕');
   } catch (e) { $hint.textContent = 'Could not load the set list.'; }
   readyResolve(); // moenster-fallback filtrerer selv uden listen
 }
+document.getElementById('setFilter').addEventListener('input', () => {
+  buildSetOptions(document.getElementById('setFilter').value.trim());
+});
 
 const RECENT_KEY = 'tcg-recent-searches';
 function renderRecent() {
@@ -6555,7 +6579,7 @@ document.getElementById('wsMaster').addEventListener('click', async () => {
   if (row.style.display !== 'none' && !sel.options.length) {
     if (pocketReady) await pocketReady;
     const opts = [...document.getElementById('setSelect').options].slice(1);
-    opts.slice(-12).reverse().forEach(o => { // nyeste saet ligger sidst i TCGdex-listen
+    (setsNewestFirst ? opts.slice(0, 12) : opts.slice(-12).reverse()).forEach(o => { // nyeste foerst
       const n = document.createElement('option');
       n.value = o.value;
       n.textContent = o.textContent.replace('🆕 ', '');
