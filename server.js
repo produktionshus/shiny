@@ -211,13 +211,20 @@ app.get('/api/tcg/shared/:token', (req, res) => {
 // drawing directly would taint the canvas and block PNG export)
 app.get('/api/img/*', async (req, res) => {
   const imgPath = req.params[0] || '';
-  if (!/^[\w/.-]{5,160}\.webp$/.test(imgPath) || imgPath.includes('..')) {
+  const isPtcg = imgPath.startsWith('ptcg/'); // fallback-kilde for TCGdex-huller (fx Galarian Gallery)
+  const okPath = isPtcg
+    ? /^ptcg\/[\w.-]{2,40}\/[\w.-]{1,20}\.png$/.test(imgPath)
+    : /^[\w/.-]{5,160}\.webp$/.test(imgPath);
+  if (!okPath || imgPath.includes('..')) {
     return res.status(400).end();
   }
   try {
-    const r = await fetch('https://assets.tcgdex.net/' + imgPath);
+    const url = isPtcg
+      ? 'https://images.pokemontcg.io/' + imgPath.slice(5, -4) + '_hires.png'
+      : 'https://assets.tcgdex.net/' + imgPath;
+    const r = await fetch(url);
     if (!r.ok) return res.status(404).end();
-    res.set('Content-Type', 'image/webp');
+    res.set('Content-Type', isPtcg ? 'image/png' : 'image/webp');
     res.set('Cache-Control', 'public, max-age=86400');
     res.send(Buffer.from(await r.arrayBuffer()));
   } catch (e) {
@@ -301,7 +308,12 @@ async function buildScanIndex() {
     const have = new Set(db.prepare('SELECT card_id FROM card_hashes').all().map(r => r.card_id));
     const ins = db.prepare('INSERT OR REPLACE INTO card_hashes (card_id, hash) VALUES (?, ?)');
     const hashOne = async c => {
-      const buf = Buffer.from(await (await fetch(c.image + '/low.webp')).arrayBuffer());
+      const url = c.image ? c.image + '/low.webp'
+        : 'https://images.pokemontcg.io/' + c.id.slice(0, c.id.lastIndexOf('-')).replace('.', 'pt')
+          + '/' + c.id.slice(c.id.lastIndexOf('-') + 1) + '.png'; // TCGdex-hul: proev fallback-kilden
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('no image');
+      const buf = Buffer.from(await r.arrayBuffer());
       const rgb = await sharp(buf).resize(HW, HH, { fit: 'fill' }).removeAlpha().raw().toBuffer();
       ins.run(c.id, hashFromRGB(rgb));
       have.add(c.id);
@@ -310,7 +322,7 @@ async function buildScanIndex() {
     try {
       const prio = await fetch('https://api.tcgdex.net/v2/en/cards?name=mew').then(r => r.json());
       for (const c of prio) {
-        if (!c.image || have.has(c.id)) continue;
+        if (have.has(c.id)) continue;
         try { await hashOne(c); } catch (e) { /* videre */ }
         await new Promise(r => setTimeout(r, 60));
       }
@@ -324,7 +336,7 @@ async function buildScanIndex() {
       } catch (e) { /* videre */ }
       if (!detail) continue;
       for (const c of detail.cards || []) {
-        if (!c.image || have.has(c.id)) continue;
+        if (have.has(c.id)) continue;
         try { await hashOne(c); } catch (e) { /* enkelt kort fejler: videre */ }
         await new Promise(r => setTimeout(r, 60)); // skaansom takt
       }

@@ -1965,7 +1965,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   <div class="search-panel">
     <h2 data-l="Find cards">Find cards</h2>
     <div class="search-row">
-      <input id="q" placeholder="Mew · Mew rc24 · artist:koizumi" autocomplete="off">
+      <input id="q" placeholder="Mew · Mew rc24 · 044/171 · artist:koizumi" autocomplete="off">
       <button class="btn" id="setPickBtn" style="width:100%; text-align:left"></button>
       <select id="setSelect" style="display:none"><option value="" data-l="All sets (search by name)">All sets (search by name)</option></select>
     </div>
@@ -2664,7 +2664,18 @@ function newBinderObj(name) {
 function emptyPage(n) { return Array(n).fill(null); }
 function slotsOf(b) { return (b.cols || 3) * (b.rows || 3); }
 function binder() { return viewBinder || store.binders[store.active]; }
-function imgUrl(path, q) { return ASSETS + path + '/' + q + '.webp'; }
+function imgUrl(path, q) {
+  if (path && path.startsWith('ptcg:')) // fallback-kilde: TCGdex mangler enkelte saet (fx Galarian Gallery)
+    return 'https://images.pokemontcg.io/' + path.slice(5) + (q === 'high' ? '_hires.png' : '.png');
+  return ASSETS + path + '/' + q + '.webp';
+}
+function briefImg(c) { // billedsti fra API-kort; huller udfyldes med pokemontcg.io (samme saetkoder, '.5' -> 'pt5')
+  if (c.image) return c.image.replace(ASSETS, '');
+  if (!c.id) return null;
+  const i = c.id.lastIndexOf('-');
+  if (i < 1) return null;
+  return 'ptcg:' + c.id.slice(0, i).replace('.', 'pt') + '/' + c.id.slice(i + 1);
+}
 
 // sim/virkelighed: pulls (sim-bindere) lever kun paa /packs, rigtige bindere paa /tcg
 const packMode = location.pathname.replace(/\/+$/, '') === '/packs';
@@ -2730,6 +2741,21 @@ let allResults = [];  // ukapped — til 'Add all'
 let pocketSets = new Set(); // TCG Pocket (digital) — vises ikke blandt fysiske kort
 let pocketReady = null;       // saettes af loadSets; soegning afventer den
 function normNum(t) { return String(t).toLowerCase().replace(/^([a-z]*)0*/, '$1'); }
+const jaNameCache = {}; // engelsk artsnavn -> japansk (PokeAPI): soeg JP-kort uden japansk tastatur
+async function jaName(en) {
+  const k = en.toLowerCase().trim().replace(/\s+/g, '-');
+  if (k in jaNameCache) return jaNameCache[k];
+  let n = null;
+  try {
+    const r = await fetch('https://pokeapi.co/api/v2/pokemon-species/' + encodeURIComponent(k));
+    if (r.ok) {
+      const sp = await r.json();
+      n = (sp.names.find(x => x.language.name === 'ja') || {}).name || null;
+    }
+  } catch (e) {}
+  jaNameCache[k] = n;
+  return n;
+}
 function parseQuery(q) { // samler-syntaks: sidste token som kortnummer
   const m = q.match(/^(.*\S)\s+([A-Za-z]{0,3}\d{1,4}[A-Za-z]?)$/);
   return m ? { name: m[1], num: normNum(m[2]) } : { name: q, num: null };
@@ -2881,11 +2907,29 @@ async function doSearch() {
       if (q) cards = cards.filter(c => c.name.toLowerCase().includes(q.toLowerCase()));
     } else {
       if (pocketReady) await pocketReady;
-      if (artistM) {
+      const slashM = q.match(/^([A-Za-z]{0,3}\d{1,4}[A-Za-z]?)\s*\/\s*(\d{1,4})$/);
+      if (slashM) { // "044/171": totalen udpeger saettet, nummeret kortet
+        const total = parseInt(slashM[2], 10);
+        const sets = await (await fetch(sAPI() + '/sets')).json();
+        const cand = sets.filter(st => st.cardCount && st.cardCount.official === total
+          && !(pocketSets.has(st.id.toLowerCase()) || /^(a\d+[a-z]?|b\d+[a-z]?|p-a)$/i.test(st.id)));
+        cards = [];
+        for (const st of cand.slice(0, 12)) {
+          try {
+            const det = await (await fetch(sAPI() + '/sets/' + st.id)).json();
+            for (const c of det.cards || []) if (normNum(c.localId || '') === normNum(slashM[1])) cards.push(c);
+          } catch (e) { /* enkelt saet fejler: videre */ }
+        }
+      } else if (artistM) {
         cards = await (await fetch(sAPI() + '/cards?illustrator=' + encodeURIComponent(artistM[1]))).json();
         cards = cards.filter(c => !isPocketCard(c.id));
       } else {
-        cards = await (await fetch(sAPI() + '/cards?name=' + encodeURIComponent(pq.name))).json();
+        let qname = pq.name;
+        if (sAPI().endsWith('/ja') && /^[\x20-\x7e]+$/.test(qname)) {
+          const jn = await jaName(qname) || await jaName(qname.split(/\s+/)[0]);
+          if (jn) qname = jn; // "mew" -> ミュウ
+        }
+        cards = await (await fetch(sAPI() + '/cards?name=' + encodeURIComponent(qname))).json();
         cards = cards.filter(c => !isPocketCard(c.id));
         if (pq.num) {
           const hits = cards.filter(c => normNum(c.localId || '') === pq.num);
@@ -2905,13 +2949,13 @@ const MAX_RESULTS = 300;
 function renderResults(cards) {
   $results.innerHTML = '';
   lastResults = [];
-  allResults = cards.map(c => ({ id: c.id, n: c.name, img: c.image ? c.image.replace(ASSETS, '') : null }));
+  allResults = cards.map(c => ({ id: c.id, n: c.name, img: briefImg(c) }));
   const shown = cards.slice(0, MAX_RESULTS);
   $hint.textContent = cards.length
     ? (cards.length > MAX_RESULTS ? `${MAX_RESULTS}/${cards.length} — narrow your search.` : cards.length + T(' cards found.'))
     : T('No cards found.');
   for (const c of shown) {
-    const card = { id: c.id, n: c.name, img: c.image ? c.image.replace(ASSETS, '') : null };
+    const card = { id: c.id, n: c.name, img: briefImg(c) };
     lastResults.push(card);
     const div = document.createElement('div');
     div.className = 'result';
@@ -2921,6 +2965,7 @@ function renderResults(cards) {
       im.loading = 'lazy';
       im.src = imgUrl(card.img, 'low');
       im.alt = c.name;
+      im.onerror = () => { div.innerHTML = '<div class="noimg">' + c.name + '</div>'; };
       div.appendChild(im);
     } else {
       div.innerHTML = '<div class="noimg">' + c.name + '</div>';
@@ -4885,7 +4930,7 @@ let bundle = null; // { count, left, total, hits } — 5 pakker i traek
 let rematch = null; // navnepar fra sidste duel: goer "Open another" til rematch-knap
 let battle = null;  // 2v2: {mode:'local', names, order, turn, pulls, firstTeam} | {mode:'online', code, playerId, state, poll}
 
-const packBrief = c => ({ id: c.id, n: c.name, img: c.image ? c.image.replace(ASSETS, '') : null });
+const packBrief = c => ({ id: c.id, n: c.name, img: briefImg(c) });
 
 async function loadPackPools(setId) {
   if (packPoolCache.has(setId)) return packPoolCache.get(setId);
@@ -6813,7 +6858,9 @@ document.getElementById('snapBtn').addEventListener('click', async () => {
       ctx.fillStyle = b.dark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.07)';
       ctx.fillRect(cx, cy, CW, CH);
       if (card && card.img) {
-        const im = await loadImg('/api/img/' + card.img + '/high.webp'); // egen proxy: CDN mangler CORS
+        const im = await loadImg(card.img.startsWith('ptcg:')
+          ? '/api/img/ptcg/' + card.img.slice(5) + '.png'
+          : '/api/img/' + card.img + '/high.webp'); // egen proxy: CDN mangler CORS
         if (im) {
           ctx.drawImage(im, cx, cy, CW, CH);
           if (card.o === false) {
@@ -6945,7 +6992,7 @@ document.getElementById('wsSetGo').addEventListener('click', async () => {
   try {
     const set = await (await fetch(sAPI() + '/sets/' + setId)).json();
     const cards = (set.cards || []).map(c => ({
-      id: c.id, n: c.name, img: c.image ? c.image.replace(ASSETS, '') : null, o: false,
+      id: c.id, n: c.name, img: briefImg(c), o: false,
     }));
     const per = 9;
     const pages = [];
@@ -7015,10 +7062,12 @@ document.getElementById('setProgress').addEventListener('click', async () => {
   for (const c of missing) {
     const box = document.createElement('div');
     box.className = 'mg';
-    if (c.image) {
+    const mi = briefImg(c);
+    if (mi) {
       const im = document.createElement('img');
       im.loading = 'lazy';
-      im.src = c.image.replace(ASSETS, '') ? ASSETS + c.image.replace(ASSETS, '') + '/low.webp' : '';
+      im.src = imgUrl(mi, 'low');
+      im.onerror = () => im.remove();
       box.appendChild(im);
     }
     const n = document.createElement('div');
@@ -7288,7 +7337,7 @@ async function presentScanHit(id, top) {
   scanCandidate = id;
   const d = await getDetail(id);
   if (scanCandidate !== id) return;
-  document.getElementById('scanResImg').src = d && d.image ? d.image + '/low.webp' : '';
+  document.getElementById('scanResImg').src = d && briefImg(d) ? imgUrl(briefImg(d), 'low') : '';
   document.getElementById('scanResName').textContent = (d ? d.name : id) + (d && d.set ? ' · ' + d.set.name : '');
   document.getElementById('scanResult').style.display = 'flex';
   document.getElementById('scanStatus').textContent = '';
@@ -7300,9 +7349,9 @@ async function presentScanHit(id, top) {
     if (scanCandidate !== id && !(top || []).some(x => x.id === scanCandidate)) return;
     const el = document.createElement('div');
     el.className = 'sc';
-    if (td && td.image) {
+    if (td && briefImg(td)) {
       const im = document.createElement('img');
-      im.src = td.image + '/low.webp';
+      im.src = imgUrl(briefImg(td), 'low');
       el.appendChild(im);
     }
     const nm = document.createElement('div');
@@ -7310,7 +7359,7 @@ async function presentScanHit(id, top) {
     el.appendChild(nm);
     el.addEventListener('click', () => {
       scanCandidate = t.id;
-      document.getElementById('scanResImg').src = td && td.image ? td.image + '/low.webp' : '';
+      document.getElementById('scanResImg').src = td && briefImg(td) ? imgUrl(briefImg(td), 'low') : '';
       document.getElementById('scanResName').textContent = (td ? td.name : t.id) + (td && td.set ? ' · ' + td.set.name : '');
     });
     box.appendChild(el);
@@ -7456,7 +7505,7 @@ document.getElementById('scanAdd').addEventListener('click', async () => {
   const card = {
     id,
     n: d ? d.name : id,
-    img: d && d.image ? d.image.replace(ASSETS, '') : null,
+    img: d ? briefImg(d) : null,
     o: placeMode === 'owned',
   };
   const t = firstFreeSlot();
