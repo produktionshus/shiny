@@ -249,6 +249,16 @@ body.presenting .page, body.presenting #cover {
   color: #ffe9a8; cursor: pointer;
 }
 body.presenting #presentExit { display: block; }
+#presentSound {
+  position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 70px;
+  z-index: 700;
+  display: none;
+  font-size: 1.2rem;
+  background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.25);
+  border-radius: 50%; width: 42px; height: 42px;
+  color: #ffe9a8; cursor: pointer;
+}
+body.presenting #presentSound { display: block; }
 
 .pagegrid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .pagegrid .pg {
@@ -1635,7 +1645,7 @@ body.dragging * { cursor: grabbing !important; }
 #placeBanner button { border: none; background: none; color: #ffd95e; font-weight: 800; cursor: pointer; font-size: 1rem; }
 
 #toast {
-  position: fixed; left: 50%; top: 14px; transform: translateX(-50%);
+  position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
   background: rgba(20,26,36,.95); border: 2px solid var(--stitch);
   border-radius: 999px; padding: 8px 20px; font-weight: 800; color: #ffe9a8;
   display: none; z-index: 200; box-shadow: 0 8px 30px rgba(0,0,0,.5);
@@ -1658,6 +1668,48 @@ body.dragging * { cursor: grabbing !important; }
 body.viewmode .search-panel, body.viewmode .toolbar, body.viewmode .binder-controls .edit-only { display: none; }
 body.viewmode .viewbar { display: flex; }
 
+#moreMenu {
+  position: fixed;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+  z-index: 450;
+  background: rgba(20,26,36,.97);
+  border: 2px solid var(--stitch);
+  border-radius: 14px;
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.6);
+}
+#moreMenu button {
+  font: 700 .9rem 'Fredoka', sans-serif;
+  padding: 10px 22px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.07);
+  color: #f0e6d0;
+  cursor: pointer;
+}
+#bottomBar {
+  display: none;
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 440;
+  padding: 6px 14px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: rgba(12,15,22,.94);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255,217,94,.25);
+  justify-content: space-around;
+}
+#bottomBar button {
+  font-size: 1.35rem;
+  width: 54px; height: 44px;
+  border: none; border-radius: 12px;
+  background: none;
+  color: #ffe9a8;
+  cursor: pointer;
+}
+body.presenting #bottomBar, body.viewmode #bottomBar { display: none !important; }
+
 @media (max-width: 900px) {
   .layout { flex-direction: column; align-items: stretch; }
   #cover { width: 60vw; }
@@ -1671,6 +1723,20 @@ body.viewmode .viewbar { display: flex; }
   .navbtn:hover { transform: translateY(-50%) scale(1.08); }
   #prev { left: 4px; }
   #next { right: 4px; }
+}
+
+/* telefon: een side ad gangen, slank UI, tommelfinger-bar */
+@media (max-width: 640px) {
+  .page { width: min(94vw, calc((100vh - 320px) * 0.716 * var(--cols, 3) / var(--rows, 3))); }
+  #cover { width: min(82vw, calc((100vh - 320px) * 0.75)); }
+  .page.left { display: none !important; }
+  .page.right { border-radius: 10px; }
+  .rings { display: none; } /* ingen midterryg naar kun een side vises */
+  .toolbar #binderSelect, .toolbar #newBinder, .toolbar #delBinder { display: none; } /* reolen daekker */
+  .binder-controls .sec { display: none; }
+  #moreBtn { display: inline-block !important; }
+  #bottomBar { display: flex; }
+  body { padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
   .search-panel { position: static; flex: none; max-height: 45vh; order: 2; }
   .binder-col { order: 1; }
   .page { width: 44vw; }
@@ -1682,7 +1748,9 @@ body.viewmode .viewbar { display: flex; }
 <style>
 /* global omskifter mellem binder-apps (samme blok i index.html) */
 .binder-switch {
-  position: fixed; top: 12px; left: 12px;
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: calc(12px + env(safe-area-inset-left, 0px));
   display: flex; gap: 4px;
   z-index: 500;
   background: rgba(0,0,0,.35);
@@ -1709,9 +1777,9 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 </style>
 <button id="drawerTab" title="Toggle search panel">🔍 Search</button>
 <nav class="binder-switch">
-  <a class="go" href="/">✨ GO</a>
-  <a class="tcg active" href="/tcg">🃏 TCG</a>
+  <a class="tcg active" href="/tcg">🗂️ PokéBinder</a>
   <a class="packs" href="/packs">🎁 Packs</a>
+  <a class="go" href="/">✨ GO</a>
 </nav>
 
 <header>
@@ -1797,16 +1865,18 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <div class="spread-label" id="setProgress" style="display:none"></div>
     <div class="binder-controls">
       <button class="btn edit-only" id="addPages" data-l="+ Add spread">+ Add spread</button>
-      <button class="btn edit-only" id="delPages" data-l="Remove last spread">Remove last spread</button>
+      <button class="btn edit-only sec" id="delPages" data-l="Remove last spread">Remove last spread</button>
       <button class="btn edit-only" id="settingsBtn" data-l="⚙ Appearance">⚙ Appearance</button>
       <button class="btn" id="needBtn" data-l="📋 Need list">📋 Need list</button>
       <button class="btn" id="valueBtn" title="Estimated Cardmarket value of the cards in this binder">💰 Value</button>
-      <button class="btn" id="curveBtn" title="Binder value over time">📈</button>
-      <button class="btn" id="factsBtn" data-l="📊 Facts">📊 Facts</button>
-      <button class="btn" id="presentBtn" title="Fullscreen presentation with auto page turns" data-l="▶ Present">▶ Present</button>
-      <button class="btn" id="snapBtn" title="Save/share the open spread as an image" data-l="📷 Spread">📷 Spread</button>
+      <button class="btn sec" id="curveBtn" title="Binder value over time">📈</button>
+      <button class="btn sec" id="factsBtn" data-l="📊 Facts">📊 Facts</button>
+      <button class="btn sec" id="presentBtn" title="Fullscreen presentation with auto page turns" data-l="▶ Present">▶ Present</button>
+      <button class="btn sec" id="snapBtn" title="Save/share the open spread as an image" data-l="📷 Spread">📷 Spread</button>
       <button class="btn" id="sendTcgBtn" style="display:none" title="Copy this pull binder into your real TCG binders">📤 Send copy to TCG</button>
+      <button class="btn" id="moreBtn" style="display:none">⋯</button>
     </div>
+    <div id="moreMenu" hidden></div>
     <div id="binderSettings">
       <label><span data-l="Language:">Language:</span>
         <select id="uiLangSel">
@@ -1853,6 +1923,13 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   </div>
 </div>
 
+<div id="bottomBar">
+  <button id="bbSearch">🔍</button>
+  <button id="bbPile">🂠</button>
+  <button id="bbNeed">📋</button>
+  <button id="bbShelf">🗄</button>
+</div>
+
 <div id="placeBanner">
   <img id="bannerImg" alt="">
   <span id="bannerText"></span>
@@ -1886,6 +1963,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 </div>
 
 <button id="presentExit" title="Exit presentation (Esc)">✕</button>
+<button id="presentSound" title="Sound on/off">🎵</button>
 
 <div id="welcomemodal" class="modal" hidden>
   <div class="modal-card">
@@ -2296,6 +2374,11 @@ let viewBinder = null;       // read-only binder fra delelink
 let placeMode = 'owned';     // 'owned' | 'wanted' — status nye kort får
 let lastPlaced = null;       // {page, slot} → pop-animation ved næste render
 let lastSpread = 0;          // til bladre-animationens retning
+let singleIdx = 0;           // telefon: aktuel side (-1 = forside)
+let wasSingle = false;
+function isSingle() { return window.matchMedia('(max-width: 640px)').matches; }
+function jumpSpread(v) { spread = v; singleIdx = v < 0 ? -1 : (v === 0 ? 0 : v * 2 - 1); }
+function jumpPage(pg) { spread = Math.floor((pg + 1) / 2); singleIdx = pg; }
 
 function load() {
   try {
@@ -2568,6 +2651,13 @@ function maxSpread() { return pageCount() / 2; } // sidste view: bagsidens inder
 function renderBinder() {
   updatePriceUI();
   spread = Math.max(-1, Math.min(spread, maxSpread()));
+  const single = isSingle();
+  if (single) {
+    if (!wasSingle) singleIdx = spread < 0 ? -1 : spread * 2; // skiftede netop til telefon-visning
+    singleIdx = Math.max(-1, Math.min(singleIdx, pageCount() - 1));
+    spread = singleIdx < 0 ? -1 : Math.floor((singleIdx + 1) / 2);
+  }
+  wasSingle = single;
   const bb = binder();
   const leather = BINDER_COLORS[bb.color] || BINDER_COLORS.blue;
   const binderEl = document.querySelector('.binder');
@@ -2576,19 +2666,22 @@ function renderBinder() {
   binderEl.style.setProperty('--leather-dark', leather[2]);
   binderEl.style.setProperty('--cols', bb.cols || 3);
   binderEl.style.setProperty('--rows', bb.rows || 3);
-  const closed = spread < 0;
+  const closed = single ? singleIdx < 0 : spread < 0;
   document.getElementById('cover').style.display = closed ? 'flex' : 'none';
   const spreadEl = document.querySelector('.spread');
   spreadEl.style.display = closed ? 'none' : 'flex';
-  const dir = spread > lastSpread ? 'fwd' : spread < lastSpread ? 'back' : null;
-  lastSpread = spread;
+  document.querySelector('.page.left').style.display = single ? 'none' : '';
+  const navPos = single ? singleIdx : spread;
+  const dir = navPos > lastSpread ? 'fwd' : navPos < lastSpread ? 'back' : null;
+  lastSpread = navPos;
   if (dir && !closed) {
     spreadEl.classList.remove('turn-fwd', 'turn-back');
     void spreadEl.offsetWidth; // genstart animationen
     spreadEl.classList.add('turn-' + dir);
   }
   document.getElementById('prev').disabled = closed;
-  document.getElementById('next').disabled = !closed && spread >= maxSpread();
+  document.getElementById('next').disabled = !closed &&
+    (single ? singleIdx >= pageCount() - 1 : spread >= maxSpread());
   if (closed) {
     document.getElementById('coverName').textContent = bb.name;
     document.getElementById('spreadLabel').textContent = bb.name;
@@ -2605,13 +2698,15 @@ function renderBinder() {
     return;
   }
   document.querySelectorAll('.page').forEach(pg => pg.classList.toggle('dark', !!bb.dark));
-  const pL = spread * 2 - 1, pR = spread * 2; // view 0: kun hoejre side, som en rigtig binder
+  const pL = single ? -1 : spread * 2 - 1; // view 0: kun hoejre side, som en rigtig binder
+  const pR = single ? singleIdx : spread * 2;
   renderPage($gridL, pL);
   renderPage($gridR, pR);
-  document.getElementById('numL').textContent = pL >= 0 ? T('Page ') + (pL + 1) : '';
-  document.getElementById('numR').textContent = pR < pageCount() ? T('Page ') + (pR + 1) : '';
-  document.getElementById('spreadLabel').textContent =
-    bb.name + ' · ' + (spread + 1) + ' / ' + (maxSpread() + 1);
+  document.getElementById('numL').textContent = !single && pL >= 0 ? T('Page ') + (pL + 1) : '';
+  document.getElementById('numR').textContent = pR >= 0 && pR < pageCount() ? T('Page ') + (pR + 1) : '';
+  document.getElementById('spreadLabel').textContent = single
+    ? bb.name + ' · ' + (singleIdx + 1) + ' / ' + pageCount()
+    : bb.name + ' · ' + (spread + 1) + ' / ' + (maxSpread() + 1);
   renderProgress();
 }
 
@@ -2775,13 +2870,13 @@ function moveCard(from, to) {
 }
 
 // ---------- sider & navigation ----------
-document.getElementById('cover').addEventListener('click', () => { spread = 0; renderBinder(); });
-document.getElementById('prev').addEventListener('click', () => { spread--; renderBinder(); });
-document.getElementById('next').addEventListener('click', () => { spread++; renderBinder(); });
+document.getElementById('cover').addEventListener('click', () => { jumpSpread(0); renderBinder(); });
+document.getElementById('prev').addEventListener('click', () => { if (isSingle()) singleIdx--; else spread--; whoosh(); renderBinder(); });
+document.getElementById('next').addEventListener('click', () => { if (isSingle()) singleIdx++; else spread++; whoosh(); renderBinder(); });
 document.getElementById('addPages').addEventListener('click', () => {
   const n = slotsOf(binder());
   binder().pages.push(emptyPage(n), emptyPage(n));
-  spread = Math.floor((pageCount() - 1) / 2);
+  jumpPage(pageCount() - 2);
   save(); renderBinder();
 });
 document.getElementById('delPages').addEventListener('click', () => {
@@ -2811,7 +2906,7 @@ function renderBinderSelect() {
 $binderSelect.addEventListener('change', () => {
   document.getElementById('valueBtn').textContent = '💰 Value';
   store.active = +$binderSelect.value;
-  spread = 0;
+  jumpSpread(0);
   save(); renderBinderSelect(); renderBinder();
 });
 $binderName.addEventListener('change', () => {
@@ -2824,7 +2919,7 @@ document.getElementById('newBinder').addEventListener('click', () => {
   if (packMode) { nb.sim = true; nb.color = 'purple'; } // nye bindere hoerer til verdenen man staar i
   store.binders.push(nb);
   store.active = store.binders.length - 1;
-  spread = 0;
+  jumpSpread(0);
   save(); renderBinderSelect(); renderBinder();
   $binderName.focus();
   $binderName.select();
@@ -2835,7 +2930,7 @@ document.getElementById('delBinder').addEventListener('click', () => {
   const removed = store.binders.splice(at, 1)[0];
   store.active = 0;
   ensureModeActive();
-  spread = 0;
+  jumpSpread(0);
   undoFn = () => {
     store.binders.splice(at, 0, removed);
     store.active = at;
@@ -2880,7 +2975,7 @@ function checkHash() {
     viewBinder = decodeBinder(m[1]);
     document.body.classList.add('viewmode');
     document.getElementById('viewTitle').textContent = '👀 Viewing: ' + viewBinder.name;
-    spread = -1;
+    jumpSpread(-1);
   } catch (e) { toast('Invalid share link'); }
 }
 document.getElementById('importBtn').addEventListener('click', () => {
@@ -2899,7 +2994,7 @@ function exitViewMode() {
   document.getElementById('viewBinderSelect').style.display = 'none';
   history.replaceState(null, '', location.pathname);
   document.body.classList.remove('viewmode');
-  spread = 0;
+  jumpSpread(0);
   renderBinderSelect(); renderBinder();
 }
 
@@ -3001,8 +3096,11 @@ function dragFlipCheck(x, y) { // hold kortet over ◀/▶ → binderen bladrer 
   if (!key) return;
   flipTimer = setTimeout(() => {
     if (!drag) return;
-    if (key === 'prev' && spread > 0) { spread--; renderBinder(); }        // luk ikke binderen midt i et traek
-    else if (key === 'next' && spread < maxSpread()) { spread++; renderBinder(); }
+    const btn = document.getElementById(key);
+    const canGo = key === 'prev'
+      ? (isSingle() ? singleIdx > 0 : spread > 0) // luk ikke binderen midt i et traek
+      : !btn.disabled;
+    if (canGo) btn.click();
     flipHover = null; // bliv haengende → bladr videre
   }, 450);
 }
@@ -3434,7 +3532,7 @@ $sizeSelect.addEventListener('change', () => {
   }
   while (pages.length < 2 || pages.length % 2) pages.push(emptyPage(per));
   b.pages = pages;
-  spread = 0;
+  jumpSpread(0);
   save(); renderBinder();
 });
 
@@ -3444,7 +3542,7 @@ document.getElementById('clearBinder').addEventListener('click', () => {
   if (!count) { toast('The binder is already empty'); return; }
   snapshot();
   b.pages = b.pages.map(pg => pg.map(() => null)); // sider beholdes, lommer toemmes
-  spread = 0;
+  jumpSpread(0);
   save(); renderBinder();
   toast(count + T(' cards removed'), true);
 });
@@ -3467,7 +3565,7 @@ document.getElementById('sortBinder').addEventListener('click', () => {
   }
   while (pages.length < 2 || pages.length % 2) pages.push(emptyPage(per));
   b.pages = pages;
-  spread = 0;
+  jumpSpread(0);
   save(); renderBinder();
   toast(T('Sorted by set & number'), true);
 });
@@ -3497,7 +3595,7 @@ document.getElementById('importFile').addEventListener('change', async e => {
       color: String(d.color || 'blue').slice(0, 10), dark: d.dark !== false,
       cover: typeof d.cover === 'string' ? d.cover : null, pages: d.pages });
     store.active = store.binders.length - 1;
-    spread = 0;
+    jumpSpread(0);
     save(); renderBinderSelect(); renderBinder();
     toast(T('Binder imported ✔'));
   } catch (err) { toast('Not a valid binder file'); }
@@ -3686,7 +3784,7 @@ function pileAddCard() {
   const t = firstFreeSlot();
   binder().pages[t.page][t.slot] = { ...c, o: placeMode === 'owned' };
   lastPlaced = t;
-  spread = Math.floor((t.page + 1) / 2);
+  jumpPage(t.page);
   save(); renderBinder();
   pileToast(c.n + ' → page ' + (t.page + 1) + ', pocket ' + (t.slot + 1) + ' ✔');
   flyOut(0, -150, 3, () => {
@@ -3787,7 +3885,7 @@ async function loadServerStore() {
       localStorage.setItem(LS_KEY, JSON.stringify(store));
       renderBinderSelect();
       if (!viewBinder) { // roer ikke visningen hvis man staar i en vens binder
-        spread = 0;
+        jumpSpread(0);
         renderBinder();
       }
       toast(T('Binders synced from your account ✔'));
@@ -3848,7 +3946,7 @@ document.getElementById('fillBtn').addEventListener('click', () => {
     if (!first) first = t;
   }
   save();
-  spread = Math.floor((first.page + 1) / 2);
+  jumpPage(first.page);
   renderBinder();
   toast(allResults.length + ' ' + T('cards added as') + ' "' + T(placeMode === 'owned' ? 'have' : 'need') + '"', true);
 });
@@ -4057,14 +4155,14 @@ async function openFriend(token, name) {
     document.getElementById('viewTitle').textContent = '👀 ' + j.username + "'s binders";
     currentFriend = { token, name: j.username };
     document.getElementById('viewComments').style.display = '';
-    spread = -1; // start paa forsiden — fremvisning
+    jumpSpread(-1); // start paa forsiden — fremvisning
     renderBinder();
   } catch (e) { toast('Could not load binders'); }
 }
 
 $viewBinderSelect.addEventListener('change', () => {
   viewBinder = viewStore.binders[+$viewBinderSelect.value];
-  spread = -1;
+  jumpSpread(-1);
   renderBinder();
 });
 
@@ -4284,7 +4382,7 @@ async function startMusic() {
       musicLen = Math.max(...musicNotes.map(n => n[0] + n[2]));
     } catch (e) { toast('Could not load the music'); return; }
     finally { musicLoading = false; }
-    if (!musicOn || !pack) return; // slaaet fra / pack lukket mens den hentede
+    if (!musicOn || (!pack && !document.body.classList.contains('presenting'))) return; // slaaet fra / lukket mens den hentede
   }
   primeMusicAudio();
   musicGain = musicGain || musicCtx.createGain();
@@ -5908,7 +6006,7 @@ function closePack() {
         store.active = i;
         save();
         renderBinderSelect();
-        spread = 0;
+        jumpSpread(0);
         renderBinder();
       }
     }
@@ -5985,7 +6083,7 @@ document.getElementById('spreadLabel').addEventListener('click', () => {
     num.textContent = 'P' + (i + 1) + ' · ' + pg.filter(c => c).length + '/' + pg.length;
     box.appendChild(num);
     box.addEventListener('click', () => {
-      spread = Math.floor((i + 1) / 2);
+      jumpPage(i);
       renderBinder();
       pagesmodal.hidden = true;
     });
@@ -6164,7 +6262,7 @@ document.getElementById('shelfBtn').addEventListener('click', () => {
     }
     sp.addEventListener('click', () => {
       store.active = i;
-      spread = -1; // tag binderen ned fra hylden -> forsiden
+      jumpSpread(-1); // tag binderen ned fra hylden -> forsiden
       save(); renderBinderSelect(); renderBinder();
       shelfmodal.hidden = true;
     });
@@ -6187,19 +6285,48 @@ shelfmodal.addEventListener('click', e => {
 // ---------- praesentations-mode ----------
 let presentTimer = null;
 function presentStep() {
-  spread = spread >= maxSpread() ? -1 : spread + 1; // loop: forside -> sidste -> forside
+  if (isSingle()) singleIdx = singleIdx >= pageCount() - 1 ? -1 : singleIdx + 1;
+  else spread = spread >= maxSpread() ? -1 : spread + 1; // loop: forside -> sidste -> forside
+  whoosh();
   renderBinder();
+}
+function whoosh() { // syntetisk sideblad: filtreret stoej-sweep gennem musik-kaeden
+  if (!musicOn || !document.body.classList.contains('presenting')) return;
+  try {
+    primeMusicAudio();
+    const dur = 0.32;
+    const buf = musicCtx.createBuffer(1, Math.floor(musicCtx.sampleRate * dur), musicCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const src = musicCtx.createBufferSource();
+    src.buffer = buf;
+    const f = musicCtx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = 1.1;
+    f.frequency.setValueAtTime(350, musicCtx.currentTime);
+    f.frequency.exponentialRampToValueAtTime(2600, musicCtx.currentTime + dur * 0.7);
+    const g = musicCtx.createGain();
+    g.gain.value = 0.32;
+    src.connect(f); f.connect(g); g.connect(musicDest);
+    src.start();
+  } catch (e) { /* lyd er flair */ }
+}
+function updatePresentSound() {
+  document.getElementById('presentSound').textContent = musicOn ? '🎵' : '🔇';
 }
 function startPresent() {
   document.body.classList.add('presenting');
-  spread = -1;
+  jumpSpread(-1);
   renderBinder();
   presentTimer = setInterval(presentStep, 5000);
+  updatePresentSound();
+  if (musicOn) startMusic(); // pakke-temaet som baggrund (samme lyd-toggle)
   try { document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
 }
 function stopPresent() {
   if (!document.body.classList.contains('presenting')) return;
   document.body.classList.remove('presenting');
+  stopMusic();
   clearInterval(presentTimer);
   presentTimer = null;
   try { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); } catch (e) {}
@@ -6207,6 +6334,13 @@ function stopPresent() {
 }
 document.getElementById('presentBtn').addEventListener('click', startPresent);
 document.getElementById('presentExit').addEventListener('click', stopPresent);
+document.getElementById('presentSound').addEventListener('click', () => {
+  musicOn = !musicOn;
+  localStorage.setItem(MUSIC_KEY, musicOn ? '1' : '0');
+  updateMusicBtn();
+  updatePresentSound();
+  if (musicOn) startMusic(); else stopMusic();
+});
 document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement) stopPresent();
 });
@@ -6407,12 +6541,42 @@ document.getElementById('wsSetGo').addEventListener('click', async () => {
     const soleEmpty = store.binders.length === 1 && !store.binders[0].pages.flat().some(c => c);
     if (soleEmpty) store.binders[0] = nb; // overtag den tomme start-binder
     else { store.binders.push(nb); store.active = store.binders.length - 1; }
-    spread = 0;
+    jumpSpread(0);
     save(); renderBinderSelect(); renderBinder();
     toast(T('Tap ✓ on cards you own — the bar tracks your progress'));
     coachShow([['#modeOwned', T('Have/Need: decides whether new cards count as owned or wishlist')]]);
   } catch (e) { toast(T('Could not load the set')); }
 });
+
+// ---------- ⋯-menu (telefon: sekundaere handlinger) ----------
+const moreMenu = document.getElementById('moreMenu');
+document.getElementById('moreBtn').addEventListener('click', () => {
+  if (!moreMenu.hidden) { moreMenu.hidden = true; return; }
+  moreMenu.innerHTML = '';
+  for (const id of ['delPages', 'presentBtn', 'snapBtn', 'factsBtn', 'curveBtn']) {
+    const orig = document.getElementById(id);
+    if (id === 'curveBtn' && !store.showPrices) continue;
+    const b = document.createElement('button');
+    b.textContent = orig.textContent + (orig.title && orig.textContent.length < 3 ? ' ' + orig.title : '');
+    b.addEventListener('click', () => { moreMenu.hidden = true; orig.click(); });
+    moreMenu.appendChild(b);
+  }
+  moreMenu.hidden = false;
+});
+document.addEventListener('pointerdown', e => {
+  if (!moreMenu.hidden && !e.target.closest('#moreMenu') && !e.target.closest('#moreBtn')) moreMenu.hidden = true;
+});
+
+// ---------- tommelfinger-bar (telefon) ----------
+document.getElementById('bbSearch').addEventListener('click', () => {
+  if (document.body.classList.contains('drawer-closed')) document.getElementById('drawerTab').click();
+  const q = document.getElementById('q');
+  q.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(() => q.focus(), 350);
+});
+document.getElementById('bbPile').addEventListener('click', () => document.getElementById('pileBtn').click());
+document.getElementById('bbNeed').addEventListener('click', () => document.getElementById('needBtn').click());
+document.getElementById('bbShelf').addEventListener('click', () => document.getElementById('shelfBtn').click());
 
 // ---------- tastatur: ←/→ bladrer binderen ----------
 document.addEventListener('keydown', e => {
@@ -6456,6 +6620,9 @@ if (location.hostname.includes('pokebinder')) {
 const friendParam = location.search.match(/[?&]friend=([\w-]+)/);
 if (friendParam) openFriend(friendParam[1]);
 setTimeout(maybeOnboard, 1200); // konto-synk faar en chance foerst
+let rszT;
+window.addEventListener('resize', () => { clearTimeout(rszT); rszT = setTimeout(renderBinder, 150); });
+window.matchMedia('(max-width: 640px)').addEventListener('change', () => renderBinder());
 </script>
 </body>
 </html>
