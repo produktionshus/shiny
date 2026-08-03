@@ -190,8 +190,9 @@ app.put('/api/tcg', requireLogin, (req, res) => {
 // purchase price/date is private — never leaves the owner's own session
 function stripPrivate(store) {
   if (!store) return store;
+  const { tray, ...pub } = store; // bakken (parkerede kort) er privat arbejdsflade
   return {
-    ...store,
+    ...pub,
     binders: (store.binders || []).map(b => ({
       ...b,
       pages: (b.pages || []).map(pg => pg.map(c => {
