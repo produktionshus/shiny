@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PokéBinder · Admin</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font: 15px 'Segoe UI', sans-serif; background: #141a28; color: #e8e4d8; padding: 24px; max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; color: #ffd76a; margin-bottom: 4px; }
+  .sub { opacity: .7; margin-bottom: 20px; font-size: .85rem; }
+  h2 { font-size: 1.05rem; color: #ffe9a0; margin: 22px 0 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid rgba(255,255,255,.1); }
+  th { color: #ffd76a; font-weight: 600; }
+  input[type=text] { padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.07); color: inherit; width: 220px; }
+  input[type=file] { font-size: .8rem; max-width: 210px; }
+  button { padding: 7px 14px; border-radius: 8px; border: 1px solid #b8860b; background: rgba(255,215,106,.15); color: #ffd76a; cursor: pointer; font-weight: 600; }
+  button:hover { background: rgba(255,215,106,.28); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+  #status { margin: 10px 0; min-height: 20px; font-size: .85rem; color: #9be89b; }
+  #status.err { color: #ff9b9b; }
+  .thumb { height: 56px; border-radius: 4px; }
+  a { color: #8fc3ff; }
+</style>
+</head>
+<body>
+<h1>🛠 PokéBinder Admin</h1>
+<div class="sub">Billed-fallbacks: uploads bruges når hverken TCGdex eller pokemontcg.io har et billede. Kræver admin-login (log ind på <a href="/tcg">/tcg</a> først).</div>
+<div id="status"></div>
+
+<h2>Upload fallback til kort-id</h2>
+<div class="row">
+  <input type="text" id="manualId" placeholder="kort-id, fx miscp-001">
+  <input type="file" id="manualFile" accept="image/*">
+  <button id="manualUp">Upload</button>
+</div>
+
+<h2>Manglende billeder rapporteret af brugere</h2>
+<table id="missTable"><thead><tr><th>Kort</th><th>Id</th><th>Antal</th><th>Senest</th><th>Upload</th></tr></thead><tbody></tbody></table>
+
+<h2>Eksisterende overrides</h2>
+<div id="ovrList" class="row"></div>
+
+<script>
+const $status = document.getElementById('status');
+function say(msg, err) { $status.textContent = msg; $status.className = err ? 'err' : ''; }
+
+async function upload(id, file) {
+  if (!id || !file) { say('Vælg både id og fil', true); return; }
+  say('Uploader ' + id + '…');
+  const r = await fetch('/api/img-override/' + encodeURIComponent(id), {
+    method: 'POST',
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    body: file,
+  });
+  if (r.ok) { say(id + ' uploadet ✔'); load(); }
+  else say('Fejl ved ' + id + ': ' + r.status + ' ' + (await r.text()).slice(0, 120), true);
+}
+
+document.getElementById('manualUp').addEventListener('click', () => {
+  upload(document.getElementById('manualId').value.trim(), document.getElementById('manualFile').files[0]);
+});
+
+async function load() {
+  const mr = await fetch('/api/img-missing');
+  if (mr.status === 403 || mr.status === 401) { say('Ikke logget ind som admin — log ind på /tcg først', true); return; }
+  const missing = (await mr.json()).missing || [];
+  const tb = document.querySelector('#missTable tbody');
+  tb.innerHTML = '';
+  for (const m of missing) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td></td><td><code></code></td><td></td><td></td><td></td>';
+    tr.children[0].textContent = m.name || '?';
+    tr.children[1].firstChild.textContent = m.card_id;
+    tr.children[2].textContent = m.count;
+    tr.children[3].textContent = (m.last || '').slice(0, 16);
+    const fi = document.createElement('input');
+    fi.type = 'file';
+    fi.accept = 'image/*';
+    fi.addEventListener('change', () => upload(m.card_id, fi.files[0]));
+    tr.children[4].appendChild(fi);
+    tb.appendChild(tr);
+  }
+  if (!missing.length) tb.innerHTML = '<tr><td colspan="5" style="opacity:.6">Ingen rapporter 🎉</td></tr>';
+  const ol = await (await fetch('/api/img-overrides')).json();
+  const wrap = document.getElementById('ovrList');
+  wrap.innerHTML = (ol.ids || []).length ? '' : '<span style="opacity:.6">Ingen endnu</span>';
+  for (const id of ol.ids || []) {
+    const d = document.createElement('div');
+    d.style.textAlign = 'center';
+    d.innerHTML = '<img class="thumb" src="/api/img-override/' + encodeURIComponent(id) + '"><div style="font-size:.7rem">' + id + '</div>';
+    wrap.appendChild(d);
+  }
+}
+load();
+</script>
+</body>
+</html>

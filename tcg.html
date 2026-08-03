@@ -2798,6 +2798,8 @@ function emptyPage(n) { return Array(n).fill(null); }
 function slotsOf(b) { return (b.cols || 3) * (b.rows || 3); }
 function binder() { return viewBinder || store.binders[store.active]; }
 function imgUrl(path, q) {
+  if (path && path.startsWith('ovr:')) // admin-uploadet fallback paa egen server
+    return '/api/img-override/' + encodeURIComponent(path.slice(4));
   if (path && path.startsWith('ptcg:')) // fallback-kilde: TCGdex mangler enkelte saet (fx Galarian Gallery)
     return 'https://images.pokemontcg.io/' + path.slice(5) + (q === 'high' ? '_hires.png' : '.png');
   return ASSETS + path + '/' + q + '.webp';
@@ -2808,6 +2810,27 @@ function ptcgPath(id) { // tcgdex-id -> pokemontcg.io "saet/nummer": '.5'->'pt5'
   const set = id.slice(0, i).replace('.', 'pt').replace(/^([a-z]+)0+(?=\d)/, '$1');
   const num = id.slice(i + 1).replace(/^0+(?=\d)/, '');
   return set + '/' + num;
+}
+let imgOverrides = new Set(); // kort-id'er med admin-uploadede fallback-billeder
+function sweepOverrides() { // gemte billedloese kort faar deres override naar listen er hentet
+  let hit = false;
+  const fix = c => { if (c && !c.img && imgOverrides.has(c.id)) { c.img = 'ovr:' + c.id; hit = true; } };
+  for (const b of store.binders) for (const pg of b.pages) pg.forEach(fix);
+  (store.tray || []).forEach(fix);
+  if (hit) { renderBinder(); renderTray(); }
+}
+fetch('/api/img-overrides').then(r => r.json()).then(j => {
+  imgOverrides = new Set(j.ids || []);
+  if (imgOverrides.size) sweepOverrides();
+}).catch(() => {});
+const missingReported = new Set(); // meld hvert kort hoejst een gang pr. session
+function reportMissingImg(card) {
+  if (!card || !card.id || card.custom || card.id.startsWith('custom-') || missingReported.has(card.id)) return;
+  missingReported.add(card.id);
+  fetch('/api/img-missing', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: card.id, name: card.n }),
+  }).catch(() => {});
 }
 function placeholderImg(name) { // billedloese kort (Ancient Mew, egne kort): paen SVG i kort-format
   const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -2827,9 +2850,10 @@ function placeholderImg(name) { // billedloese kort (Ancient Mew, egne kort): pa
     + '</svg>';
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
-function briefImg(c) { // billedsti fra API-kort; huller udfyldes med pokemontcg.io
+function briefImg(c) { // billedsti fra API-kort; huller udfyldes med admin-override, saa pokemontcg.io
   if (c.image) return c.image.replace(ASSETS, '');
   if (!c.id) return null;
+  if (imgOverrides.has(c.id)) return 'ovr:' + c.id;
   const pt = ptcgPath(c.id);
   return pt ? 'ptcg:' + pt : null;
 }
@@ -3297,6 +3321,7 @@ function renderPage(grid, pageIdx) {
         im.src = imgUrl(card.img, q);
         im.alt = card.n;
         im.onerror = () => { // upstream-hul (fx nye saet): vis navnet i stedet for broken-ikon
+          reportMissingImg(card);
           if (!im.isConnected) return;
           const nn = document.createElement('div');
           nn.className = 'name-only';
@@ -3326,6 +3351,7 @@ function renderPage(grid, pageIdx) {
         });
       } else {
         div.innerHTML = '<div class="name-only">' + card.n + '</div>';
+        reportMissingImg(card);
       }
       div.title = card.n + (card.o === false ? ' (need)' : '');
       {
@@ -7470,9 +7496,11 @@ document.getElementById('snapBtn').addEventListener('click', async () => {
       ctx.fillStyle = b.dark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.07)';
       ctx.fillRect(cx, cy, CW, CH);
       if (card && card.img) {
-        const im = await loadImg(card.img.startsWith('ptcg:')
-          ? '/api/img/ptcg/' + card.img.slice(5) + '.png'
-          : '/api/img/' + card.img + '/high.webp'); // egen proxy: CDN mangler CORS
+        const im = await loadImg(card.img.startsWith('ovr:')
+          ? '/api/img-override/' + encodeURIComponent(card.img.slice(4))
+          : card.img.startsWith('ptcg:')
+            ? '/api/img/ptcg/' + card.img.slice(5) + '.png'
+            : '/api/img/' + card.img + '/high.webp'); // egen proxy: CDN mangler CORS
         if (im) {
           ctx.drawImage(im, cx, cy, CW, CH);
           if (card.o === false) {

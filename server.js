@@ -419,6 +419,63 @@ app.get('/api/pxprice/:id', async (req, res) => {
   } catch (e) { res.status(502).end(); }
 });
 
+// ===== admin: lokalt hostede billed-fallbacks + brugerrapporter om manglende billeder =====
+const fsMod = require('fs');
+const OVR_DIR = path.join(path.dirname(DB_PATH), 'img-overrides'); // paa volumen: overlever deploys
+try { fsMod.mkdirSync(OVR_DIR, { recursive: true }); } catch (e) {}
+db.exec(`CREATE TABLE IF NOT EXISTS img_missing (
+  card_id TEXT PRIMARY KEY,
+  name TEXT,
+  count INTEGER DEFAULT 1,
+  last TEXT
+)`);
+function isAdmin(req) {
+  if (!req.session || !req.session.userId) return false;
+  const admins = (process.env.ADMIN_USERS || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+  if (!admins.length) return req.session.userId === 1; // ingen env sat: foerste konto er admin
+  const u = db.prepare('SELECT username FROM users WHERE id = ?').get(req.session.userId);
+  return !!u && admins.includes(u.username.toLowerCase());
+}
+const okOvrId = id => /^[\w.-]{2,40}$/.test(id) && !id.includes('..');
+app.get('/api/img-overrides', (req, res) => {
+  let ids = [];
+  try { ids = fsMod.readdirSync(OVR_DIR).filter(f => f.endsWith('.webp')).map(f => f.slice(0, -5)); } catch (e) {}
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json({ ids });
+});
+app.get('/api/img-override/:id', (req, res) => {
+  const id = String(req.params.id);
+  if (!okOvrId(id)) return res.status(400).end();
+  const f = path.join(OVR_DIR, id + '.webp');
+  if (!fsMod.existsSync(f)) return res.status(404).end();
+  res.set('Content-Type', 'image/webp');
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.send(fsMod.readFileSync(f));
+});
+app.post('/api/img-override/:id', express.raw({ type: ['image/*', 'application/octet-stream'], limit: '8mb' }), async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'admin_only' });
+  const id = String(req.params.id);
+  if (!okOvrId(id) || !sharp || !req.body || !req.body.length) return res.status(400).json({ error: 'bad_request' });
+  try {
+    const buf = await sharp(req.body).resize(600, 838, { fit: 'inside' }).webp({ quality: 88 }).toBuffer();
+    fsMod.writeFileSync(path.join(OVR_DIR, id + '.webp'), buf);
+    db.prepare('DELETE FROM img_missing WHERE card_id = ?').run(id);
+    res.json({ ok: true });
+  } catch (e) { res.status(400).json({ error: 'bad_image' }); }
+});
+app.post('/api/img-missing', (req, res) => { // klienter melder billedloese kort ind
+  const id = String((req.body || {}).id || '');
+  if (!okOvrId(id) || id.startsWith('custom-')) return res.status(400).end();
+  db.prepare(`INSERT INTO img_missing (card_id, name, count, last) VALUES (?, ?, 1, CURRENT_TIMESTAMP)
+    ON CONFLICT(card_id) DO UPDATE SET count = count + 1, last = CURRENT_TIMESTAMP, name = excluded.name`)
+    .run(id, String((req.body || {}).name || '').slice(0, 80));
+  res.json({ ok: true });
+});
+app.get('/api/img-missing', (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'admin_only' });
+  res.json({ missing: db.prepare('SELECT card_id, name, count, last FROM img_missing ORDER BY count DESC LIMIT 500').all() });
+});
+
 // korte delelinks: snapshot gemmes server-side, koden er content-hash (idempotent, ingen auth noedvendig)
 app.post('/api/tcg/snap', (req, res) => {
   const data = JSON.stringify(req.body || {});
