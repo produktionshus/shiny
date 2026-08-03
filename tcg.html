@@ -4599,6 +4599,7 @@ async function loadServerStore() {
       ensureModeActive();
       localStorage.setItem(LS_KEY, JSON.stringify(store));
       renderBinderSelect();
+      renderTray(); // bakken fulgte med fra kontoen
       if (!viewBinder) { // roer ikke visningen hvis man staar i en vens binder
         jumpSpread(0);
         renderBinder();
