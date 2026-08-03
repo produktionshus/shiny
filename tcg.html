@@ -2819,8 +2819,8 @@ function binder() { return viewBinder || store.binders[store.active]; }
 function imgUrl(path, q) {
   if (path && path.startsWith('ovr:')) // admin-uploadet fallback paa egen server
     return '/api/img-override/' + encodeURIComponent(path.slice(4));
-  if (path && path.startsWith('ptcg:')) // fallback-kilde: TCGdex mangler enkelte saet (fx Galarian Gallery)
-    return 'https://images.pokemontcg.io/' + path.slice(5) + (q === 'high' ? '_hires.png' : '.png');
+  if (path && path.startsWith('ptcg:')) // fallback via egen proxy — den kender ogsaa scrydex-CDN'en for nye saet
+    return '/api/img/ptcg/' + path.slice(5) + '.png';
   return ASSETS + path + '/' + q + '.webp';
 }
 const PTCG_SET_ALIAS = { // ptcgio's navngivning er inkonsistent — kendte undtagelser mappes eksplicit

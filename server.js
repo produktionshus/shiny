@@ -215,6 +215,20 @@ app.get('/api/tcg/shared/:token', (req, res) => {
 
 // image proxy for canvas rendering (TCGdex CDN sends no CORS headers, so
 // drawing directly would taint the canvas and block PNG export)
+const ptcgAltCache = new Map(); // "saet/nr" -> billed-URL | null (nye saet bor paa scrydex, ikke images.pokemontcg.io)
+async function ptcgAltImgUrl(setnum) {
+  if (ptcgAltCache.has(setnum)) return ptcgAltCache.get(setnum);
+  let url = null;
+  try {
+    const r = await fetch('https://api.pokemontcg.io/v2/cards/' + encodeURIComponent(setnum.replace('/', '-')) + '?select=images');
+    if (r.ok) {
+      const img = ((await r.json()).data || {}).images || {};
+      url = img.large || img.small || null;
+    }
+  } catch (e) { /* best effort */ }
+  ptcgAltCache.set(setnum, url);
+  return url;
+}
 app.get('/api/img/*', async (req, res) => {
   const imgPath = req.params[0] || '';
   const isPtcg = imgPath.startsWith('ptcg/'); // fallback-kilde for TCGdex-huller (fx Galarian Gallery)
@@ -225,12 +239,20 @@ app.get('/api/img/*', async (req, res) => {
     return res.status(400).end();
   }
   try {
-    const url = isPtcg
-      ? 'https://images.pokemontcg.io/' + imgPath.slice(5, -4) + '_hires.png'
-      : 'https://assets.tcgdex.net/' + imgPath;
-    const r = await fetch(url);
+    let r;
+    if (isPtcg) {
+      const setnum = imgPath.slice(5, -4);
+      r = await fetch('https://images.pokemontcg.io/' + setnum + '_hires.png');
+      if (!r.ok) { // gammel CDN kender ikke kortet: slaa op via API'et
+        const alt = await ptcgAltImgUrl(setnum);
+        if (!alt) return res.status(404).end();
+        r = await fetch(alt);
+      }
+    } else {
+      r = await fetch('https://assets.tcgdex.net/' + imgPath);
+    }
     if (!r.ok) return res.status(404).end();
-    res.set('Content-Type', isPtcg ? 'image/png' : 'image/webp');
+    res.set('Content-Type', isPtcg ? (r.headers.get('content-type') || 'image/png') : 'image/webp');
     res.set('Cache-Control', 'public, max-age=86400');
     res.send(Buffer.from(await r.arrayBuffer()));
   } catch (e) {
@@ -316,7 +338,11 @@ async function buildScanIndex() {
     const hashOne = async c => {
       const url = c.image ? c.image + '/low.webp'
         : 'https://images.pokemontcg.io/' + ptcgioId(c.id).replace(/-(?=[^-]*$)/, '/') + '.png'; // TCGdex-hul: proev fallback-kilden
-      const r = await fetch(url);
+      let r = await fetch(url);
+      if (!r.ok && !c.image) { // nye ptcgio-saet ligger paa scrydex
+        const alt = await ptcgAltImgUrl(ptcgioId(c.id).replace(/-(?=[^-]*$)/, '/'));
+        if (alt) r = await fetch(alt);
+      }
       if (!r.ok) throw new Error('no image');
       const buf = Buffer.from(await r.arrayBuffer());
       const rgb = await sharp(buf).resize(HW, HH, { fit: 'fill' }).removeAlpha().raw().toBuffer();
