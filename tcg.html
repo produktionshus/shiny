@@ -406,7 +406,7 @@ body.viewmode #drawerTab { display: none; }
   position: relative;
   background: linear-gradient(155deg, var(--lt, #2b4d9c) 0%, var(--leather) 45%, var(--leather-dark) 100%);
   border-radius: 18px;
-  padding: 34px 20px 36px; /* luft i top/bund til navn+side og progress */
+  padding: 48px 20px 48px; /* ens luft i top/bund til navne- og progress-strimlerne */
   box-shadow:
     0 30px 60px rgba(0,0,0,.55),
     inset 0 2px 4px rgba(255,255,255,.15),
@@ -1747,13 +1747,15 @@ body.dragging * { cursor: grabbing !important; }
 /* binder controls under spread */
 .binder-controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .spread-label { font: 600 .85rem 'Fredoka', sans-serif; opacity: .75; }
-.binder > #spreadLabel { /* navn + 1/x i binderens top, indenfor den stiplede kant */
-  position: absolute; top: 9px; left: 0; right: 0; z-index: 25;
+.binder > #spreadLabel { /* navn + 1/x: moerk indre strimmel indenfor den stiplede kant, ens luft top/bund */
+  position: absolute; top: 12px; left: 12px; right: 12px; z-index: 25;
   text-align: center; pointer-events: none; color: #ffe9a8;
+  background: rgba(8, 11, 20, .6); border-radius: 8px; padding: 4px 8px;
 }
-#binderFoot { /* progress i binderens bund */
-  position: absolute; left: 0; right: 0; bottom: 8px; z-index: 25;
+#binderFoot { /* progress: samme moerke strimmel i bunden */
+  position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 25;
   display: flex; justify-content: center; align-items: center; gap: 14px;
+  background: rgba(8, 11, 20, .6); border-radius: 8px; padding: 4px 8px; min-height: 26px;
 }
 
 /* selected-card banner */
@@ -1933,7 +1935,7 @@ body.pileopen #bottomBar { display: none !important; }
   #binderName { flex: 1 1 auto; min-width: 56px; width: auto; }
   .toolbar .btn { padding: 8px 10px; white-space: nowrap; }
   .layout { padding: 6px; gap: 8px; }
-  .binder { padding: 28px 12px 30px; }
+  .binder { padding: 42px 12px 42px; }
   .binder::before { inset: 5px; }
   .binder-wrap { gap: 4px; }
   .page {
