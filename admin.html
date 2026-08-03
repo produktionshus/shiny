@@ -75,7 +75,7 @@ async function load() {
     a.href = 'https://www.pricecharting.com/search-products?type=prices&q=' + encodeURIComponent('pokemon ' + (m.name || m.card_id));
     a.target = '_blank';
     a.rel = 'noopener';
-    a.textContent = (m.name || '?') + ' 🔎';
+    a.textContent = (m.name || '?') + (m.card_id.startsWith('custom-') ? ' (eget kort)' : '') + ' 🔎';
     a.title = 'Søg på PriceCharting — gem billedet og upload det her';
     tr.children[0].appendChild(a);
     tr.children[1].firstChild.textContent = m.card_id;

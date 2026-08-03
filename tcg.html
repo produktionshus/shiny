@@ -2707,6 +2707,9 @@ const STR_DA = {
   'Deleted ': 'Slettede ',
   'Pull cards into the tray?': 'Træk kort ned i bakken?',
   'Custom card': 'Eget kort',
+  'Set found (': 'Sæt fundet (',
+  '), but the database has no card data for it yet — add it as a ➕ custom card.':
+    '), men databasen har ingen kortdata for det endnu — tilføj det som ➕ eget kort.',
   'For cards the database doesn\'t know — league inserts, promos, memorabilia. Shown as a named placeholder in the pocket.':
     'Til kort databasen ikke kender — league-inserts, promoer, memorabilia. Vises som navngivet pladsholder i lommen.',
   'e.g. Catch Mew! · WOTC League insert': 'fx Fang Mew! · WOTC League-indsætter',
@@ -2817,8 +2820,9 @@ let imgOverrides = new Set(); // kort-id'er med admin-uploadede fallback-billede
 function sweepOverrides() { // gemte billedloese kort faar override eller ptcgio-gaet (kort tilfoejet foer fallbacken fandtes)
   let hit = false;
   const fix = c => {
-    if (!c || c.img || c.custom || !c.id || c.id.startsWith('custom-')) return;
+    if (!c || c.img || !c.id) return;
     if (imgOverrides.has(c.id)) { c.img = 'ovr:' + c.id; hit = true; return; }
+    if (c.custom || c.id.startsWith('custom-')) return; // egne kort: kun admin-override, aldrig gaet
     const pt = ptcgPath(c.id);
     if (pt) { c.img = 'ptcg:' + pt; hit = true; } // 404'er gaettet, falder renderen tilbage til pladsholderen
   };
@@ -2831,8 +2835,8 @@ fetch('/api/img-overrides').then(r => r.json()).then(j => {
   sweepOverrides(); // ogsaa uden overrides: gamle billedloese kort skal have ptcgio-gaettet
 }).catch(() => {});
 const missingReported = new Set(); // meld hvert kort hoejst een gang pr. session
-function reportMissingImg(card) {
-  if (!card || !card.id || card.custom || card.id.startsWith('custom-') || missingReported.has(card.id)) return;
+function reportMissingImg(card) { // ogsaa egne kort: admin kan senere uploade et rigtigt billede til deres id
+  if (!card || !card.id || missingReported.has(card.id)) return;
   missingReported.add(card.id);
   fetch('/api/img-missing', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -3089,6 +3093,7 @@ async function doSearch() {
     const artistM = q.match(/^(?:artist|illustrator):\s*(.+)$/i);
     const pq = parseQuery(q);
     let cards;
+    let emptySetHit = null;
     if (setId) {
       const set = await (await fetch(sAPI() + '/sets/' + setId)).json();
       cards = set.cards || [];
@@ -3105,6 +3110,7 @@ async function doSearch() {
         for (const st of cand.slice(0, 12)) {
           try {
             const det = await (await fetch(sAPI() + '/sets/' + st.id)).json();
+            if (!(det.cards || []).length) emptySetHit = det.name || st.id; // saet uden kortdata i TCGdex
             for (const c of det.cards || []) if (normNum(c.localId || '') === normNum(slashM[1])) cards.push(c);
           } catch (e) { /* enkelt saet fejler: videre */ }
         }
@@ -3127,6 +3133,8 @@ async function doSearch() {
     }
     if (seq !== searchSeq) return; // forældet svar
     renderResults(cards);
+    if (emptySetHit && !cards.length) // saettet matchede, men TCGdex mangler kortdataene (fx JP 25th S8a)
+      $hint.textContent = T('Set found (') + emptySetHit + T('), but the database has no card data for it yet — add it as a ➕ custom card.');
     if (q && cards.length) saveRecent(q);
   } catch (e) {
     if (seq === searchSeq) $hint.textContent = 'Search failed — try again.';

@@ -461,9 +461,9 @@ app.post('/api/img-override/:id', express.raw({ type: ['image/*', 'application/o
     res.json({ ok: true });
   } catch (e) { res.status(400).json({ error: 'bad_image' }); }
 });
-app.post('/api/img-missing', (req, res) => { // klienter melder billedloese kort ind
+app.post('/api/img-missing', (req, res) => { // klienter melder billedloese kort ind — ogsaa egne kort
   const id = String((req.body || {}).id || '');
-  if (!okOvrId(id) || id.startsWith('custom-')) return res.status(400).end();
+  if (!okOvrId(id)) return res.status(400).end();
   db.prepare(`INSERT INTO img_missing (card_id, name, count, last) VALUES (?, ?, 1, CURRENT_TIMESTAMP)
     ON CONFLICT(card_id) DO UPDATE SET count = count + 1, last = CURRENT_TIMESTAMP, name = excluded.name`)
     .run(id, String((req.body || {}).name || '').slice(0, 80));
