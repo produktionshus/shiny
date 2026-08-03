@@ -2036,6 +2036,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <button class="btn" id="fillBtn" style="flex:1" title="Adds every search result to the binder in order, using the Have/Need toggle" data-l="📥 Add all">📥 Add all</button>
       <button class="btn" id="packBtn" style="flex:1" title="Open a virtual booster pack from the chosen set">🎁 Pack</button>
       <button class="btn" id="scanBtn" style="flex:1" title="Scan a physical card with the camera" data-l="📷 Scan">📷 Scan</button>
+      <button class="btn" id="customBtn" title="Add a card that isn't in the database">➕</button>
     </div>
     <div class="search-hint" id="hint" data-l="Click a card, then click pockets — the same card can be placed as many times as you like.">Click a card, then click pockets — the same card can be placed as many times as you like.</div>
     <div id="recentChips"></div>
@@ -2214,6 +2215,16 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <button class="modal-close" aria-label="Close">✕</button>
     <h2 style="font: 700 1.3rem 'Fredoka', sans-serif; margin-bottom: 12px;">🗄 Your shelf</h2>
     <div class="shelfrow" id="shelfrow"></div>
+  </div>
+</div>
+
+<div id="custommodal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 style="font: 700 1.3rem 'Fredoka', sans-serif; margin-bottom: 8px;">➕ <span data-l="Custom card">Custom card</span></h2>
+    <p style="font-size: .85rem; opacity: .85; margin-bottom: 10px;" data-l="For cards the database doesn't know — league inserts, promos, memorabilia. Shown as a named placeholder in the pocket.">For cards the database doesn't know — league inserts, promos, memorabilia. Shown as a named placeholder in the pocket.</p>
+    <input id="customName" data-lp="e.g. Catch Mew! · WOTC League insert" placeholder="e.g. Catch Mew! · WOTC League insert" maxlength="80">
+    <button class="btn primary" id="customAdd" data-l="Add to binder" style="width: 100%; margin-top: 10px;">Add to binder</button>
   </div>
 </div>
 
@@ -2695,6 +2706,11 @@ const STR_DA = {
   'The binder is empty': 'Binderen er tom',
   'Deleted ': 'Slettede ',
   'Pull cards into the tray?': 'Træk kort ned i bakken?',
+  'Custom card': 'Eget kort',
+  'For cards the database doesn\'t know — league inserts, promos, memorabilia. Shown as a named placeholder in the pocket.':
+    'Til kort databasen ikke kender — league-inserts, promoer, memorabilia. Vises som navngivet pladsholder i lommen.',
+  'e.g. Catch Mew! · WOTC League insert': 'fx Fang Mew! · WOTC League-indsætter',
+  'Add to binder': 'Læg i binder',
   'Nothing to pull': 'Intet at trække ned',
   'cards moved to the tray': 'kort flyttet til bakken',
   'Welcome to PokéBinder': 'Velkommen til PokéBinder',
@@ -3398,6 +3414,34 @@ function guardInfo(card, action, okLabel) { // action koeres straks, eller efter
   confirmDialog('"' + card.n + '" ' + T('has purchase info (price/date/condition/note) that will be lost.'), okLabel)
     .then(ok => { if (ok) action(); });
 }
+
+// ---------- eget kort (dummy/placeholder for kort udenfor databasen) ----------
+const custommodal = document.getElementById('custommodal');
+document.getElementById('customBtn').addEventListener('click', () => {
+  custommodal.hidden = false;
+  const inp = document.getElementById('customName');
+  inp.value = '';
+  setTimeout(() => inp.focus(), 50);
+});
+custommodal.addEventListener('click', e => {
+  if (e.target === custommodal || e.target.closest('.modal-close')) custommodal.hidden = true;
+});
+function addCustomCard() {
+  const name = document.getElementById('customName').value.trim();
+  if (!name) return;
+  custommodal.hidden = true;
+  const card = { id: 'custom-' + Date.now().toString(36), n: name, img: null, o: placeMode === 'owned', custom: true };
+  const t = firstFreeSlot();
+  binder().pages[t.page][t.slot] = card;
+  lastPlaced = t;
+  jumpPage(t.page);
+  snick();
+  save(); renderBinder();
+  toast(T('Added ') + name + ' ✔', true);
+  undoFn = () => { binder().pages[t.page][t.slot] = null; save(); renderBinder(); };
+}
+document.getElementById('customAdd').addEventListener('click', addCustomCard);
+document.getElementById('customName').addEventListener('keydown', e => { if (e.key === 'Enter') addCustomCard(); });
 
 // ---------- bakken: midlertidig parkering af kort ----------
 const trayBar = document.getElementById('trayBar');
