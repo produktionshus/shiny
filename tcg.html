@@ -2199,6 +2199,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <p id="confirmText" style="margin: 0 0 16px; font: 700 .95rem 'Nunito', sans-serif;"></p>
     <div style="display: flex; gap: 10px; justify-content: flex-end;">
       <button class="btn sec" id="confirmNo" data-l="Cancel">Cancel</button>
+      <button class="btn sec" id="confirmAlt" hidden></button>
       <button class="btn primary" id="confirmYes"></button>
     </div>
   </div>
@@ -2599,6 +2600,11 @@ const STR_DA = {
   '🧹 Clear binder': '🧹 Tøm binder',
   '⇅ Sort by set': '⇅ Sortér efter sæt',
   '🌈 Sort by color': '🌈 Sortér efter farve',
+  'Color-sort the whole binder (new binder) or just this spread?':
+    'Farvesortér hele binderen (ny binder) eller kun dette opslag?',
+  'Whole binder': 'Hele binderen',
+  'This spread': 'Dette opslag',
+  'Spread color-sorted 🌈': 'Opslag farvesorteret 🌈',
   'Analyzing colors…': 'Analyserer farver…',
   'Color version created as a new binder 🌈': 'Farve-udgave oprettet som ny binder 🌈',
   '⬇ Export': '⬇ Eksportér',
@@ -3296,9 +3302,12 @@ function pocketClick(pageIdx, slot) {
 function hasInfo(c) { return !!(c && (c.pp != null || c.pd || c.note || c.cond)); }
 const confirmmodal = document.getElementById('confirmmodal');
 let confirmResolve = null;
-function confirmDialog(msg, okText) {
+function confirmDialog(msg, okText, altText) { // altText: valgfri tredje knap -> resolver 'alt'
   document.getElementById('confirmText').textContent = msg;
   document.getElementById('confirmYes').textContent = okText;
+  const alt = document.getElementById('confirmAlt');
+  alt.hidden = !altText;
+  if (altText) alt.textContent = altText;
   confirmmodal.hidden = false;
   return new Promise(res => { confirmResolve = res; });
 }
@@ -3307,6 +3316,7 @@ function confirmAnswer(v) {
   if (confirmResolve) { confirmResolve(v); confirmResolve = null; }
 }
 document.getElementById('confirmYes').addEventListener('click', () => confirmAnswer(true));
+document.getElementById('confirmAlt').addEventListener('click', () => confirmAnswer('alt'));
 document.getElementById('confirmNo').addEventListener('click', () => confirmAnswer(false));
 confirmmodal.addEventListener('click', e => { if (e.target === confirmmodal) confirmAnswer(false); });
 function guardInfo(card, action, okLabel) { // action koeres straks, eller efter bekraeftelse hvis kortet baerer info
@@ -4200,9 +4210,20 @@ function cardColor(card) {
         cv.width = 24; cv.height = 33;
         const cx = cv.getContext('2d');
         cx.drawImage(im, 0, 0, 24, 33);
-        const d = cx.getImageData(4, 6, 16, 14).data; // midterfeltet: illustrationen, ikke ramme/tekstboks
+        const AW = 18, AH = 12;
+        const d = cx.getImageData(3, 5, AW, AH).data; // illustrationsfeltet, ikke ramme/tekstboks
+        // kvadrant-gennemsnit -> kant-signaturer til nearest-neighbor-udlaegning
+        const q = [[0,0,0,0], [0,0,0,0], [0,0,0,0], [0,0,0,0]]; // TL TR BL BR: r,g,b,n
         let r = 0, g = 0, b = 0, n = 0;
-        for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }
+        for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) {
+          const o = (y * AW + x) * 4;
+          const qi = (y < AH / 2 ? 0 : 2) + (x < AW / 2 ? 0 : 1);
+          q[qi][0] += d[o]; q[qi][1] += d[o + 1]; q[qi][2] += d[o + 2]; q[qi][3]++;
+          r += d[o]; g += d[o + 1]; b += d[o + 2]; n++;
+        }
+        const qm = q.map(v => [v[0] / v[3], v[1] / v[3], v[2] / v[3]]);
+        const mid = (a, bb) => [(a[0] + bb[0]) / 2, (a[1] + bb[1]) / 2, (a[2] + bb[2]) / 2];
+        const edges = { L: mid(qm[0], qm[2]), R: mid(qm[1], qm[3]), T: mid(qm[0], qm[1]), B: mid(qm[2], qm[3]) };
         const R = r / n / 255, G = g / n / 255, B = b / n / 255;
         const mx = Math.max(R, G, B), mn = Math.min(R, G, B);
         const l = (mx + mn) / 2;
@@ -4214,7 +4235,7 @@ function cardColor(card) {
           else h = (R - G) / (mx - mn) + 4;
           h *= 60; if (h < 0) h += 360;
         }
-        done({ h, s: sat, l });
+        done({ h, s: sat, l, e: edges });
       } catch (e) { done(null); }
     };
     im.onerror = () => done(null);
@@ -4223,9 +4244,50 @@ function cardColor(card) {
       : '/api/img/' + card.img + '/low.webp';
   });
 }
+function hueKeyOf(c) { // regnbue: farvetone; graa/hvid/sort bagerst efter lyshed
+  const col = colorCache.get(c.id);
+  if (!col) return 9999;
+  return col.s < .15 ? 1000 + (1 - col.l) * 100 : col.h;
+}
+function edgeArrange(cards, cols, per) { // graadigt: venstre kant matcher naboens hoejre, top matcher bunden ovenover
+  const dist = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+  const rem = cards.slice();
+  const out = [];
+  while (rem.length) {
+    const idx = out.length;
+    const pi = idx % per;
+    const left = pi % cols > 0 ? out[idx - 1] : null;
+    const top = pi >= cols ? out[idx - cols] : null;
+    const prev = out[idx - 1] || null; // raekke-/sideskift: bloed kobling til forrige kort
+    let best = 0, bestCost = Infinity;
+    for (let i = 0; i < rem.length; i++) {
+      const e = (colorCache.get(rem[i].id) || {}).e;
+      if (!e) { if (bestCost === Infinity) best = i; continue; } // ukendt farve: kun hvis intet bedre
+      let cost = 0, n = 0;
+      const le = left && (colorCache.get(left.id) || {}).e;
+      const te = top && (colorCache.get(top.id) || {}).e;
+      if (le) { cost += dist(le.R, e.L); n++; }
+      if (te) { cost += dist(te.B, e.T); n++; }
+      if (!n && prev) {
+        const pe = (colorCache.get(prev.id) || {}).e;
+        if (pe) { cost += dist(pe.R, e.L) * .5; n++; } // svagere vaegt over skel
+      }
+      if (!n) cost = i; // foerste kort: behold hue-raekkefoelgen
+      else cost /= n;
+      if (cost < bestCost) { bestCost = cost; best = i; }
+    }
+    out.push(rem.splice(best, 1)[0]);
+  }
+  return out;
+}
 document.getElementById('colorSort').addEventListener('click', async () => {
   const b = binder();
-  const all = b.pages.flat().filter(c => c);
+  const vp = visiblePages().filter(pi => b.pages[pi]);
+  const choice = await confirmDialog(T('Color-sort the whole binder (new binder) or just this spread?'),
+    T('Whole binder'), vp.length ? T('This spread') : null);
+  if (!choice) return;
+  const local = choice === 'alt';
+  const all = (local ? vp.flatMap(pi => b.pages[pi]) : b.pages.flat()).filter(c => c);
   if (!all.length) { toast('The binder is empty'); return; }
   toast(T('Analyzing colors…'));
   const withImg = all.filter(c => c.img), noImg = all.filter(c => !c.img);
@@ -4233,15 +4295,20 @@ document.getElementById('colorSort').addEventListener('click', async () => {
   await Promise.all(Array.from({ length: 6 }, async () => {
     while (queue.length) { const c = queue.shift(); await cardColor(c); }
   }));
-  const keyOf = c => { // regnbue: farvetone; graa/hvid/sort bagerst efter lyshed
-    const col = colorCache.get(c.id);
-    if (!col) return 9999;
-    return col.s < .15 ? 1000 + (1 - col.l) * 100 : col.h;
-  };
-  withImg.sort((x, y) => keyOf(x) - keyOf(y)
+  withImg.sort((x, y) => hueKeyOf(x) - hueKeyOf(y)
     || ((colorCache.get(y.id) || {}).l || 0) - ((colorCache.get(x.id) || {}).l || 0));
-  const cards = withImg.concat(noImg).map(c => ({ ...c })); // kopier — originalens kort maa ikke deles
   const per = slotsOf(b);
+  const cols = b.cols || 3;
+  if (local) { // kun det aabne opslag — in-place med fortryd
+    snapshot();
+    const cards = edgeArrange(withImg, cols, per).concat(noImg);
+    let k = 0;
+    for (const pi of vp) b.pages[pi] = b.pages[pi].map(() => cards[k] ? cards[k++] : null);
+    save(); renderBinder();
+    toast(T('Spread color-sorted 🌈'), true);
+    return;
+  }
+  const cards = edgeArrange(withImg, cols, per).concat(noImg).map(c => ({ ...c })); // kopier — originalen maa ikke deles
   const pages = [];
   for (let i = 0; i < cards.length; i += per) {
     const pg = cards.slice(i, i + per);
