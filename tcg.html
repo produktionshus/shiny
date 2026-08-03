@@ -2814,16 +2814,21 @@ function ptcgPath(id) { // tcgdex-id -> pokemontcg.io "saet/nummer": sm3.5->sm35
   return set + '/' + num;
 }
 let imgOverrides = new Set(); // kort-id'er med admin-uploadede fallback-billeder
-function sweepOverrides() { // gemte billedloese kort faar deres override naar listen er hentet
+function sweepOverrides() { // gemte billedloese kort faar override eller ptcgio-gaet (kort tilfoejet foer fallbacken fandtes)
   let hit = false;
-  const fix = c => { if (c && !c.img && imgOverrides.has(c.id)) { c.img = 'ovr:' + c.id; hit = true; } };
+  const fix = c => {
+    if (!c || c.img || c.custom || !c.id || c.id.startsWith('custom-')) return;
+    if (imgOverrides.has(c.id)) { c.img = 'ovr:' + c.id; hit = true; return; }
+    const pt = ptcgPath(c.id);
+    if (pt) { c.img = 'ptcg:' + pt; hit = true; } // 404'er gaettet, falder renderen tilbage til pladsholderen
+  };
   for (const b of store.binders) for (const pg of b.pages) pg.forEach(fix);
   (store.tray || []).forEach(fix);
   if (hit) { renderBinder(); renderTray(); }
 }
 fetch('/api/img-overrides').then(r => r.json()).then(j => {
   imgOverrides = new Set(j.ids || []);
-  if (imgOverrides.size) sweepOverrides();
+  sweepOverrides(); // ogsaa uden overrides: gamle billedloese kort skal have ptcgio-gaettet
 }).catch(() => {});
 const missingReported = new Set(); // meld hvert kort hoejst een gang pr. session
 function reportMissingImg(card) {
@@ -3322,13 +3327,10 @@ function renderPage(grid, pageIdx) {
         const im = document.createElement('img');
         im.src = imgUrl(card.img, q);
         im.alt = card.n;
-        im.onerror = () => { // upstream-hul (fx nye saet): vis navnet i stedet for broken-ikon
+        im.onerror = () => { // upstream-hul (fx nye saet): fald tilbage til pladsholderen
           reportMissingImg(card);
-          if (!im.isConnected) return;
-          const nn = document.createElement('div');
-          nn.className = 'name-only';
-          nn.textContent = card.n;
-          im.replaceWith(nn);
+          if (!im.isConnected || im.src.startsWith('data:')) return;
+          im.src = placeholderImg(card.n);
         };
         if (lastPlaced && lastPlaced.page === pageIdx && lastPlaced.slot === slot) {
           im.classList.add('pop');
