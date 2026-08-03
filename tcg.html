@@ -2836,7 +2836,7 @@ fetch('/api/img-overrides').then(r => r.json()).then(j => {
 }).catch(() => {});
 const missingReported = new Set(); // meld hvert kort hoejst een gang pr. session
 function reportMissingImg(card) { // ogsaa egne kort: admin kan senere uploade et rigtigt billede til deres id
-  if (!card || !card.id || missingReported.has(card.id)) return;
+  if (!card || !card.id || missingReported.has(card.id) || imgOverrides.has(card.id)) return;
   missingReported.add(card.id);
   fetch('/api/img-missing', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },

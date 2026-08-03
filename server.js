@@ -438,7 +438,7 @@ const okOvrId = id => /^[\w.-]{2,40}$/.test(id) && !id.includes('..');
 app.get('/api/img-overrides', (req, res) => {
   let ids = [];
   try { ids = fsMod.readdirSync(OVR_DIR).filter(f => f.endsWith('.webp')).map(f => f.slice(0, -5)); } catch (e) {}
-  res.set('Cache-Control', 'public, max-age=300');
+  res.set('Cache-Control', 'public, max-age=60');
   res.json({ ids });
 });
 app.get('/api/img-override/:id', (req, res) => {
@@ -464,6 +464,7 @@ app.post('/api/img-override/:id', express.raw({ type: ['image/*', 'application/o
 app.post('/api/img-missing', (req, res) => { // klienter melder billedloese kort ind — ogsaa egne kort
   const id = String((req.body || {}).id || '');
   if (!okOvrId(id)) return res.status(400).end();
+  if (fsMod.existsSync(path.join(OVR_DIR, id + '.webp'))) return res.json({ ok: true, ignored: true }); // har allerede override
   db.prepare(`INSERT INTO img_missing (card_id, name, count, last) VALUES (?, ?, 1, CURRENT_TIMESTAMP)
     ON CONFLICT(card_id) DO UPDATE SET count = count + 1, last = CURRENT_TIMESTAMP, name = excluded.name`)
     .run(id, String((req.body || {}).name || '').slice(0, 80));
