@@ -1828,9 +1828,9 @@ body.presenting #legal, body.viewmode #legal { display: none; }
   border-color: #b8860b !important;
   box-shadow: 0 0 0 2px rgba(184, 134, 11, .3);
 }
-#trayBar {
-  position: fixed; left: 50%; transform: translateX(-50%); bottom: 12px; z-index: 430;
+#trayBar { /* bor lige under binderen — ikke oven paa resten af UI'et */
   display: flex; align-items: center; gap: 10px;
+  margin: 6px auto 0;
   background: rgba(12, 14, 22, .93); border: 1.5px dashed rgba(255, 215, 106, .4);
   border-radius: 14px; padding: 8px 14px; max-width: 92vw;
 }
@@ -1847,8 +1847,7 @@ body.dragging #trayBar[hidden] { display: flex; } /* tom bakke viser sig som dro
 #trayHint { font: 700 .75rem 'Fredoka', sans-serif; opacity: .75; white-space: nowrap; }
 body.viewmode #trayBar, body.presenting #trayBar { display: none !important; }
 body.dragging #trayBar { min-height: 60px; min-width: 320px; justify-content: center; } /* stor landingsplads under traek */
-@media (max-width: 640px) { /* over tommelfinger-baren + touch-venlige maal */
-  #trayBar { bottom: 64px; }
+@media (max-width: 640px) { /* touch-venlige maal */
   body.dragging #trayBar { min-width: 92vw; min-height: 72px; }
   .tray-card { width: 64px; }
   .tray-card .trm { width: 28px; height: 28px; font-size: .75rem; top: -9px; right: -9px; }
@@ -2069,6 +2068,10 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       </div>
       <button class="navbtn" id="next" title="Next spread">▶</button>
     </div>
+    <div id="trayBar" hidden>
+      <span id="trayHint" data-l="🧺 Tray">🧺 Tray</span>
+      <div id="trayCards"></div>
+    </div>
     <div class="spread-label" id="spreadLabel"></div>
     <div class="progress-wrap" id="progressWrap" style="display:none">
       <span id="progressText"></span>
@@ -2147,11 +2150,6 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   <button id="bbNeed">📋</button>
   <button id="bbFriends">👥</button>
   <button id="bbAccount">👤</button>
-</div>
-
-<div id="trayBar" hidden>
-  <span id="trayHint" data-l="🧺 Tray">🧺 Tray</span>
-  <div id="trayCards"></div>
 </div>
 
 <div id="placeBanner">
