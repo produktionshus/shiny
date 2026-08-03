@@ -2321,33 +2321,24 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <div id="packLandRow2" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center">
       <button class="btn primary" id="packOpenBtn">🎁 Open a pack</button>
       <button class="btn" id="bundleBtn" title="Open 5 packs back to back">🎁×5</button>
-      <button class="btn" id="duelBtn" title="Two players, same set — highest pack value wins">⚔️ Duel</button>
-      <button class="btn" id="pvpBtn" title="Two teams of two — combined pack value wins">👥 2v2</button>
+      <button class="btn" id="pvpBtn" title="Play against friends — locally or online">👥 Multiplayer</button>
     </div>
     <label id="autoKeepWrap"><input type="checkbox" id="autoKeep"> ⭐ Auto-keep secret pulls</label>
-    <div id="duelSetup">
-      <input id="duelN1" placeholder="Player 1" maxlength="14" autocomplete="off">
-      <input id="duelN2" placeholder="Player 2" maxlength="14" autocomplete="off">
-      <div id="duelScore"></div>
-      <div style="display:flex; gap:8px">
-        <button class="btn primary" id="duelStart">⚔️ Start duel</button>
-        <button class="btn" id="duelCancel">✕</button>
-      </div>
-    </div>
     <div id="pvpSetup">
       <div class="pvp-modes">
-        <button class="btn" id="pvpLocalBtn">📱 One device</button>
+        <button class="btn" id="pvpLocalBtn">📱 Local (pass around)</button>
         <button class="btn" id="pvpOnlineBtn">🌐 Online lobby</button>
         <button class="btn" id="pvpCancel">✕</button>
       </div>
       <div id="pvpLocal">
         <div class="pvp-team">Team 1</div>
-        <input id="pvpT1a" placeholder="Player 1" maxlength="14" autocomplete="off">
-        <input id="pvpT1b" placeholder="Player 2" maxlength="14" autocomplete="off">
+        <input id="pvpT1a" placeholder="Player" maxlength="14" autocomplete="off">
+        <input id="pvpT1b" placeholder="Teammate (blank = 1v1)" maxlength="14" autocomplete="off">
         <div class="pvp-team">Team 2</div>
-        <input id="pvpT2a" placeholder="Player 3" maxlength="14" autocomplete="off">
-        <input id="pvpT2b" placeholder="Player 4" maxlength="14" autocomplete="off">
-        <button class="btn primary" id="pvpLocalStart">👥 Start 2v2</button>
+        <input id="pvpT2a" placeholder="Player" maxlength="14" autocomplete="off">
+        <input id="pvpT2b" placeholder="Teammate (blank = 1v1)" maxlength="14" autocomplete="off">
+        <div id="duelScore"></div>
+        <button class="btn primary" id="pvpLocalStart">👥 Start</button>
       </div>
       <div id="pvpOnline">
         <input id="pvpName" placeholder="Your name" maxlength="14" autocomplete="off">
@@ -5077,9 +5068,7 @@ function playRip() { // syntetiseret papir-riv: stoej-burst med stigende bandpas
 }
 const packPoolCache = new Map(); // setId -> pools
 let pack = null; // { pools, cards, i, kept: Set, golden, isNew }
-let duel = null;   // { vals, names } — to spillere, samme saet
 let bundle = null; // { count, left, total, hits } — 5 pakker i traek
-let rematch = null; // navnepar fra sidste duel: goer "Open another" til rematch-knap
 let battle = null;  // 2v2: {mode:'local', names, order, turn, pulls, firstTeam} | {mode:'online', code, playerId, state, poll}
 
 const packBrief = c => ({ id: c.id, n: c.name, img: briefImg(c) });
@@ -5185,8 +5174,8 @@ async function openPackFlow(setId, btn) {
     if (pools.all.length < 10 || !pools.all.some(c => c.img)) {
       // fx W Promotional: saet uden kort-grafik kan ikke aabnes som pakke
       (packMode ? packToast : toast)('That set has no card images — pick another');
-    } else if (packMode) {
-      showShelf(pools); // butiks-ritualet: vaelg din pakke fra hylden
+    } else if (packMode && !battle) {
+      showShelf(pools); // butiks-ritualet: vaelg din pakke fra hylden — men ikke i multiplayer, hvor pollingen ellers skubber en tilbage
     } else {
       startPack(pools);
     }
@@ -5349,32 +5338,14 @@ function duelScoreLine(n1, n2) {
   const sc = (packStats().duels || {})[duelKey([n1, n2])];
   return sc ? '🏆 ' + n1 + ' ' + (sc[n1] || 0) + ' – ' + (sc[n2] || 0) + ' ' + n2 : '';
 }
-function renderDuelScore() {
-  const n1 = document.getElementById('duelN1').value.trim() || 'Player 1';
-  const n2 = document.getElementById('duelN2').value.trim() || 'Player 2';
-  document.getElementById('duelScore').textContent = duelScoreLine(n1, n2);
+function renderDuelScore() { // 1v1-scoreboard vises naar begge hold har praecis een spiller
+  const n1 = document.getElementById('pvpT1a').value.trim();
+  const n2 = document.getElementById('pvpT2a').value.trim();
+  const solo = n1 && n2 && !document.getElementById('pvpT1b').value.trim() && !document.getElementById('pvpT2b').value.trim();
+  document.getElementById('duelScore').textContent = solo ? duelScoreLine(n1, n2) : '';
 }
-document.getElementById('duelBtn').addEventListener('click', () => {
-  if (!chosenSetId) { packToast('Choose a set first'); return; }
-  const setup = document.getElementById('duelSetup');
-  setup.style.display = setup.style.display === 'flex' ? 'none' : 'flex';
-  document.getElementById('duelN1').value = localStorage.getItem('tcg-duel-n1') || '';
-  document.getElementById('duelN2').value = localStorage.getItem('tcg-duel-n2') || '';
-  renderDuelScore();
-});
-document.getElementById('duelN1').addEventListener('input', renderDuelScore);
-document.getElementById('duelN2').addEventListener('input', renderDuelScore);
-document.getElementById('duelCancel').addEventListener('click', () => document.getElementById('duelSetup').style.display = 'none');
-document.getElementById('duelStart').addEventListener('click', e => {
-  const n1 = document.getElementById('duelN1').value.trim() || 'Player 1';
-  const n2 = document.getElementById('duelN2').value.trim() || 'Player 2';
-  localStorage.setItem('tcg-duel-n1', n1);
-  localStorage.setItem('tcg-duel-n2', n2);
-  document.getElementById('duelSetup').style.display = 'none';
-  duel = { vals: [], names: [n1, n2] };
-  packToast('⚔️ ' + n1 + ' — open your pack!');
-  openPackFlow(chosenSetId, e.currentTarget);
-});
+['pvpT1a', 'pvpT1b', 'pvpT2a', 'pvpT2b'].forEach(id =>
+  document.getElementById(id).addEventListener('input', renderDuelScore));
 
 const $autoKeep = document.getElementById('autoKeep');
 $autoKeep.checked = localStorage.getItem('tcg-auto-keep') === '1';
@@ -5388,8 +5359,8 @@ document.addEventListener('keydown', e => { // Esc paa hylden: tilbage til landi
 
 function startPack(pools) {
   const st = packStats();
-  // PvP (duel/2v2) = lige vilkaar: ingen pity-garanti, ingen guldpakker, pity-taelleren staar stille
-  const pvp = !!(duel || battle);
+  // PvP = lige vilkaar: ingen pity-garanti, ingen guldpakker, pity-taelleren staar stille
+  const pvp = !!battle;
   const golden = !pvp && Math.random() < 1 / 50;
   const cards = buildPack(pools, !pvp && st.dry >= PITY - 1, golden);
   st.packs++;
@@ -6051,30 +6022,6 @@ function showPackSummary() {
     const st = packStats();
     st.valueStreak = sum >= PACK_PRICE ? st.valueStreak + 1 : 0; // 3 i traek = badge
     if (st.valueStreak >= 3) awardBadge('streak-3');
-    if (duel) { // ⚔️ to spillere, samme saet, hoejeste pakkevaerdi
-      duel.vals.push(sum);
-      const [n1, n2] = duel.names;
-      if (duel.vals.length === 1) {
-        document.getElementById('packAgain').textContent = '⚔️ ' + n2 + ' — open your pack';
-        packToast(n1 + ': ' + fmtPrice(sum) + ' — ' + n2 + ', your turn!');
-      } else {
-        const [a, b] = duel.vals;
-        valEl.textContent += ' · ' + n1 + ' ' + fmtPrice(a) + ' vs ' + n2 + ' ' + fmtPrice(b);
-        if (!st.duels) st.duels = {}; // scoreboard foelger navneparret, vinder-navne som noegler
-        const key = duelKey(duel.names);
-        const sc = st.duels[key] || (st.duels[key] = {});
-        if (a !== b) { const w = a > b ? n1 : n2; sc[w] = (sc[w] || 0) + 1; }
-        save();
-        const verdictTxt = a === b ? "IT'S A DRAW!" : (a > b ? n1 : n2).toUpperCase() + ' WINS!';
-        packCelebrate(verdictTxt);
-        document.getElementById('duelVerdict').textContent = '🏆 ' + verdictTxt; // bliver staaende til naeste kamp
-        playFx('wow.mp3', 0.6);
-        packToast(duelScoreLine(n1, n2));
-        rematch = [n2, n1]; // man skiftes til at starte
-        document.getElementById('packAgain').textContent = '⚔️ Rematch — ' + n2 + ' first';
-        duel = null;
-      }
-    }
     if (bundle) { // 🎁×5: loebende total
       bundle.total += sum;
       bundle.hits.push(...myPack.cards.filter(c => c.hit).map(c => c.n));
@@ -6089,14 +6036,23 @@ function showPackSummary() {
         bundle = null;
       }
     }
-    if (battle && battle.mode === 'local') { // 👥 2v2 paa een enhed
+    if (battle && battle.mode === 'local') { // 👥 1v1/2v2 paa een enhed
       battle.pulls.push({ ...battle.order[battle.turn], value: sum, best: bestOfPack(details, myPack.cards) });
       battle.turn++;
-      if (battle.turn < 4) {
+      if (battle.turn < battle.order.length) {
         const nx = battle.order[battle.turn];
         document.getElementById('packAgain').textContent = '🎁 ' + nx.name + ' (Team ' + nx.team + ') — open your pack';
       } else {
         renderTeamResult(battle.pulls);
+        if (battle.order.length === 2) { // 1v1: scoreboardet taeller videre
+          const [p1, p2] = battle.pulls;
+          if (!st.duels) st.duels = {};
+          const key = duelKey([p1.name, p2.name]);
+          const sc = st.duels[key] || (st.duels[key] = {});
+          if (p1.value !== p2.value) { const w = p1.value > p2.value ? p1.name : p2.name; sc[w] = (sc[w] || 0) + 1; }
+          save();
+          document.getElementById('teamScore').innerHTML += '<br>' + duelScoreLine(p1.name, p2.name);
+        }
         document.getElementById('packAgain').textContent = '👥 Rematch — Team ' + (battle.firstTeam === 1 ? 2 : 1) + ' starts';
       }
     }
@@ -6166,7 +6122,7 @@ document.getElementById('packAgain').addEventListener('click', () => {
     return;
   }
   if (battle && battle.mode === 'local') {
-    if (battle.turn >= 4) { // rematch: det andet hold laegger ud
+    if (battle.turn >= battle.order.length) { // rematch: det andet hold laegger ud
       battle.firstTeam = battle.firstTeam === 1 ? 2 : 1;
       battle.pulls = [];
       battle.turn = 0;
@@ -6175,10 +6131,6 @@ document.getElementById('packAgain').addEventListener('click', () => {
     packToast('👥 ' + battle.order[battle.turn].name + ' (Team ' + battle.order[battle.turn].team + ') — open your pack!');
     startPack(pack.pools);
     return;
-  }
-  if (rematch && !duel && !bundle) { // ⚔️ ny runde med samme navne
-    duel = { vals: [], names: rematch };
-    packToast('⚔️ ' + rematch[0] + ' — open your pack!');
   }
   startPack(pack.pools);
 });
@@ -6253,7 +6205,8 @@ document.getElementById('pvpBtn').addEventListener('click', () => {
     const names = JSON.parse(localStorage.getItem('tcg-pvp-names') || '[]');
     ['pvpT1a', 'pvpT1b', 'pvpT2a', 'pvpT2b'].forEach((id, i) => { if (names[i]) document.getElementById(id).value = names[i]; });
   } catch (e) {}
-  document.getElementById('pvpName').value = localStorage.getItem('tcg-duel-n1') || '';
+  document.getElementById('pvpName').value = localStorage.getItem('tcg-pvp-me') || '';
+  renderDuelScore();
 });
 document.getElementById('pvpCancel').addEventListener('click', () => document.getElementById('pvpSetup').style.display = 'none');
 document.getElementById('pvpLocalBtn').addEventListener('click', () => {
@@ -6266,18 +6219,21 @@ document.getElementById('pvpOnlineBtn').addEventListener('click', () => {
 });
 
 // --- een enhed: send iPad'en rundt ---
-function buildLocalOrder() {
-  const n = battle.names;
-  const t1 = [{ name: n[0], team: 1 }, { name: n[1], team: 1 }];
-  const t2 = [{ name: n[2], team: 2 }, { name: n[3], team: 2 }];
+function buildLocalOrder() { // fletter holdene: A1 -> B1 (-> A2 -> B2)
+  const t1 = battle.t1.map(n => ({ name: n, team: 1 }));
+  const t2 = battle.t2.map(n => ({ name: n, team: 2 }));
   const [a, b] = battle.firstTeam === 1 ? [t1, t2] : [t2, t1];
-  battle.order = [a[0], b[0], a[1], b[1]]; // A1 -> B1 -> A2 -> B2
+  battle.order = [];
+  for (let i = 0; i < a.length; i++) battle.order.push(a[i], b[i]);
 }
 document.getElementById('pvpLocalStart').addEventListener('click', e => {
-  const names = ['pvpT1a', 'pvpT1b', 'pvpT2a', 'pvpT2b'].map((id, i) =>
-    document.getElementById(id).value.trim() || 'Player ' + (i + 1));
-  localStorage.setItem('tcg-pvp-names', JSON.stringify(names));
-  battle = { mode: 'local', names, firstTeam: 1, pulls: [], turn: 0 };
+  const val = id => document.getElementById(id).value.trim();
+  const t1 = [val('pvpT1a'), val('pvpT1b')].filter(Boolean);
+  const t2 = [val('pvpT2a'), val('pvpT2b')].filter(Boolean);
+  if (!t1.length || !t2.length) { packToast('At least one player per team'); return; }
+  if (t1.length !== t2.length) { packToast('Teams must be even — 1v1 or 2v2'); return; }
+  localStorage.setItem('tcg-pvp-names', JSON.stringify([val('pvpT1a'), val('pvpT1b'), val('pvpT2a'), val('pvpT2b')]));
+  battle = { mode: 'local', t1, t2, firstTeam: 1, pulls: [], turn: 0 };
   buildLocalOrder();
   document.getElementById('pvpSetup').style.display = 'none';
   packToast('👥 ' + battle.order[0].name + ' (Team ' + battle.order[0].team + ') — open your pack!');
@@ -6309,6 +6265,7 @@ async function enterRoom(j) {
 document.getElementById('pvpCreate').addEventListener('click', async () => {
   const name = document.getElementById('pvpName').value.trim();
   if (!name) { document.getElementById('pvpErr').textContent = 'Write your name first'; return; }
+  localStorage.setItem('tcg-pvp-me', name);
   try {
     const j = await battleApi('', { name });
     await enterRoom(j);
@@ -6319,6 +6276,7 @@ document.getElementById('pvpJoin').addEventListener('click', async () => {
   const name = document.getElementById('pvpName').value.trim();
   const code = document.getElementById('pvpCode').value.trim().toUpperCase();
   if (!name || code.length !== 4) { document.getElementById('pvpErr').textContent = 'Name + 4-letter code'; return; }
+  localStorage.setItem('tcg-pvp-me', name);
   try {
     await enterRoom(await battleApi('/' + code + '/join', { name }));
   } catch (e) {
@@ -6406,7 +6364,9 @@ function showTurnPrompt() {
   $packOverlay.classList.add('open');
 }
 document.getElementById('specTurnBtn').addEventListener('click', e => {
-  openPackFlow(battle.state.setId, e.currentTarget); // gestussen her laaser ogsaa lyden op
+  if (battle.opening) return; // dobbelt-tap maa ikke aabne to pakker
+  battle.opening = true;
+  openPackFlow(battle.state.setId, e.currentTarget).finally(() => { if (battle) battle.opening = false; });
 });
 
 function battleOrderLine() {
@@ -6555,10 +6515,8 @@ function replayPull(h) { // gen-oplev et stort hit med fuld fejring
 
 function showPackLanding() {
   pack = null;
-  duel = null;
   bundle = null;
-  rematch = null;
-  if (battle) { stopBattlePoll(); battle = null; } // forlad ogsaa 2v2
+  if (battle) { stopBattlePoll(); battle = null; } // forlad ogsaa multiplayer
   document.getElementById('lobbyView').classList.remove('open');
   document.getElementById('spectateStage').style.display = 'none';
   document.getElementById('teamScore').style.display = 'none';
