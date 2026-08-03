@@ -506,12 +506,19 @@ function saneCM(cm) { // korrupt upstream-data (fx xyp-XY192: low=100000 >> tren
   if (typeof cm.low === 'number' && ref && cm.low > ref * 5) return null;
   return cm;
 }
+const PTCG_SET_ALIAS = { // ptcgio's navngivning er inkonsistent — kendte undtagelser mappes eksplicit
+  'swsh4.5': 'swsh45', 'swsh4.5sv': 'swsh45sv',
+  'swsh9.5tg': 'swsh9tg', 'swsh10.5tg': 'swsh10tg', 'swsh11.5tg': 'swsh11tg', 'swsh12.5tg': 'swsh12tg',
+};
 function ptcgioId(id) { // tcgdex-id -> pokemontcg.io-id: sm3.5-40 -> sm35-40, swsh12.5gg-GG10 -> swsh12pt5gg-GG10
   const i = id.lastIndexOf('-');
   if (i < 1) return id;
   let set = id.slice(0, i);
-  set = set.startsWith('sm') ? set.replace('.', '') : set.replace('.', 'pt');
-  set = set.replace(/^([a-z]+)0+(?=\d)/, '$1');
+  if (PTCG_SET_ALIAS[set]) set = PTCG_SET_ALIAS[set];
+  else {
+    set = set.startsWith('sm') ? set.replace('.', '') : set.replace('.', 'pt');
+    set = set.replace(/^([a-z]+)0+(?=\d)/, '$1');
+  }
   return set + '-' + id.slice(i + 1).replace(/^0+(?=\d)/, '');
 }
 function extractPrices(d) {
