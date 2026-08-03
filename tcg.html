@@ -2163,6 +2163,16 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   </div>
 </div>
 
+<div id="confirmmodal" class="modal" hidden>
+  <div class="modal-card" style="max-width: 360px;">
+    <p id="confirmText" style="margin: 0 0 16px; font: 700 .95rem 'Nunito', sans-serif;"></p>
+    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      <button class="btn sec" id="confirmNo" data-l="Cancel">Cancel</button>
+      <button class="btn primary" id="confirmYes"></button>
+    </div>
+  </div>
+</div>
+
 <div id="factsmodal" class="modal" hidden>
   <div class="modal-card">
     <button class="modal-close" aria-label="Close">✕</button>
@@ -2553,6 +2563,11 @@ const STR_DA = {
   'No match — try more light or fill the frame': 'Intet match — prøv mere lys eller fyld rammen',
   'Added ': 'Tilføjede ',
   'Price on cards': 'Pris på kort',
+  'has purchase info (price/date/condition/note) that will be lost.':
+    'har købsinfo (pris/dato/stand/note) som går tabt.',
+  'Replace': 'Erstat',
+  'Remove': 'Fjern',
+  'Cancel': 'Annullér',
   'PokéBinder is a free, non-commercial fan project. Pokémon and all respective names, images and trademarks are © Nintendo, Game Freak, Creatures Inc. and The Pokémon Company. This site is not affiliated with or endorsed by them. Card data and images via TCGdex.':
     'PokéBinder er et gratis, ikke-kommercielt fanprojekt. Pokémon og alle tilhørende navne, billeder og varemærker tilhører © Nintendo, Game Freak, Creatures Inc. og The Pokémon Company. Sitet er ikke tilknyttet eller godkendt af disse. Kortdata og billeder via TCGdex.',
   'Prices:': 'Priser:',
@@ -3187,10 +3202,12 @@ function renderPage(grid, pageIdx) {
         rm.title = 'Remove card';
         rm.addEventListener('click', e => {
           e.stopPropagation();
-          snapshot();
-          binder().pages[pageIdx][slot] = null;
-          save(); renderBinder();
-          toast(T('Removed ') + card.n, true);
+          guardInfo(card, () => {
+            snapshot();
+            binder().pages[pageIdx][slot] = null;
+            save(); renderBinder();
+            toast(T('Removed ') + card.n, true);
+          }, T('Remove'));
         });
         div.appendChild(rm);
         const own = document.createElement('button');
@@ -3225,12 +3242,14 @@ function pocketClick(pageIdx, slot) {
   const pages = binder().pages;
   if (placing) {
     const existing = pages[pageIdx][slot];
-    if (existing) snapshot();
-    pages[pageIdx][slot] = { ...placing, o: placeMode === 'owned' }; // kopi — samme kort ubegrænset
-    if (existing) toast(T('Replaced ') + existing.n, true);
-    lastPlaced = { page: pageIdx, slot };
-    snick();
-    save(); renderBinder();
+    guardInfo(existing, () => {
+      if (existing) snapshot();
+      pages[pageIdx][slot] = { ...placing, o: placeMode === 'owned' }; // kopi — samme kort ubegrænset
+      if (existing) toast(T('Replaced ') + existing.n, true);
+      lastPlaced = { page: pageIdx, slot };
+      snick();
+      save(); renderBinder();
+    }, T('Replace'));
     return;
   }
   if (picked) {
@@ -3244,6 +3263,29 @@ function pocketClick(pageIdx, slot) {
     toast(T('Card picked up — click another pocket to move or swap'));
     renderBinder();
   }
+}
+
+// koebsinfo-vaern: kort med pris/dato/stand/note maa ikke forsvinde ved et uheld
+function hasInfo(c) { return !!(c && (c.pp != null || c.pd || c.note || c.cond)); }
+const confirmmodal = document.getElementById('confirmmodal');
+let confirmResolve = null;
+function confirmDialog(msg, okText) {
+  document.getElementById('confirmText').textContent = msg;
+  document.getElementById('confirmYes').textContent = okText;
+  confirmmodal.hidden = false;
+  return new Promise(res => { confirmResolve = res; });
+}
+function confirmAnswer(v) {
+  confirmmodal.hidden = true;
+  if (confirmResolve) { confirmResolve(v); confirmResolve = null; }
+}
+document.getElementById('confirmYes').addEventListener('click', () => confirmAnswer(true));
+document.getElementById('confirmNo').addEventListener('click', () => confirmAnswer(false));
+confirmmodal.addEventListener('click', e => { if (e.target === confirmmodal) confirmAnswer(false); });
+function guardInfo(card, action, okLabel) { // action koeres straks, eller efter bekraeftelse hvis kortet baerer info
+  if (!hasInfo(card)) { action(); return; }
+  confirmDialog('"' + card.n + '" ' + T('has purchase info (price/date/condition/note) that will be lost.'), okLabel)
+    .then(ok => { if (ok) action(); });
 }
 
 function moveCard(from, to) {
@@ -3268,10 +3310,14 @@ document.getElementById('addPages').addEventListener('click', () => {
 document.getElementById('delPages').addEventListener('click', () => {
   const pages = binder().pages;
   if (pages.length <= 2) { toast('The binder needs at least one spread'); return; }
-  snapshot();
-  pages.splice(-2, 2);
-  save(); renderBinder();
-  toast(T('Spread removed'), true);
+  const infoCard = pages.slice(-2).flat().find(hasInfo);
+  guardInfo(infoCard || null, () => {
+    snapshot();
+    pages.splice(-2, 2);
+    save(); renderBinder();
+    toast(T('Spread removed'), true);
+  }, T('Remove'));
+  return;
 });
 
 // ---------- bindere (flere) ----------
@@ -3543,12 +3589,14 @@ function endDrag(x, y) {
     moveCard(from, { page: t.page, slot: t.slot }); // flyt/byt
   } else {
     const existing = pages[t.page][t.slot];
-    if (existing) snapshot();
-    pages[t.page][t.slot] = { ...card, o: placeMode === 'owned' }; // dubletter altid tilladt
-    if (existing) toast(T('Replaced ') + existing.n, true);
-    lastPlaced = { page: t.page, slot: t.slot };
-    snick();
-    save(); renderBinder();
+    guardInfo(existing, () => {
+      if (existing) snapshot();
+      pages[t.page][t.slot] = { ...card, o: placeMode === 'owned' }; // dubletter altid tilladt
+      if (existing) toast(T('Replaced ') + existing.n, true);
+      lastPlaced = { page: t.page, slot: t.slot };
+      snick();
+      save(); renderBinder();
+    }, T('Replace'));
   }
 }
 
