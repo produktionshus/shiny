@@ -431,8 +431,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS img_missing (
 )`);
 function isAdmin(req) {
   if (!req.session || !req.session.userId) return false;
-  const admins = (process.env.ADMIN_USERS || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
-  if (!admins.length) return req.session.userId === 1; // ingen env sat: foerste konto er admin
+  const admins = (process.env.ADMIN_USERS || 'Soren').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
   const u = db.prepare('SELECT username FROM users WHERE id = ?').get(req.session.userId);
   return !!u && admins.includes(u.username.toLowerCase());
 }
