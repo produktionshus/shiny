@@ -45,12 +45,13 @@ body::before {
 }
 
 header { text-align: center; padding: 16px 16px 4px; }
-h1 .brand {
-  background: linear-gradient(180deg, #ffe9a0 20%, #d9a92f 90%);
+h1 .brand { /* lys gul forrest, guldbrun bagved som skygge */
+  background: linear-gradient(180deg, #fff3c4 15%, #ffd76a 85%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: .03em;
+  filter: drop-shadow(0 2px 0 rgba(150, 100, 25, .9)) drop-shadow(0 3px 8px rgba(0, 0, 0, .35));
 }
 h1 {
   font-family: 'Fredoka', sans-serif;
