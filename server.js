@@ -818,6 +818,7 @@ app.post('/api/battle/:code/act', (req, res) => {
 
 // pack-aabneren er sin egen app men deler motor (og konto) med TCG-binderen
 app.get('/packs', (req, res) => res.sendFile(path.join(__dirname, 'tcg.html')));
+app.get(['/admin', '/admin/'], (req, res) => res.sendFile(path.join(__dirname, 'admin.html'))); // ogsaa med trailing slash
 app.get('/go', (req, res) => res.sendFile(path.join(__dirname, 'index.html'))); // shiny paa alle domaener
 
 // pokebinder.dk viser binderen direkte paa roden; shiny bor paa sit eget domaene
