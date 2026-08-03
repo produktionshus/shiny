@@ -1824,7 +1824,13 @@ body.dragging #trayBar[hidden] { display: flex; } /* tom bakke viser sig som dro
 }
 #trayHint { font: 700 .75rem 'Fredoka', sans-serif; opacity: .75; white-space: nowrap; }
 body.viewmode #trayBar, body.presenting #trayBar { display: none !important; }
-@media (max-width: 640px) { #trayBar { bottom: 64px; } } /* over tommelfinger-baren */
+body.dragging #trayBar { min-height: 60px; min-width: 320px; justify-content: center; } /* stor landingsplads under traek */
+@media (max-width: 640px) { /* over tommelfinger-baren + touch-venlige maal */
+  #trayBar { bottom: 64px; }
+  body.dragging #trayBar { min-width: 92vw; min-height: 72px; }
+  .tray-card { width: 64px; }
+  .tray-card .trm { width: 28px; height: 28px; font-size: .75rem; top: -9px; right: -9px; }
+}
 #moreMenu[hidden] { display: none !important; }
 #moreMenu {
   position: fixed;
