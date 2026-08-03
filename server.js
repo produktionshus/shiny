@@ -315,8 +315,7 @@ async function buildScanIndex() {
     const ins = db.prepare('INSERT OR REPLACE INTO card_hashes (card_id, hash) VALUES (?, ?)');
     const hashOne = async c => {
       const url = c.image ? c.image + '/low.webp'
-        : 'https://images.pokemontcg.io/' + c.id.slice(0, c.id.lastIndexOf('-')).replace('.', 'pt')
-          + '/' + c.id.slice(c.id.lastIndexOf('-') + 1) + '.png'; // TCGdex-hul: proev fallback-kilden
+        : 'https://images.pokemontcg.io/' + ptcgioId(c.id).replace(/-(?=[^-]*$)/, '/') + '.png'; // TCGdex-hul: proev fallback-kilden
       const r = await fetch(url);
       if (!r.ok) throw new Error('no image');
       const buf = Buffer.from(await r.arrayBuffer());
@@ -506,6 +505,14 @@ function saneCM(cm) { // korrupt upstream-data (fx xyp-XY192: low=100000 >> tren
   if (typeof cm.low === 'number' && ref && cm.low > ref * 5) return null;
   return cm;
 }
+function ptcgioId(id) { // tcgdex-id -> pokemontcg.io-id: sm3.5-40 -> sm35-40, swsh12.5gg-GG10 -> swsh12pt5gg-GG10
+  const i = id.lastIndexOf('-');
+  if (i < 1) return id;
+  let set = id.slice(0, i);
+  set = set.startsWith('sm') ? set.replace('.', '') : set.replace('.', 'pt');
+  set = set.replace(/^([a-z]+)0+(?=\d)/, '$1');
+  return set + '-' + id.slice(i + 1).replace(/^0+(?=\d)/, '');
+}
 function extractPrices(d) {
   const blocks = [];
   if (d && d.pricing) blocks.push(d.pricing);
@@ -548,7 +555,7 @@ async function snapshotPrices() {
         let { eur, usd } = extractPrices(await r.json());
         if (eur === null && usd === null) { // TCGdex-prishul: proev pokemontcg.io
           try {
-            const pr = await fetch('https://api.pokemontcg.io/v2/cards/' + encodeURIComponent(id.replace('.', 'pt')) + '?select=cardmarket,tcgplayer');
+            const pr = await fetch('https://api.pokemontcg.io/v2/cards/' + encodeURIComponent(ptcgioId(id)) + '?select=cardmarket,tcgplayer');
             if (pr.ok) {
               const p = (await pr.json()).data || {};
               const cmp = p.cardmarket && p.cardmarket.prices;

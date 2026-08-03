@@ -2804,10 +2804,12 @@ function imgUrl(path, q) {
     return 'https://images.pokemontcg.io/' + path.slice(5) + (q === 'high' ? '_hires.png' : '.png');
   return ASSETS + path + '/' + q + '.webp';
 }
-function ptcgPath(id) { // tcgdex-id -> pokemontcg.io "saet/nummer": '.5'->'pt5', me05->me5, 027->27
+function ptcgPath(id) { // tcgdex-id -> pokemontcg.io "saet/nummer": sm3.5->sm35, swsh12.5->swsh12pt5, me05->me5, 027->27
   const i = id.lastIndexOf('-');
   if (i < 1) return null;
-  const set = id.slice(0, i).replace('.', 'pt').replace(/^([a-z]+)0+(?=\d)/, '$1');
+  let set = id.slice(0, i);
+  set = set.startsWith('sm') ? set.replace('.', '') : set.replace('.', 'pt');
+  set = set.replace(/^([a-z]+)0+(?=\d)/, '$1');
   const num = id.slice(i + 1).replace(/^0+(?=\d)/, '');
   return set + '/' + num;
 }
@@ -3349,8 +3351,11 @@ function renderPage(grid, pageIdx) {
             }
           }
         });
-      } else {
-        div.innerHTML = '<div class="name-only">' + card.n + '</div>';
+      } else { // samme SVG-pladsholder som zoom-visningen
+        const im = document.createElement('img');
+        im.src = placeholderImg(card.n);
+        im.alt = card.n;
+        div.appendChild(im);
         reportMissingImg(card);
       }
       div.title = card.n + (card.o === false ? ' (need)' : '');
@@ -3497,8 +3502,7 @@ function renderTray() {
     const d = document.createElement('div');
     d.className = 'tray-card';
     d.title = c.n;
-    if (c.img) d.innerHTML = '<img src="' + imgUrl(c.img, 'low') + '" alt="">';
-    else d.textContent = c.n;
+    d.innerHTML = '<img src="' + (c.img ? imgUrl(c.img, 'low') : placeholderImg(c.n)) + '" alt="">';
     const x = document.createElement('button');
     x.className = 'trm';
     x.textContent = '✕';
@@ -3932,7 +3936,8 @@ function getDetail(id, lang) {
       .then(async d => {
         if (d && lang === 'en' && !hasAnyPrice(d)) { // TCGdex-prishul: proev pokemontcg.io
           try {
-            const pr = await fetch('/api/pxprice/' + encodeURIComponent(id.replace('.', 'pt'))); // egen cachede proxy
+            const pt = ptcgPath(id);
+            const pr = await fetch('/api/pxprice/' + encodeURIComponent(pt ? pt.replace('/', '-') : id)); // egen cachede proxy
             if (pr.ok) {
               const gp = ptcgioPricing(await pr.json());
               if (gp) d.pricing = gp;
