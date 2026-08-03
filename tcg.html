@@ -422,8 +422,9 @@ body.viewmode #drawerTab { display: none; }
 }
 .spread { position: relative; display: flex; transform-style: preserve-3d; }
 /* sideblad: den nye side folder ind over ryggen */
-.spread.turn-fwd .page.right { animation: turnInR .3s ease-out; transform-origin: left center; }
-.spread.turn-back .page.left { animation: turnInL .3s ease-out; transform-origin: right center; }
+/* fysikken: fremad folder hoejre side over ryggen og LANDER som ny venstre side — og omvendt */
+.spread.turn-fwd .page.left { animation: turnInL .3s ease-out; transform-origin: right center; }
+.spread.turn-back .page.right { animation: turnInR .3s ease-out; transform-origin: left center; }
 @keyframes turnInR {
   from { transform: rotateY(-75deg); opacity: .3; box-shadow: -30px 0 40px rgba(0,0,0,.4); }
   to   { transform: rotateY(0); opacity: 1; }
@@ -431,6 +432,10 @@ body.viewmode #drawerTab { display: none; }
 @keyframes turnInL {
   from { transform: rotateY(75deg); opacity: .3; box-shadow: 30px 0 40px rgba(0,0,0,.4); }
   to   { transform: rotateY(0); opacity: 1; }
+}
+@media (max-width: 640px) { /* telefon viser kun hoejre side — samme retningsfoelelse paa den */
+  .spread.turn-fwd .page.right { animation: turnInL .3s ease-out; transform-origin: left center; }
+  .spread.turn-back .page.right { animation: turnInR .3s ease-out; transform-origin: left center; }
 }
 
 /* forside — lukket binder */
