@@ -2809,6 +2809,24 @@ function ptcgPath(id) { // tcgdex-id -> pokemontcg.io "saet/nummer": '.5'->'pt5'
   const num = id.slice(i + 1).replace(/^0+(?=\d)/, '');
   return set + '/' + num;
 }
+function placeholderImg(name) { // billedloese kort (Ancient Mew, egne kort): paen SVG i kort-format
+  const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const words = name.split(' ');
+  const lines = [''];
+  for (const w of words) {
+    if ((lines[lines.length - 1] + ' ' + w).trim().length > 16 && lines.length < 5) lines.push(w);
+    else lines[lines.length - 1] = (lines[lines.length - 1] + ' ' + w).trim();
+  }
+  const spans = lines.map((ln, i2) =>
+    '<tspan x="50%" dy="' + (i2 ? 30 : 0) + '">' + esc(ln) + '</tspan>').join('');
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="367" height="512">'
+    + '<rect width="100%" height="100%" rx="18" fill="#232c40"/>'
+    + '<rect x="12" y="12" width="343" height="488" rx="12" fill="none" stroke="#ffd76a" stroke-width="3" stroke-dasharray="12 9" opacity=".7"/>'
+    + '<text x="50%" y="46%" fill="#ffe9a0" font-family="Verdana,sans-serif" font-size="24" font-weight="bold" text-anchor="middle">' + spans + '</text>'
+    + '<text x="50%" y="88%" fill="#ffe9a0" opacity=".5" font-family="Verdana,sans-serif" font-size="15" text-anchor="middle">Pok\u00e9Binder</text>'
+    + '</svg>';
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
 function briefImg(c) { // billedsti fra API-kort; huller udfyldes med pokemontcg.io
   if (c.image) return c.image.replace(ASSETS, '');
   if (!c.id) return null;
@@ -3310,7 +3328,7 @@ function renderPage(grid, pageIdx) {
         div.innerHTML = '<div class="name-only">' + card.n + '</div>';
       }
       div.title = card.n + (card.o === false ? ' (need)' : '');
-      if (card.img) {
+      {
         const z = document.createElement('button');
         z.className = 'ptool zoom';
         z.textContent = '🔍';
@@ -3699,7 +3717,6 @@ function attachDrag(el, getPayload) {
     const touch = e.pointerType === 'touch';
     const payload = getPayload();
     wasDrag = false;
-    if (!payload.card.img) return; // navnløse kort: brug klik-flowet
 
     function cleanup() {
       window.removeEventListener('pointermove', onMove);
@@ -3740,7 +3757,7 @@ function startDrag(payload, touch) {
   const g = document.createElement('div');
   g.id = 'dragGhost';
   if (touch) g.classList.add('touch'); // over fingeren, ikke under den
-  g.innerHTML = '<img src="' + imgUrl(payload.card.img, 'low') + '" alt="">';
+  g.innerHTML = '<img src="' + (payload.card.img ? imgUrl(payload.card.img, 'low') : placeholderImg(payload.card.n)) + '" alt="">';
   document.body.appendChild(g);
   drag.ghost = g;
   document.body.classList.add('dragging');
@@ -4111,12 +4128,15 @@ const $zoomImg = document.getElementById('zoomImg');
 let zoomedCard = null;
 
 function openZoom(card, from) {
-  if (!card.img) { toast('No image for this card'); return; }
   zoomedCard = card;
-  $zoomImg.src = imgUrl(card.img, 'low');
-  const hi = new Image(); // høj opløsning lægges ovenpå når hentet
-  hi.onload = () => { if (zoomedCard === card) $zoomImg.src = hi.src; };
-  hi.src = imgUrl(card.img, 'high');
+  if (card.img) {
+    $zoomImg.src = imgUrl(card.img, 'low');
+    const hi = new Image(); // høj opløsning lægges ovenpå når hentet
+    hi.onload = () => { if (zoomedCard === card) $zoomImg.src = hi.src; };
+    hi.src = imgUrl(card.img, 'high');
+  } else {
+    $zoomImg.src = placeholderImg(card.n); // pladsholder: al data/koebsinfo virker stadig
+  }
   document.getElementById('zoomName').textContent = card.n;
   $zoomCard.classList.remove('holo-on');
   getDetail(card.id, cardLang(card)).then(d => { // reverse er naesten alle moderne kort — kun aegte holo taeller
