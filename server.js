@@ -218,16 +218,17 @@ app.get('/api/tcg/shared/:token', (req, res) => {
 const ptcgAltCache = new Map(); // "saet/nr" -> billed-URL | null (nye saet bor paa scrydex, ikke images.pokemontcg.io)
 async function ptcgAltImgUrl(setnum) {
   if (ptcgAltCache.has(setnum)) return ptcgAltCache.get(setnum);
-  let url = null;
   try {
     const r = await fetch('https://api.pokemontcg.io/v2/cards/' + encodeURIComponent(setnum.replace('/', '-')) + '?select=images');
     if (r.ok) {
       const img = ((await r.json()).data || {}).images || {};
-      url = img.large || img.small || null;
+      const url = img.large || img.small || null;
+      ptcgAltCache.set(setnum, url);
+      return url;
     }
-  } catch (e) { /* best effort */ }
-  ptcgAltCache.set(setnum, url);
-  return url;
+    if (r.status === 404) ptcgAltCache.set(setnum, null); // kortet findes ikke — cache det
+  } catch (e) { /* transient (timeout/ratelimit): cache IKKE, proev igen naeste gang */ }
+  return null;
 }
 app.get('/api/img/*', async (req, res) => {
   const imgPath = req.params[0] || '';
