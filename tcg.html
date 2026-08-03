@@ -1920,10 +1920,11 @@ body.pileopen #bottomBar { display: none !important; }
 @media (max-width: 640px) {
   header { display: none; } /* navnet staar i modul-pillen */
   .binder-switch { position: static; margin: calc(8px + env(safe-area-inset-top, 0px)) auto 2px; width: max-content; }
-  .toolbar { padding: 4px 10px 0; gap: 6px; }
+  .toolbar { padding: 4px 10px 0; gap: 6px; flex-wrap: nowrap; } /* alt paa EEN linje */
   .toolbar #friendsBtn, .toolbar #helpBtn, .toolbar #authbtn,
   .toolbar #binderSelect, .toolbar #newBinder, .toolbar #delBinder { display: none; }
-  #binderName { width: 130px; }
+  #binderName { flex: 1 1 auto; min-width: 56px; width: auto; }
+  .toolbar .btn { padding: 8px 10px; white-space: nowrap; }
   .layout { padding: 6px; gap: 8px; }
   .binder { padding: 12px; }
   .binder::before { inset: 5px; }
