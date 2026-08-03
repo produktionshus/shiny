@@ -1808,6 +1808,26 @@ body.presenting #legal, body.viewmode #legal { display: none; }
   background: rgba(10, 12, 20, .78); padding: 2px 8px; border-radius: 8px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, .6);
 }
+.cs-label { text-align: left; font: 700 .8rem 'Fredoka', sans-serif; opacity: .7; margin: 10px 0 4px; }
+.cs-group { display: flex; gap: 6px; }
+.cs-group button {
+  flex: 1; padding: 8px 6px; border-radius: 10px; cursor: pointer;
+  border: 1.5px solid rgba(255, 255, 255, .18); background: rgba(255, 255, 255, .05);
+  color: inherit; font: 700 .8rem 'Nunito', sans-serif;
+}
+/* modalens kort er lyst holo — knapper skal staa moerke for laesbarhed
+   (!important: tema-reglerne 'body.theme-display button.btn...' vinder ellers paa specificitet) */
+.modal-card .btn, .modal-card .cs-group button {
+  background: rgba(35, 40, 55, .92) !important;
+  color: #ffe9a0 !important;
+  border: 1.5px solid rgba(120, 90, 40, .55) !important;
+}
+.modal-card .cs-group button.on, .modal-card .btn.primary {
+  background: rgba(25, 30, 45, .98) !important;
+  color: #ffd76a !important;
+  border-color: #b8860b !important;
+  box-shadow: 0 0 0 2px rgba(184, 134, 11, .3);
+}
 #trayBar {
   position: fixed; left: 50%; transform: translateX(-50%); bottom: 12px; z-index: 430;
   display: flex; align-items: center; gap: 10px;
@@ -1976,6 +1996,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 
 <div class="toolbar">
   <button class="btn" id="shelfBtn" title="Binder shelf">🗄</button>
+  <button class="btn" id="pullTrayBtn" title="Pull cards into the tray">🧺⬇</button>
   <select id="binderSelect" title="Choose binder"></select>
   <input id="binderName" data-lp="Binder name" placeholder="Binder name" size="14">
   <button class="btn" id="newBinder" data-l="+ New binder">+ New binder</button>
@@ -2193,6 +2214,30 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <button class="modal-close" aria-label="Close">✕</button>
     <h2 style="font: 700 1.3rem 'Fredoka', sans-serif; margin-bottom: 12px;">🗄 Your shelf</h2>
     <div class="shelfrow" id="shelfrow"></div>
+  </div>
+</div>
+
+<div id="colorsortmodal" class="modal" hidden>
+  <div class="modal-card" style="max-width: 400px;">
+    <button class="modal-close" aria-label="Close">✕</button>
+    <h2 style="font: 700 1.3rem 'Fredoka', sans-serif; margin-bottom: 10px;">🌈 <span data-l="Color sort">Color sort</span></h2>
+    <div class="cs-label" data-l="Style">Style</div>
+    <div class="cs-group" id="csMode">
+      <button data-v="hue" class="on" data-l="Rainbow">Rainbow</button>
+      <button data-v="edge" data-l="Flowing">Flowing</button>
+      <button data-v="light" data-l="Light→dark">Light→dark</button>
+    </div>
+    <div class="cs-label" data-l="Direction">Direction</div>
+    <div class="cs-group" id="csDir">
+      <button data-v="rows" class="on" data-l="Reading order">Reading order</button>
+      <button data-v="sweep" data-l="Left→right across spread">Left→right across spread</button>
+    </div>
+    <div class="cs-label" data-l="Apply to">Apply to</div>
+    <div class="cs-group" id="csScope">
+      <button data-v="all" class="on" data-l="Whole binder (new copy)">Whole binder (new copy)</button>
+      <button data-v="spread" data-l="This spread">This spread</button>
+    </div>
+    <button class="btn primary" id="csGo" data-l="Sort" style="width: 100%; margin-top: 12px;">Sort</button>
   </div>
 </div>
 
@@ -2605,6 +2650,17 @@ const STR_DA = {
   'Color-sort the whole binder (new binder) or just this spread?':
     'Farvesortér hele binderen (ny binder) eller kun dette opslag?',
   'Whole binder': 'Hele binderen',
+  'Color sort': 'Farvesortering',
+  'Style': 'Stil',
+  'Rainbow': 'Regnbue',
+  'Flowing': 'Flydende',
+  'Light→dark': 'Lys→mørk',
+  'Apply to': 'Anvend på',
+  'Direction': 'Retning',
+  'Reading order': 'Læseretning',
+  'Left→right across spread': 'Venstre→højre over opslaget',
+  'Whole binder (new copy)': 'Hele binderen (ny kopi)',
+  'Sort': 'Sortér',
   'This spread': 'Dette opslag',
   'Spread color-sorted 🌈': 'Opslag farvesorteret 🌈',
   'Analyzing colors…': 'Analyserer farver…',
@@ -2638,6 +2694,9 @@ const STR_DA = {
   'Search first — then you can browse the pile': 'Søg først — så kan bunken gennemses',
   'The binder is empty': 'Binderen er tom',
   'Deleted ': 'Slettede ',
+  'Pull cards into the tray?': 'Træk kort ned i bakken?',
+  'Nothing to pull': 'Intet at trække ned',
+  'cards moved to the tray': 'kort flyttet til bakken',
   'Welcome to PokéBinder': 'Velkommen til PokéBinder',
   'Your Pokémon TCG collection as a real binder — build goals, track prices, show it off.':
     'Din Pokémon TCG-samling som en rigtig binder — byg mål, følg priser, og vis den frem.',
@@ -2727,12 +2786,18 @@ function imgUrl(path, q) {
     return 'https://images.pokemontcg.io/' + path.slice(5) + (q === 'high' ? '_hires.png' : '.png');
   return ASSETS + path + '/' + q + '.webp';
 }
-function briefImg(c) { // billedsti fra API-kort; huller udfyldes med pokemontcg.io (samme saetkoder, '.5' -> 'pt5')
+function ptcgPath(id) { // tcgdex-id -> pokemontcg.io "saet/nummer": '.5'->'pt5', me05->me5, 027->27
+  const i = id.lastIndexOf('-');
+  if (i < 1) return null;
+  const set = id.slice(0, i).replace('.', 'pt').replace(/^([a-z]+)0+(?=\d)/, '$1');
+  const num = id.slice(i + 1).replace(/^0+(?=\d)/, '');
+  return set + '/' + num;
+}
+function briefImg(c) { // billedsti fra API-kort; huller udfyldes med pokemontcg.io
   if (c.image) return c.image.replace(ASSETS, '');
   if (!c.id) return null;
-  const i = c.id.lastIndexOf('-');
-  if (i < 1) return null;
-  return 'ptcg:' + c.id.slice(0, i).replace('.', 'pt') + '/' + c.id.slice(i + 1);
+  const pt = ptcgPath(c.id);
+  return pt ? 'ptcg:' + pt : null;
 }
 
 // sim/virkelighed: pulls (sim-bindere) lever kun paa /packs, rigtige bindere paa /tcg
@@ -3197,6 +3262,13 @@ function renderPage(grid, pageIdx) {
         const im = document.createElement('img');
         im.src = imgUrl(card.img, q);
         im.alt = card.n;
+        im.onerror = () => { // upstream-hul (fx nye saet): vis navnet i stedet for broken-ikon
+          if (!im.isConnected) return;
+          const nn = document.createElement('div');
+          nn.className = 'name-only';
+          nn.textContent = card.n;
+          im.replaceWith(nn);
+        };
         if (lastPlaced && lastPlaced.page === pageIdx && lastPlaced.slot === slot) {
           im.classList.add('pop');
           lastPlaced = null;
@@ -3426,8 +3498,11 @@ document.getElementById('newBinder').addEventListener('click', () => {
   $binderName.focus();
   $binderName.select();
 });
-document.getElementById('delBinder').addEventListener('click', () => {
+document.getElementById('delBinder').addEventListener('click', async () => {
   if (modeBinders().length === 1) { toast('You need at least one binder'); return; }
+  const cur = binder();
+  const ok = await confirmDialog(T('Delete binder') + ' "' + cur.name + '"?', T('Delete binder'));
+  if (!ok) return;
   const at = store.active;
   const removed = store.binders.splice(at, 1)[0];
   store.active = 0;
@@ -3440,6 +3515,33 @@ document.getElementById('delBinder').addEventListener('click', () => {
   };
   save(); renderBinderSelect(); renderBinder();
   toast(T('Deleted ') + '"' + removed.name + '"', true);
+});
+
+// traek en hel side / hele binderen ned i bakken (omgoer-flow)
+document.getElementById('pullTrayBtn').addEventListener('click', async () => {
+  const b = binder();
+  if (viewBinder) return;
+  const vp = visiblePages().filter(pi => b.pages[pi]);
+  const choice = await confirmDialog(T('Pull cards into the tray?'),
+    vp.length ? T('This spread') : T('Whole binder'), vp.length ? T('Whole binder') : null);
+  if (!choice) return;
+  const whole = choice === 'alt' || !vp.length;
+  const srcPages = whole ? b.pages.map((_, i) => i) : vp;
+  const cards = srcPages.flatMap(pi => b.pages[pi].filter(c => c));
+  if (!cards.length) { toast(T('Nothing to pull')); return; }
+  if (!store.tray) store.tray = [];
+  const prevPages = JSON.stringify(srcPages.map(pi => b.pages[pi]));
+  const prevTrayLen = store.tray.length;
+  for (const pi of srcPages) b.pages[pi] = emptyPage(slotsOf(b));
+  store.tray.push(...cards);
+  undoFn = () => {
+    const back = JSON.parse(prevPages);
+    srcPages.forEach((pi, i) => { b.pages[pi] = back[i]; });
+    store.tray.length = prevTrayLen;
+    save(); renderTray(); renderBinder();
+  };
+  save(); renderTray(); renderBinder();
+  toast(cards.length + ' ' + T('cards moved to the tray'), true);
 });
 
 // ---------- deling ----------
@@ -4240,7 +4342,16 @@ function cardColor(card) {
         done({ h, s: sat, l, e: edges });
       } catch (e) { done(null); }
     };
-    im.onerror = () => done(null);
+    let triedAlt = false;
+    im.onerror = () => { // TCGdex-CDN-hul: proev pokemontcg.io foer vi opgiver farven
+      const alt = ptcgPath(card.id);
+      if (!triedAlt && alt && !card.img.startsWith('ptcg:')) {
+        triedAlt = true;
+        im.src = '/api/img/ptcg/' + alt + '.png';
+        return;
+      }
+      done(null);
+    };
     im.src = card.img.startsWith('ptcg:')
       ? '/api/img/ptcg/' + card.img.slice(5) + '.png'
       : '/api/img/' + card.img + '/low.webp';
@@ -4262,7 +4373,9 @@ function edgeArrange(cards, cols, per) { // graadigt: venstre kant matcher naboe
     const top = pi >= cols ? out[idx - cols] : null;
     const prev = out[idx - 1] || null; // raekke-/sideskift: bloed kobling til forrige kort
     let best = 0, bestCost = Infinity;
-    for (let i = 0; i < rem.length; i++) {
+    // kun naeste ~14 i hue-raekkefoelgen maa byttes om: lokal glathed uden at bryde regnbuens bue
+    const win = Math.min(rem.length, 14);
+    for (let i = 0; i < win; i++) {
       const e = (colorCache.get(rem[i].id) || {}).e;
       if (!e) { if (bestCost === Infinity) best = i; continue; } // ukendt farve: kun hvis intet bedre
       let cost = 0, n = 0;
@@ -4282,13 +4395,44 @@ function edgeArrange(cards, cols, per) { // graadigt: venstre kant matcher naboe
   }
   return out;
 }
-document.getElementById('colorSort').addEventListener('click', async () => {
+const colorsortmodal = document.getElementById('colorsortmodal');
+for (const grp of ['csMode', 'csDir', 'csScope']) {
+  document.getElementById(grp).addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    document.querySelectorAll('#' + grp + ' button').forEach(x => x.classList.toggle('on', x === btn));
+  });
+}
+colorsortmodal.addEventListener('click', e => {
+  if (e.target === colorsortmodal || e.target.closest('.modal-close')) colorsortmodal.hidden = true;
+});
+document.getElementById('colorSort').addEventListener('click', () => {
+  const vp = visiblePages().filter(pi => binder().pages[pi]);
+  const spreadBtn = document.querySelector('#csScope button[data-v="spread"]');
+  spreadBtn.disabled = !vp.length;
+  if (!vp.length) document.querySelector('#csScope button[data-v="all"]').click();
+  colorsortmodal.hidden = false;
+});
+function slotOrder(pagesIdx, cols, rows, dir) { // udfyldningsraekkefoelge for en sidegruppe (1 side eller et opslag)
+  const out = [];
+  if (dir === 'sweep') { // kolonnevis: venstre yderpunkt -> hoejre yderpunkt hen over opslaget
+    const totalCols = cols * pagesIdx.length;
+    for (let c = 0; c < totalCols; c++) {
+      const pi = pagesIdx[Math.floor(c / cols)], pc = c % cols;
+      for (let r = 0; r < rows; r++) out.push({ pi, slot: r * cols + pc });
+    }
+  } else {
+    for (const pi of pagesIdx) for (let sl = 0; sl < cols * rows; sl++) out.push({ pi, slot: sl });
+  }
+  return out;
+}
+document.getElementById('csGo').addEventListener('click', async () => {
+  colorsortmodal.hidden = true;
+  const mode = document.querySelector('#csMode button.on').dataset.v;
+  const dir = document.querySelector('#csDir button.on').dataset.v;
+  const local = document.querySelector('#csScope button.on').dataset.v === 'spread';
   const b = binder();
   const vp = visiblePages().filter(pi => b.pages[pi]);
-  const choice = await confirmDialog(T('Color-sort the whole binder (new binder) or just this spread?'),
-    T('Whole binder'), vp.length ? T('This spread') : null);
-  if (!choice) return;
-  const local = choice === 'alt';
   const all = (local ? vp.flatMap(pi => b.pages[pi]) : b.pages.flat()).filter(c => c);
   if (!all.length) { toast('The binder is empty'); return; }
   toast(T('Analyzing colors…'));
@@ -4297,27 +4441,37 @@ document.getElementById('colorSort').addEventListener('click', async () => {
   await Promise.all(Array.from({ length: 6 }, async () => {
     while (queue.length) { const c = queue.shift(); await cardColor(c); }
   }));
-  withImg.sort((x, y) => hueKeyOf(x) - hueKeyOf(y)
-    || ((colorCache.get(y.id) || {}).l || 0) - ((colorCache.get(x.id) || {}).l || 0));
+  if (mode === 'light') { // lys -> moerk, hue som sekundaer
+    withImg.sort((x, y) => ((colorCache.get(y.id) || {}).l || 0) - ((colorCache.get(x.id) || {}).l || 0)
+      || hueKeyOf(x) - hueKeyOf(y));
+  } else {
+    withImg.sort((x, y) => hueKeyOf(x) - hueKeyOf(y)
+      || ((colorCache.get(y.id) || {}).l || 0) - ((colorCache.get(x.id) || {}).l || 0));
+  }
   const per = slotsOf(b);
   const cols = b.cols || 3;
+  const rows = b.rows || 3;
+  // kant-matching kun i Flowing + laeseretning (dens nabologik er raekkebaseret)
+  const arrange = list => (mode === 'edge' && dir === 'rows') ? edgeArrange(list, cols, per) : list;
   if (local) { // kun det aabne opslag — in-place med fortryd
     snapshot();
-    const cards = edgeArrange(withImg, cols, per).concat(noImg);
-    let k = 0;
-    for (const pi of vp) b.pages[pi] = b.pages[pi].map(() => cards[k] ? cards[k++] : null);
+    const cards = arrange(withImg).concat(noImg);
+    const order = slotOrder(vp, cols, rows, dir);
+    for (const pi of vp) b.pages[pi] = emptyPage(per);
+    order.forEach((o, k) => { if (cards[k]) b.pages[o.pi][o.slot] = cards[k]; });
     save(); renderBinder();
     toast(T('Spread color-sorted 🌈'), true);
     return;
   }
-  const cards = edgeArrange(withImg, cols, per).concat(noImg).map(c => ({ ...c })); // kopier — originalen maa ikke deles
-  const pages = [];
-  for (let i = 0; i < cards.length; i += per) {
-    const pg = cards.slice(i, i + per);
-    while (pg.length < per) pg.push(null);
-    pages.push(pg);
-  }
-  while (pages.length < 2 || pages.length % 2) pages.push(emptyPage(per));
+  const cards = arrange(withImg).concat(noImg).map(c => ({ ...c })); // kopier — originalen maa ikke deles
+  let nPages = Math.max(2, Math.ceil(cards.length / per));
+  if (nPages % 2) nPages++;
+  const pages = Array.from({ length: nPages }, () => emptyPage(per));
+  // sidegrupper som binderen laeses: side 1 alene, derefter opslag (2+3), (4+5) ...
+  const groups = [[0]];
+  for (let i = 1; i < nPages; i += 2) groups.push(i + 1 < nPages ? [i, i + 1] : [i]);
+  const order = groups.flatMap(g => slotOrder(g, cols, rows, dir));
+  cards.forEach((c, k) => { const o = order[k]; pages[o.pi][o.slot] = c; });
   // ikke-destruktivt: farve-udgaven bliver en NY binder — er man uenig, sletter man den bare
   const nb = { name: b.name + ' 🌈', cols: b.cols, rows: b.rows, color: b.color, dark: b.dark, pages };
   if (b.sim) nb.sim = true;
@@ -7397,7 +7551,7 @@ const moreMenu = document.getElementById('moreMenu');
 document.getElementById('moreBtn').addEventListener('click', () => {
   if (!moreMenu.hidden) { moreMenu.hidden = true; return; }
   moreMenu.innerHTML = '';
-  for (const id of ['delPages', 'presentBtn', 'snapBtn', 'factsBtn', 'curveBtn', 'helpBtn']) {
+  for (const id of ['pullTrayBtn', 'delPages', 'presentBtn', 'snapBtn', 'factsBtn', 'curveBtn', 'helpBtn']) {
     const orig = document.getElementById(id);
     if (id === 'curveBtn' && !store.showPrices) continue;
     const b = document.createElement('button');
