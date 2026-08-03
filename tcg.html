@@ -4328,18 +4328,33 @@ function cardColor(card) {
         const qm = q.map(v => [v[0] / v[3], v[1] / v[3], v[2] / v[3]]);
         const mid = (a, bb) => [(a[0] + bb[0]) / 2, (a[1] + bb[1]) / 2, (a[2] + bb[2]) / 2];
         const edges = { L: mid(qm[0], qm[2]), R: mid(qm[1], qm[3]), T: mid(qm[0], qm[1]), B: mid(qm[2], qm[3]) };
-        const R = r / n / 255, G = g / n / 255, B = b / n / 255;
-        const mx = Math.max(R, G, B), mn = Math.min(R, G, B);
-        const l = (mx + mn) / 2;
-        const sat = mx === mn ? 0 : (mx - mn) / (1 - Math.abs(2 * l - 1));
-        let h = 0;
-        if (mx !== mn) {
-          if (mx === R) h = ((G - B) / (mx - mn)) % 6;
-          else if (mx === G) h = (B - R) / (mx - mn) + 2;
-          else h = (R - G) / (mx - mn) + 4;
-          h *= 60; if (h < 0) h += 360;
+        // dominant farve via maetningsvaegtet hue-histogram over HELE kortet (ramme taeller med):
+        // gennemsnit udvaskes af hvide baggrunde (shiny vault-kort) og gav stoej-hue
+        const fd = cx.getImageData(1, 1, 22, 31).data;
+        const buckets = new Float32Array(24);
+        let colorful = 0, ltot = 0, np = 0;
+        for (let i = 0; i < fd.length; i += 4) {
+          const R = fd[i] / 255, G = fd[i + 1] / 255, B = fd[i + 2] / 255;
+          const mx = Math.max(R, G, B), mn = Math.min(R, G, B);
+          const l2 = (mx + mn) / 2;
+          ltot += l2; np++;
+          if (mx === mn || l2 < .12 || l2 > .93) continue; // hvid/sort/graa: baerer ingen farve
+          const s2 = (mx - mn) / (1 - Math.abs(2 * l2 - 1));
+          if (s2 < .22) continue;
+          let h2;
+          if (mx === R) h2 = ((G - B) / (mx - mn)) % 6;
+          else if (mx === G) h2 = (B - R) / (mx - mn) + 2;
+          else h2 = (R - G) / (mx - mn) + 4;
+          h2 *= 60; if (h2 < 0) h2 += 360;
+          buckets[Math.floor(h2 / 15) % 24] += s2;
+          colorful++;
         }
-        done({ h, s: sat, l, e: edges });
+        let bi = 0;
+        for (let k = 1; k < 24; k++) if (buckets[k] > buckets[bi]) bi = k;
+        // vinder-bucket + naboer som vaegtet snit: undgaar 15-graders hak
+        const wP = buckets[(bi + 23) % 24], wS = buckets[bi], wN = buckets[(bi + 1) % 24];
+        const h = (bi * 15 + 7.5 + 15 * (wN - wP) / Math.max(1e-6, wP + wS + wN) + 360) % 360;
+        done({ h, s: colorful / np, l: ltot / np, e: edges });
       } catch (e) { done(null); }
     };
     let triedAlt = false;
