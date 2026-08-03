@@ -71,7 +71,13 @@ async function load() {
   for (const m of missing) {
     const tr = document.createElement('tr');
     tr.innerHTML = '<td></td><td><code></code></td><td></td><td></td><td></td>';
-    tr.children[0].textContent = m.name || '?';
+    const a = document.createElement('a');
+    a.href = 'https://www.pricecharting.com/search-products?type=prices&q=' + encodeURIComponent('pokemon ' + (m.name || m.card_id));
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = (m.name || '?') + ' 🔎';
+    a.title = 'Søg på PriceCharting — gem billedet og upload det her';
+    tr.children[0].appendChild(a);
     tr.children[1].firstChild.textContent = m.card_id;
     tr.children[2].textContent = m.count;
     tr.children[3].textContent = (m.last || '').slice(0, 16);
