@@ -3106,7 +3106,7 @@ async function doSearch() {
   const seq = ++searchSeq;
   $hint.textContent = T('Searching…');
   try {
-    const artistM = q.match(/^(?:artist|illustrator):\s*(.+)$/i);
+    const artistM = q.match(/^(.*?)\s*(?:artist|illustrator):\s*(.+)$/i); // "pikachu artist:arita" — navn foer, kunstner efter
     const pq = parseQuery(q);
     let cards;
     let emptySetHit = null;
@@ -3131,8 +3131,10 @@ async function doSearch() {
           } catch (e) { /* enkelt saet fejler: videre */ }
         }
       } else if (artistM) {
-        cards = await (await fetch(sAPI() + '/cards?illustrator=' + encodeURIComponent(artistM[1]))).json();
+        cards = await (await fetch(sAPI() + '/cards?illustrator=' + encodeURIComponent(artistM[2]))).json();
         cards = cards.filter(c => !isPocketCard(c.id));
+        const nm = artistM[1].trim().toLowerCase();
+        if (nm) cards = cards.filter(c => (c.name || '').toLowerCase().includes(nm)); // navnedelen filtrerer kunstnerens kort
       } else {
         let qname = pq.name;
         if (sAPI().endsWith('/ja') && /^[\x20-\x7e]+$/.test(qname)) {
