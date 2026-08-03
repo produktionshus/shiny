@@ -1837,7 +1837,7 @@ body.presenting #legal, body.viewmode #legal { display: none; }
 #trayBar.dragover { border-color: #ffd76a; border-style: solid; box-shadow: 0 0 0 3px rgba(255, 215, 106, .3); }
 body.dragging #trayBar[hidden] { display: flex; } /* tom bakke viser sig som droppunkt under traek */
 #trayCards { display: flex; gap: 6px; overflow-x: auto; max-width: 68vw; }
-.tray-card { position: relative; flex: 0 0 auto; width: 52px; }
+.tray-card { position: relative; flex: 0 0 auto; width: 52px; touch-action: pan-x; } /* vandret = scroll strimlen, lodret = loeft kortet */
 .tray-card img { width: 100%; border-radius: 4px; display: block; pointer-events: none; }
 .tray-card .trm {
   position: absolute; top: -6px; right: -6px; width: 18px; height: 18px;
