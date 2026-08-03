@@ -4949,6 +4949,7 @@ async function loadServerStore() {
       localStorage.setItem(LS_KEY, JSON.stringify(store));
       renderBinderSelect();
       renderTray(); // bakken fulgte med fra kontoen
+      sweepOverrides(); // serverkopien kender ikke billed-fixes — ellers daekkes billedet af pladsholderen igen
       if (!viewBinder) { // roer ikke visningen hvis man staar i en vens binder
         jumpSpread(0);
         renderBinder();
