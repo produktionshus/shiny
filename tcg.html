@@ -794,6 +794,13 @@ body.viewmode #binderSettings { display: none; }
   40% { transform: translate(-50%, -50%) scale(1.07); }
   100% { transform: translate(-50%, -50%) scale(1); }
 }
+#scanPrints { display: none; gap: 5px; flex-wrap: wrap; justify-content: center; max-width: 94vw; margin-top: 4px; }
+#scanPrints .sp-chip {
+  padding: 5px 9px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, .25); background: rgba(0, 0, 0, .5);
+  color: #e8e4d8; font: 700 .68rem 'Nunito', sans-serif;
+}
+#scanPrints .sp-chip.on { border-color: #ffd76a; color: #ffd76a; background: rgba(255, 215, 106, .15); }
 #scanDbg {
   position: absolute;
   left: 10px; bottom: 10px;
@@ -2443,6 +2450,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   </div>
   <div id="scanStatus"></div>
   <div id="scanCands"></div>
+  <div id="scanPrints"></div>
   <div id="scanResult">
     <img id="scanResImg" alt="">
     <div>
@@ -8492,6 +8500,30 @@ function scanVideoCrop() {
 async function getDetailAuto(id) { // scan-indekset blander EN og JP — proev begge sprog
   return (await getDetail(id, 'en')) || (await getDetail(id, 'ja'));
 }
+async function renderScanPrints(name, currentId) { // ME-aeraen genbruger artwork — printet vaelges med eet tap
+  const box = document.getElementById('scanPrints');
+  box.innerHTML = '';
+  box.style.display = 'none';
+  try {
+    const cards = (await (await fetch(API_ROOT + '/en/cards?name=' + encodeURIComponent(name))).json())
+      .filter(c => c.name === name && !isPocketCard(c.id));
+    if (cards.length < 2) return;
+    box.style.display = 'flex';
+    for (const c of cards.slice(0, 24)) {
+      const b = document.createElement('button');
+      b.className = 'sp-chip' + (c.id === currentId ? ' on' : '');
+      b.textContent = c.id.slice(0, c.id.lastIndexOf('-')).toUpperCase() + ' · ' + (c.localId || '?');
+      b.addEventListener('click', async () => {
+        scanCandidate = c.id;
+        const td = await getDetailAuto(c.id);
+        document.getElementById('scanResImg').src = td && briefImg(td) ? imgUrl(briefImg(td), 'low') : '';
+        document.getElementById('scanResName').textContent = (td ? td.name : c.id) + (td && td.set ? ' · ' + td.set.name : '');
+        box.querySelectorAll('.sp-chip').forEach(x => x.classList.toggle('on', x === b));
+      });
+      box.appendChild(b);
+    }
+  } catch (e) { /* best effort */ }
+}
 async function presentScanHit(id, top) {
   scanCandidate = id;
   const fr = document.getElementById('scanFrame');
@@ -8504,6 +8536,7 @@ async function presentScanHit(id, top) {
   if (scanCandidate !== id) return;
   document.getElementById('scanResImg').src = d && briefImg(d) ? imgUrl(briefImg(d), 'low') : '';
   document.getElementById('scanResName').textContent = (d ? d.name : id) + (d && d.set ? ' · ' + d.set.name : '');
+  if (d && d.name) renderScanPrints(d.name, id);
   document.getElementById('scanResult').style.display = 'flex';
   document.getElementById('scanStatus').textContent = '';
   const box = document.getElementById('scanCands'); // ramte vi forkert, tapper man bare det rigtige
@@ -8719,6 +8752,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeScanner
 document.getElementById('scanSkip').addEventListener('click', () => {
   document.getElementById('scanResult').style.display = 'none';
   document.getElementById('scanCands').style.display = 'none';
+  document.getElementById('scanPrints').style.display = 'none';
   document.getElementById('scanFrame').classList.remove('hit', 'near');
   scanTieCount = 0;
   scanCandidate = null;
