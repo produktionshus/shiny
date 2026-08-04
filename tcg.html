@@ -8313,7 +8313,7 @@ onmessage = e => {
     for (const sc of m.scales) {
       const ch = m.h * sc, cw = ch * 63 / 88;
       if (cw > m.w) continue;
-      const offs = sc === m.scales[0] ? [-0.08, 0, 0.08] : [0]; // guide-skalaen proever ogsaa off-center
+      const offs = [-0.1, 0, 0.1]; // alle skalaer proever off-center — kort ligger sjaeldent perfekt centreret
       for (const ox of offs) {
         const hh = hashPatch(cropResample(px, m.w, m.h, (m.w - cw) / 2 + m.w * ox, (m.h - ch) / 2, cw, ch));
         const r = matchOne(hh.bits, hh.cols);
