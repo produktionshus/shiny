@@ -794,6 +794,7 @@ body.viewmode #binderSettings { display: none; }
   40% { transform: translate(-50%, -50%) scale(1.07); }
   100% { transform: translate(-50%, -50%) scale(1); }
 }
+#scanResPrice { font: 700 1.05rem 'Fredoka', sans-serif; color: #ffd76a; min-height: 1.2em; }
 #scanPrints { display: none; gap: 5px; flex-wrap: wrap; justify-content: center; max-width: 94vw; margin-top: 4px; }
 #scanPrints .sp-chip {
   padding: 5px 9px; border-radius: 999px; cursor: pointer;
@@ -2459,6 +2460,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   <div id="scanPrints"></div>
   <div id="scanResult">
     <img id="scanResImg" alt="">
+    <div id="scanResPrice"></div>
     <div>
       <div class="sr-name" id="scanResName"></div>
       <div id="scanBtns" style="margin-top:8px">
@@ -8526,11 +8528,35 @@ async function renderScanPrints(name, currentId) { // ME-aeraen genbruger artwor
         const td = await getDetailAuto(c.id);
         document.getElementById('scanResImg').src = td && briefImg(td) ? imgUrl(briefImg(td), 'low') : '';
         document.getElementById('scanResName').textContent = (td ? td.name : c.id) + (td && td.set ? ' · ' + td.set.name : '');
+        showScanPrice(td);
         box.querySelectorAll('.sp-chip').forEach(x => x.classList.toggle('on', x === b));
       });
       box.appendChild(b);
     }
   } catch (e) { /* best effort */ }
+}
+function showScanPrice(d) { // vaerdi + Cardmarket-tendens direkte i scan-resultatet (cardshow-opslag!)
+  const el = document.getElementById('scanResPrice');
+  el.innerHTML = '';
+  const pr = store.showPrices && d ? cardPrice(d) : null;
+  if (pr == null) return;
+  let arrow = '';
+  const blocks = [d.pricing, ...(d.variants_detailed || []).map(v => v.pricing)].filter(Boolean);
+  for (const b of blocks) {
+    const cm = saneCM(b && b.cardmarket);
+    if (cm && typeof cm.trend === 'number' && typeof cm.avg30 === 'number' && cm.avg30 > 0) {
+      const pct = (cm.trend - cm.avg30) / cm.avg30 * 100;
+      if (Math.abs(pct) >= 2) arrow = (pct > 0 ? ' ▲' : ' ▼') + Math.abs(pct).toFixed(0) + '%';
+      break;
+    }
+  }
+  const a = document.createElement('a');
+  a.href = 'https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=' + encodeURIComponent((d && d.name) || '');
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.style.cssText = 'color: inherit; text-decoration: none;';
+  a.textContent = '💰 ' + fmtPrice(pr) + arrow + ' ↗';
+  el.appendChild(a);
 }
 async function presentScanHit(id, top) {
   scanCandidate = id;
@@ -8544,6 +8570,7 @@ async function presentScanHit(id, top) {
   if (scanCandidate !== id) return;
   document.getElementById('scanResImg').src = d && briefImg(d) ? imgUrl(briefImg(d), 'low') : '';
   document.getElementById('scanResName').textContent = (d ? d.name : id) + (d && d.set ? ' · ' + d.set.name : '');
+  showScanPrice(d);
   if (d && d.name) renderScanPrints(d.name, id);
   document.getElementById('scanResult').style.display = 'flex';
   document.getElementById('scanStatus').textContent = '';
@@ -8567,6 +8594,7 @@ async function presentScanHit(id, top) {
       scanCandidate = t.id;
       document.getElementById('scanResImg').src = td && briefImg(td) ? imgUrl(briefImg(td), 'low') : '';
       document.getElementById('scanResName').textContent = (td ? td.name : t.id) + (td && td.set ? ' · ' + td.set.name : '');
+      showScanPrice(td);
     });
     box.appendChild(el);
   }
