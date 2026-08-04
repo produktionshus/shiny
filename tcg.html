@@ -8604,7 +8604,7 @@ async function scanTickInner() {
         if (!winner || avg < winner.avg) winner = { id, avg };
       }
     }
-    if (winner && (scanVotes.length >= 3 || (scanVotes.length >= 2 && winner.avg <= 115))) {
+    if (winner && (scanVotes.length >= 3 || (scanVotes.length >= 2 && winner.avg <= 125))) { // straek-skala: junk-gulvet ligger ~140+
       const mergedTop = [...agg.entries()]
         .map(([id, e]) => ({ id, d: e.sum / e.n + (5 - e.n) * 15 })) // sjaeldent sete straffes
         .sort((a, b) => a.d - b.d)
