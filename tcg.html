@@ -8462,8 +8462,10 @@ async function getDetailAuto(id) { // scan-indekset blander EN og JP — proev b
 async function presentScanHit(id, top) {
   scanCandidate = id;
   const fr = document.getElementById('scanFrame');
-  fr.classList.remove('near');
+  fr.classList.remove('near', 'qlock');
   fr.classList.add('hit');
+  const qcv = document.getElementById('scanQuadCv'); // frossen/forvredet polygon skal vaek — hit-rammen taler alene
+  qcv.getContext('2d').clearRect(0, 0, qcv.width, qcv.height);
   if (navigator.vibrate) navigator.vibrate(40);
   const d = await getDetailAuto(id);
   if (scanCandidate !== id) return;
