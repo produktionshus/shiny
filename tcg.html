@@ -7937,13 +7937,15 @@ async function loadScanIndex() {
   } catch (e) { return false; }
 }
 
-function scanMatch(h) { // h: {bits: Uint8Array(40), cols: Int16Array(48)}
+function scanMatch(h) { // h: {bits: Uint8Array(40), cols: Int16Array(192)}
   const n = scanIdx.ids.length, B = scanIdx.bits, C = scanIdx.cols;
   const top = []; // top-4 som [{i, d}]
+  let cut = Infinity; // d >= ham, saa hamming alene over top-4's vaerste kan aldrig vinde
   for (let i = 0; i < n; i++) {
     let ham = 0;
     const bo = i * 40;
     for (let k = 0; k < 40; k++) ham += POP[B[bo + k] ^ h.bits[k]];
+    if (ham >= cut) continue; // ~95% beskaeres her — farveleddet er det dyre
     let cd = 0;
     const co = i * NCOL;
     for (let k = 0; k < NCOL; k++) cd += Math.abs(C[co + k] - h.cols[k]);
@@ -7952,6 +7954,7 @@ function scanMatch(h) { // h: {bits: Uint8Array(40), cols: Int16Array(48)}
       top.push({ i, d });
       top.sort((a, b) => a.d - b.d);
       if (top.length > 4) top.pop();
+      if (top.length === 4) cut = top[3].d;
     }
   }
   return {
@@ -7994,7 +7997,7 @@ function scanFrameOnce(src, w, h, guideFrac) {
   // guideFrac: rammens hoejde som andel af den SYNLIGE flade (object-fit: cover
   // beskaerer videoen — udsnittet skal regnes i det synlige omraade, ikke raa video)
   let bestRes = null;
-  for (const scale of [guideFrac || 0.46, (guideFrac || 0.46) * 0.7, (guideFrac || 0.46) * 1.35, Math.min(0.95, (guideFrac || 0.46) * 1.8)]) {
+  for (const scale of [guideFrac || 0.46, (guideFrac || 0.46) * 0.7, (guideFrac || 0.46) * 1.15, (guideFrac || 0.46) * 1.35, Math.min(0.95, (guideFrac || 0.46) * 1.8)]) {
     const ch = h * scale, cw = ch * 63 / 88;
     if (cw > w) continue;
     const res = scanMatch(hashFromSource(src, (w - cw) / 2, (h - ch) / 2, cw, ch));
@@ -8084,7 +8087,7 @@ async function scanTick() {
         if (!winner || avg < winner.avg) winner = { id, avg };
       }
     }
-    if (scanVotes.length >= 3 && winner) {
+    if (winner && (scanVotes.length >= 3 || (scanVotes.length >= 2 && winner.avg <= 115))) {
       const mergedTop = [...agg.entries()]
         .map(([id, e]) => ({ id, d: e.sum / e.n + (5 - e.n) * 15 })) // sjaeldent sete straffes
         .sort((a, b) => a.d - b.d)
@@ -8129,7 +8132,7 @@ async function openScanner() {
       }
     } catch (e) { /* fokus/zoom-styring er best effort */ }
     document.getElementById('scanStatus').textContent = T('Hold the card inside the frame');
-    scanTimer = setInterval(scanTick, 650);
+    scanTimer = setInterval(scanTick, 250);
   } catch (e) {
     document.getElementById('scanStatus').textContent = T('No camera — use a photo instead');
   }
