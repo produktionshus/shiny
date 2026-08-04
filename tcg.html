@@ -8009,6 +8009,7 @@ let scanStream = null, scanTimer = null, scanCandidate = null, scanStableId = nu
 let scanSessionCount = 0; // samlebaand: kort scannet i denne session
 let lastScanDebug = null; // 🐞: seneste frame-analyse til fejlsoegning
 let scanVotes = [];
+let scanTieCount = 0; // frames med godt-men-uafgjort match (genoptryk deler artwork)
 let scanZoomLevel = 1;
 const POP = new Uint8Array(256);
 for (let i = 0; i < 256; i++) POP[i] = (i & 1) + POP[i >> 1];
@@ -8612,8 +8613,19 @@ async function scanTickInner() {
       scanVotes = [];
       presentScanHit(winner.id, mergedTop);
     }
-  } else if (scanVotes.length) {
-    scanVotes.shift(); // daarlig frame udvander vinduet
+  } else {
+    if (res.d <= 165) { // godt match, men uafgjort mellem genoptryk: efter 6 frames vises bedste bud + kandidater
+      scanTieCount++;
+      if (scanTieCount >= 6) {
+        scanTieCount = 0;
+        scanVotes = [];
+        presentScanHit(res.id, res.top);
+        return;
+      }
+    } else {
+      scanTieCount = Math.max(0, scanTieCount - 1);
+    }
+    if (scanVotes.length) scanVotes.shift(); // daarlig frame udvander vinduet
   }
 }
 
@@ -8708,6 +8720,7 @@ document.getElementById('scanSkip').addEventListener('click', () => {
   document.getElementById('scanResult').style.display = 'none';
   document.getElementById('scanCands').style.display = 'none';
   document.getElementById('scanFrame').classList.remove('hit', 'near');
+  scanTieCount = 0;
   scanCandidate = null;
   scanStableId = null;
   scanStableCount = 0;
