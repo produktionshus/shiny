@@ -8096,7 +8096,22 @@ function matchOne(hb, hc) {
   if (!top.length) return null;
   return { id: ids[top[0].i], d: top[0].d, margin: (top[1] ? top[1].d : 9999) - top[0].d, top: top.map(t => ({ id: ids[t.i], d: t.d })) };
 }
-function hashPatch(px) { // px: RGBA 32x44 — bits+farver identisk med klient/server-algoritmen
+function stretchPatch(px) { // p5-p95 lineaer kontrast-straek: bringer kamera-frames paa indeksets skala
+  const g = new Float32Array(32 * 44);
+  for (let i = 0; i < g.length; i++) g[i] = px[i * 4] * 0.299 + px[i * 4 + 1] * 0.587 + px[i * 4 + 2] * 0.114;
+  const sorted = Array.from(g).sort((a, b) => a - b);
+  const p5 = sorted[Math.floor(sorted.length * 0.05)], p95 = sorted[Math.floor(sorted.length * 0.95)];
+  if (p95 - p5 < 10) return px;
+  const k = 255 / (p95 - p5);
+  const out = new Uint8ClampedArray(px.length);
+  for (let i = 0; i < g.length; i++) {
+    for (let c = 0; c < 3; c++) out[i * 4 + c] = (px[i * 4 + c] - p5) * k;
+    out[i * 4 + 3] = 255;
+  }
+  return out;
+}
+function hashPatch(pxIn) { // px: RGBA 32x44 — bits+farver identisk med klient/server-algoritmen
+  const px = stretchPatch(pxIn);
   const HW = 32, HH = 44;
   const g = new Uint8Array(HW * HH);
   for (let i = 0; i < g.length; i++) g[i] = (px[i * 4] * 0.299 + px[i * 4 + 1] * 0.587 + px[i * 4 + 2] * 0.114) | 0;
@@ -8155,10 +8170,10 @@ function cropResample(px, W, H, sx, sy, sw, sh) { // box-gennemsnit -> 32x44 RGB
   }
   return out;
 }
-function warpQuad(px, W, H, qIn) { // bilineaer patch [TL,TR,BR,BL] -> 32x44, 3x3-supersamplet
+function warpQuad(px, W, H, qIn, inset) { // bilineaer patch [TL,TR,BR,BL] -> 32x44, 3x3-supersamplet
   const cx = (qIn[0].x + qIn[1].x + qIn[2].x + qIn[3].x) / 4;
   const cy = (qIn[0].y + qIn[1].y + qIn[2].y + qIn[3].y) / 4;
-  const q = qIn.map(pt => ({ x: pt.x + (cx - pt.x) * 0.05, y: pt.y + (cy - pt.y) * 0.05 })); // 5% inset: sleeve/kant
+  const q = qIn.map(pt => ({ x: pt.x + (cx - pt.x) * inset, y: pt.y + (cy - pt.y) * inset }));
   const out = new Uint8ClampedArray(32 * 44 * 4);
   for (let ty = 0; ty < 44; ty++) for (let tx = 0; tx < 32; tx++) {
     let r = 0, g = 0, b = 0, n = 0;
@@ -8189,7 +8204,7 @@ function detectQuad(px, W, H) { // Sobel -> binaer -> dilate -> stoerste center-
     const m2 = Math.abs(gx) + Math.abs(gy);
     mag[i] = m2; mSum += m2;
   }
-  const thr = Math.max(70, (mSum / (W * H)) * 2.2);
+  const thr = Math.max(45, (mSum / (W * H)) * 2.2); // lav taerskel: moerke scener har svage kanter
   for (let i = 0; i < mag.length; i++) bin[i] = mag[i] > thr ? 1 : 0;
   const dil = new Uint8Array(W * H);
   for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
@@ -8223,7 +8238,7 @@ function detectQuad(px, W, H) { // Sobel -> binaer -> dilate -> stoerste center-
       if (pt.y < minY) minY = pt.y; if (pt.y > maxY) maxY = pt.y;
     }
     const bw = maxX - minX, bh = maxY - minY;
-    if (bw < W * 0.25 || bh < H * 0.25) continue;
+    if (bw < W * 0.18 || bh < H * 0.18) continue; // kort maa ogsaa vaere lidt laengere vaek
     const score = bw * bh * (1 - Math.hypot((minX + maxX) / 2 - cx0, (minY + maxY) / 2 - cy0) / maxD);
     if (!best || score > best.score) best = { score, pts };
   }
@@ -8278,17 +8293,23 @@ onmessage = e => {
     const px = new Uint8ClampedArray(m.rgba);
     let quad = null, res = null;
     try { quad = detectQuad(px, m.w, m.h); } catch (err) { quad = null; }
-    if (quad) {
-      const hq = hashPatch(warpQuad(px, m.w, m.h, quad));
-      res = matchOne(hq.bits, hq.cols);
+    if (quad) { // sleeve/toploader = variabel gennemsigtig kant: prov flere insets, bedste vinder
+      for (const inset of [0.02, 0.05, 0.08, 0.11]) {
+        const hq = hashPatch(warpQuad(px, m.w, m.h, quad, inset));
+        const r = matchOne(hq.bits, hq.cols);
+        if (r && (!res || r.d < res.d)) res = r;
+      }
     }
-    // faste skalaer koeres ALTID — quad-vejen supplerer, den maa ikke blokere (sleeve/skaev firkant kan snyde den)
+    // faste skalaer koeres ALTID — quad-vejen supplerer, den maa ikke blokere
     for (const sc of m.scales) {
       const ch = m.h * sc, cw = ch * 63 / 88;
       if (cw > m.w) continue;
-      const hh = hashPatch(cropResample(px, m.w, m.h, (m.w - cw) / 2, (m.h - ch) / 2, cw, ch));
-      const r = matchOne(hh.bits, hh.cols);
-      if (r && (!res || r.d < res.d)) res = r;
+      const offs = sc === m.scales[0] ? [-0.08, 0, 0.08] : [0]; // guide-skalaen proever ogsaa off-center
+      for (const ox of offs) {
+        const hh = hashPatch(cropResample(px, m.w, m.h, (m.w - cw) / 2 + m.w * ox, (m.h - ch) / 2, cw, ch));
+        const r = matchOne(hh.bits, hh.cols);
+        if (r && (!res || r.d < res.d)) res = r;
+      }
     }
     postMessage({ type: 'result', id: m.id, res, quad });
   }
@@ -8409,12 +8430,23 @@ const scanCv = document.createElement('canvas');
 scanCv.width = SHW; scanCv.height = SHH;
 const scanCtx = scanCv.getContext('2d', { willReadFrequently: true });
 
-function hashFromSource(src, sx, sy, sw, sh) { // graa-bits + normaliserede cellefarver
+function hashFromSource(src, sx, sy, sw, sh) { // graa-bits + normaliserede cellefarver (kontrast-straekt)
   scanCtx.drawImage(src, sx, sy, sw, sh, 0, 0, SHW, SHH);
   const d = scanCtx.getImageData(0, 0, SHW, SHH).data;
   const g = new Uint8Array(SHW * SHH);
   for (let i = 0; i < g.length; i++) {
     g[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0;
+  }
+  { // p5-p95 kontrast-straek som i workerens hashPatch — kamera-frames er lavkontrast
+    const sorted = Array.from(g).sort((a, b) => a - b);
+    const p5 = sorted[Math.floor(sorted.length * 0.05)], p95 = sorted[Math.floor(sorted.length * 0.95)];
+    if (p95 - p5 >= 10) {
+      const k = 255 / (p95 - p5);
+      for (let i = 0; i < g.length; i++) {
+        g[i] = Math.max(0, Math.min(255, (g[i] - p5) * k));
+        for (let c = 0; c < 3; c++) d[i * 4 + c] = Math.max(0, Math.min(255, (d[i * 4 + c] - p5) * k));
+      }
+    }
   }
   const raw = new Uint8Array(NCOL);
   let ci = 0;
