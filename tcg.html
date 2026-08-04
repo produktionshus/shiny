@@ -758,6 +758,7 @@ body.viewmode #binderSettings { display: none; }
   aspect-ratio: 63/88;
   pointer-events: none;
 }
+#scanQuadCv { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
 #scanFrame { /* solid kort-formet ramme; alt UDENFOR daempes via cutout-skygge — indeni krystalklart */
   border: 3.5px solid rgba(255, 217, 94, .9);
   border-radius: 14px;
@@ -2420,6 +2421,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 <div id="scanOverlay">
   <div id="scanVideoWrap">
     <video id="scanVideo" autoplay playsinline muted></video>
+    <canvas id="scanQuadCv"></canvas>
     <div id="scanFrame">
       <i class="sc-c tl"></i><i class="sc-c tr"></i><i class="sc-c bl"></i><i class="sc-c br"></i>
       <div id="scanLine"></div>
@@ -8079,6 +8081,150 @@ function matchOne(hb, hc) {
   if (!top.length) return null;
   return { id: ids[top[0].i], d: top[0].d, margin: (top[1] ? top[1].d : 9999) - top[0].d, top: top.map(t => ({ id: ids[t.i], d: t.d })) };
 }
+function hashPatch(px) { // px: RGBA 32x44 — bits+farver identisk med klient/server-algoritmen
+  const HW = 32, HH = 44;
+  const g = new Uint8Array(HW * HH);
+  for (let i = 0; i < g.length; i++) g[i] = (px[i * 4] * 0.299 + px[i * 4 + 1] * 0.587 + px[i * 4 + 2] * 0.114) | 0;
+  const bits2 = new Uint8Array(40);
+  let idx = 0;
+  const setBit = on => { if (on) bits2[idx >> 3] |= 128 >> (idx & 7); idx++; };
+  const mean8 = [];
+  for (let cy = 0; cy < 8; cy++) for (let cx = 0; cx < 8; cx++) {
+    let sum = 0, n = 0;
+    for (let y = Math.floor(cy * HH / 8); y < Math.floor((cy + 1) * HH / 8); y++)
+      for (let x = Math.floor(cx * HW / 8); x < Math.floor((cx + 1) * HW / 8); x++) { sum += g[y * HW + x]; n++; }
+    mean8.push(sum / n);
+  }
+  const gm = mean8.reduce((a, b) => a + b, 0) / 64;
+  for (const mv of mean8) setBit(mv > gm);
+  for (let gy = 0; gy < 4; gy++) for (let gx = 0; gx < 4; gx++) {
+    const x0 = Math.floor(gx * HW / 4), x1 = Math.floor((gx + 1) * HW / 4);
+    const y0 = Math.floor(gy * HH / 4), y1 = Math.floor((gy + 1) * HH / 4);
+    const sub = [];
+    for (let sy = 0; sy < 4; sy++) for (let sx = 0; sx < 4; sx++) {
+      let sum = 0, n = 0;
+      for (let y = y0 + Math.floor(sy * (y1 - y0) / 4); y < y0 + Math.floor((sy + 1) * (y1 - y0) / 4); y++)
+        for (let x = x0 + Math.floor(sx * (x1 - x0) / 4); x < x0 + Math.floor((sx + 1) * (x1 - x0) / 4); x++) { sum += g[y * HW + x]; n++; }
+      sub.push(n ? sum / n : 0);
+    }
+    const cm = sub.reduce((a, b) => a + b, 0) / 16;
+    for (const mv of sub) setBit(mv > cm);
+  }
+  const raw = new Float64Array(NCOL);
+  let ci = 0;
+  for (let gy = 0; gy < 8; gy++) for (let gx = 0; gx < 8; gx++) {
+    const x0 = Math.floor(gx * HW / 8), x1 = Math.floor((gx + 1) * HW / 8);
+    const y0 = Math.floor(gy * HH / 8), y1 = Math.floor((gy + 1) * HH / 8);
+    let r = 0, gr = 0, b = 0, n = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      const o = (y * HW + x) * 4;
+      r += px[o]; gr += px[o + 1]; b += px[o + 2]; n++;
+    }
+    raw[ci++] = r / n; raw[ci++] = gr / n; raw[ci++] = b / n;
+  }
+  return { bits: bits2, cols: normColors(raw, 0) };
+}
+function cropResample(px, W, H, sx, sy, sw, sh) { // box-gennemsnit -> 32x44 RGBA
+  const out = new Uint8ClampedArray(32 * 44 * 4);
+  for (let ty = 0; ty < 44; ty++) for (let tx = 0; tx < 32; tx++) {
+    const x0 = sx + sw * tx / 32, x1 = sx + sw * (tx + 1) / 32;
+    const y0 = sy + sh * ty / 44, y1 = sy + sh * (ty + 1) / 44;
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let y = Math.max(0, Math.floor(y0)); y < Math.min(H, Math.ceil(y1)); y++)
+      for (let x = Math.max(0, Math.floor(x0)); x < Math.min(W, Math.ceil(x1)); x++) {
+        const o = (y * W + x) * 4;
+        r += px[o]; g += px[o + 1]; b += px[o + 2]; n++;
+      }
+    const o = (ty * 32 + tx) * 4;
+    out[o] = n ? r / n : 0; out[o + 1] = n ? g / n : 0; out[o + 2] = n ? b / n : 0; out[o + 3] = 255;
+  }
+  return out;
+}
+function warpQuad(px, W, H, q) { // bilineaer patch [TL,TR,BR,BL] -> 32x44
+  const out = new Uint8ClampedArray(32 * 44 * 4);
+  for (let ty = 0; ty < 44; ty++) for (let tx = 0; tx < 32; tx++) {
+    const u = (tx + 0.5) / 32, v = (ty + 0.5) / 44;
+    const xx = (1 - u) * (1 - v) * q[0].x + u * (1 - v) * q[1].x + u * v * q[2].x + (1 - u) * v * q[3].x;
+    const yy = (1 - u) * (1 - v) * q[0].y + u * (1 - v) * q[1].y + u * v * q[2].y + (1 - u) * v * q[3].y;
+    const xi = Math.max(0, Math.min(W - 1, Math.round(xx)));
+    const yi = Math.max(0, Math.min(H - 1, Math.round(yy)));
+    const o = (yi * W + xi) * 4, t = (ty * 32 + tx) * 4;
+    out[t] = px[o]; out[t + 1] = px[o + 1]; out[t + 2] = px[o + 2]; out[t + 3] = 255;
+  }
+  return out;
+}
+function detectQuad(px, W, H) { // Sobel -> binaer -> dilate -> stoerste center-naere komponent -> diagonale hjoerner
+  const g = new Uint8Array(W * H);
+  for (let i = 0; i < g.length; i++) g[i] = (px[i * 4] * 0.299 + px[i * 4 + 1] * 0.587 + px[i * 4 + 2] * 0.114) | 0;
+  const bin = new Uint8Array(W * H);
+  let mSum = 0;
+  const mag = new Float32Array(W * H);
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    const i = y * W + x;
+    const gx = g[i - W + 1] + 2 * g[i + 1] + g[i + W + 1] - g[i - W - 1] - 2 * g[i - 1] - g[i + W - 1];
+    const gy = g[i + W - 1] + 2 * g[i + W] + g[i + W + 1] - g[i - W - 1] - 2 * g[i - W] - g[i - W + 1];
+    const m2 = Math.abs(gx) + Math.abs(gy);
+    mag[i] = m2; mSum += m2;
+  }
+  const thr = Math.max(70, (mSum / (W * H)) * 2.2);
+  for (let i = 0; i < mag.length; i++) bin[i] = mag[i] > thr ? 1 : 0;
+  const dil = new Uint8Array(W * H);
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    const i = y * W + x;
+    if (bin[i] || bin[i - 1] || bin[i + 1] || bin[i - W] || bin[i + W]) dil[i] = 1;
+  }
+  const label = new Int32Array(W * H);
+  const stack = new Int32Array(W * H);
+  const cx0 = W / 2, cy0 = H / 2, maxD = Math.hypot(cx0, cy0);
+  let best = null, cur = 0;
+  for (let start = 0; start < W * H; start++) {
+    if (!dil[start] || label[start]) continue;
+    cur++;
+    let sp = 0; stack[sp++] = start; label[start] = cur;
+    let n = 0;
+    const pts = [];
+    while (sp) {
+      const i = stack[--sp];
+      n++;
+      const x = i % W, y = (i / W) | 0;
+      if ((n & 3) === 0 || n < 5) pts.push({ x, y });
+      if (x > 0 && dil[i - 1] && !label[i - 1]) { label[i - 1] = cur; stack[sp++] = i - 1; }
+      if (x < W - 1 && dil[i + 1] && !label[i + 1]) { label[i + 1] = cur; stack[sp++] = i + 1; }
+      if (y > 0 && dil[i - W] && !label[i - W]) { label[i - W] = cur; stack[sp++] = i - W; }
+      if (y < H - 1 && dil[i + W] && !label[i + W]) { label[i + W] = cur; stack[sp++] = i + W; }
+    }
+    if (n < 150) continue;
+    let minX = W, maxX = 0, minY = H, maxY = 0;
+    for (const pt of pts) {
+      if (pt.x < minX) minX = pt.x; if (pt.x > maxX) maxX = pt.x;
+      if (pt.y < minY) minY = pt.y; if (pt.y > maxY) maxY = pt.y;
+    }
+    const bw = maxX - minX, bh = maxY - minY;
+    if (bw < W * 0.25 || bh < H * 0.25) continue;
+    const score = bw * bh * (1 - Math.hypot((minX + maxX) / 2 - cx0, (minY + maxY) / 2 - cy0) / maxD);
+    if (!best || score > best.score) best = { score, pts };
+  }
+  if (!best) return null;
+  let tl = null, tr = null, br = null, bl = null;
+  for (const pt of best.pts) {
+    if (!tl || pt.x + pt.y < tl.x + tl.y) tl = pt;
+    if (!br || pt.x + pt.y > br.x + br.y) br = pt;
+    if (!tr || pt.x - pt.y > tr.x - tr.y) tr = pt;
+    if (!bl || pt.x - pt.y < bl.x - bl.y) bl = pt;
+  }
+  const q = [tl, tr, br, bl];
+  let ar = 0;
+  for (let i = 0; i < 4; i++) { const a = q[i], b2 = q[(i + 1) % 4]; ar += a.x * b2.y - b2.x * a.y; }
+  ar = Math.abs(ar) / 2;
+  if (ar < W * H * 0.10 || ar > W * H * 0.95) return null;
+  const dd = (a, b2) => Math.hypot(a.x - b2.x, a.y - b2.y);
+  const top2 = dd(q[0], q[1]), bot = dd(q[3], q[2]), left = dd(q[0], q[3]), right = dd(q[1], q[2]);
+  if (Math.min(top2, bot) / Math.max(top2, bot) < 0.7) return null;
+  if (Math.min(left, right) / Math.max(left, right) < 0.7) return null;
+  const asp = ((left + right) / 2) / ((top2 + bot) / 2);
+  if (asp < 1.15 || asp > 1.75) return null; // et kort er ~1.4x hoejere end bredt
+  return q;
+}
 onmessage = e => {
   const m = e.data;
   if (m.type === 'index') {
@@ -8105,6 +8251,26 @@ onmessage = e => {
       if (r && (!best || r.d < best.d)) best = r;
     }
     postMessage({ type: 'result', id: m.id, res: best });
+  } else if (m.type === 'frame') { // fuld pipeline: find kort-firkanten, ret op, hash, match — ellers faste skalaer
+    const px = new Uint8ClampedArray(m.rgba);
+    let quad = null, res = null;
+    try { quad = detectQuad(px, m.w, m.h); } catch (err) { quad = null; }
+    if (quad) {
+      const hq = hashPatch(warpQuad(px, m.w, m.h, quad));
+      res = matchOne(hq.bits, hq.cols);
+    }
+    if (!res || res.d > 140) { // firkant fandt intet godt: suppler med faste skalaer
+      let best2 = res;
+      for (const sc of m.scales) {
+        const ch = m.h * sc, cw = ch * 63 / 88;
+        if (cw > m.w) continue;
+        const hh = hashPatch(cropResample(px, m.w, m.h, (m.w - cw) / 2, (m.h - ch) / 2, cw, ch));
+        const r = matchOne(hh.bits, hh.cols);
+        if (r && (!best2 || r.d < best2.d)) best2 = r;
+      }
+      res = best2;
+    }
+    postMessage({ type: 'result', id: m.id, res, quad });
   }
 };
 `;
@@ -8119,7 +8285,7 @@ function ensureScanWorker() {
       if (m.type === 'ready' && scanReadyRes) { scanReadyRes(m.n); scanReadyRes = null; }
       else if (m.type === 'result') {
         const r = scanPending.get(m.id);
-        if (r) { scanPending.delete(m.id); r(m.res); }
+        if (r) { scanPending.delete(m.id); r(m); }
       }
     };
     scanWorker.onerror = () => { try { scanWorker.terminate(); } catch (e2) {} scanWorker = null; };
@@ -8129,8 +8295,15 @@ function ensureScanWorker() {
 function workerMatch(frames) {
   return new Promise(resolve => {
     const id = ++scanReqId;
-    scanPending.set(id, resolve);
+    scanPending.set(id, m => resolve(m.res));
     scanWorker.postMessage({ type: 'match', id, frames: frames.map(f => ({ bits: f.bits.buffer, cols: f.cols.buffer })) }); // ~2KB: kopi er billigere end transfer-boevl
+  });
+}
+function workerFrame(idata, scales) { // hel frame til workeren: quad-detektion + match
+  return new Promise(resolve => {
+    const id = ++scanReqId;
+    scanPending.set(id, m => resolve({ res: m.res, quad: m.quad }));
+    scanWorker.postMessage({ type: 'frame', id, rgba: idata.data.buffer, w: idata.width, h: idata.height, scales }, [idata.data.buffer]);
   });
 }
 async function matchHashes(frames) { // worker naar muligt, ellers lokalt
@@ -8304,6 +8477,22 @@ async function presentScanHit(id, top) {
 }
 
 let scanTmpCv = null;
+function drawQuad(quad, fw, fh) { // groen laase-polygon naar kortets firkant er fundet
+  const cv = document.getElementById('scanQuadCv');
+  if (cv.width !== fw || cv.height !== fh) { cv.width = fw; cv.height = fh; }
+  const c = cv.getContext('2d');
+  c.clearRect(0, 0, fw, fh);
+  if (!quad) return;
+  c.strokeStyle = 'rgba(125, 255, 154, .95)';
+  c.lineWidth = Math.max(2.5, fw / 130);
+  c.shadowColor = 'rgba(125, 255, 154, .7)';
+  c.shadowBlur = 9;
+  c.beginPath();
+  c.moveTo(quad[0].x, quad[0].y);
+  for (let i = 1; i < 4; i++) c.lineTo(quad[i].x, quad[i].y);
+  c.closePath();
+  c.stroke();
+}
 let scanBusy = false;
 async function scanTick() {
   if (scanBusy || !scanIdx || document.getElementById('scanResult').style.display === 'flex') return;
@@ -8317,8 +8506,19 @@ async function scanTickInner() {
   scanTmpCv = scanTmpCv || document.createElement('canvas');
   scanTmpCv.width = 360;
   scanTmpCv.height = Math.round(360 * crop.h / crop.w);
-  scanTmpCv.getContext('2d').drawImage(crop.v, crop.x, crop.y, crop.w, crop.h, 0, 0, scanTmpCv.width, scanTmpCv.height);
-  const res = await scanFrameOnce(scanTmpCv, scanTmpCv.width, scanTmpCv.height, 0.46);
+  const tctx = scanTmpCv.getContext('2d', { willReadFrequently: true });
+  tctx.drawImage(crop.v, crop.x, crop.y, crop.w, crop.h, 0, 0, scanTmpCv.width, scanTmpCv.height);
+  let res, quadFound = null;
+  if (scanIdx.viaWorker && scanWorker) { // kant-detektion + perspektiv-opretning i workeren
+    const g = 0.46;
+    const out = await workerFrame(tctx.getImageData(0, 0, scanTmpCv.width, scanTmpCv.height),
+      [g, g * 0.7, g * 1.15, g * 1.35, Math.min(0.95, g * 1.8)]);
+    res = out.res;
+    quadFound = out.quad;
+  } else {
+    res = await scanFrameOnce(scanTmpCv, scanTmpCv.width, scanTmpCv.height, 0.46);
+  }
+  drawQuad(quadFound, scanTmpCv.width, scanTmpCv.height);
   if (!res) return;
   document.getElementById('scanFrame').classList.toggle('near', res.d <= 160);
   // live-feedback: hvad ser scanneren, og hvor taet er den paa?
@@ -8326,7 +8526,7 @@ async function scanTickInner() {
     const d = await getDetailAuto(res.id);
     const st = document.getElementById('scanStatus');
     if (document.getElementById('scanResult').style.display !== 'flex') {
-      st.textContent = (d ? d.name : res.id) + ' · ' + Math.round(res.d) + (res.d <= 148 ? ' ✓' : '…');
+      st.textContent = (quadFound ? '🔲 ' : '') + (d ? d.name : res.id) + ' · ' + Math.round(res.d) + (res.d <= 148 ? ' ✓' : '…');
     }
   }
   if (res.d <= 148 && res.margin >= 8) {
