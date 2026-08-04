@@ -2724,6 +2724,7 @@ const STR_DA = {
   'Older': 'Ældre',
   'in a row': 'i træk',
   'scanned — next card!': 'scannet — næste kort!',
+  'card locked — matching…': 'kort låst — matcher…',
   '📷 Got the physical cards? The Scan button reads them with your camera.':
     '📷 Har du kortene fysisk? Scan-knappen aflæser dem med kameraet.',
   'Show values to friends': 'Vis værdier for venner',
@@ -8522,11 +8523,13 @@ async function scanTickInner() {
   if (!res) return;
   document.getElementById('scanFrame').classList.toggle('near', res.d <= 160);
   // live-feedback: hvad ser scanneren, og hvor taet er den paa?
-  if (res.d <= 160) {
-    const d = await getDetailAuto(res.id);
+  if (document.getElementById('scanResult').style.display !== 'flex') {
     const st = document.getElementById('scanStatus');
-    if (document.getElementById('scanResult').style.display !== 'flex') {
+    if (res.d <= 160) {
+      const d = await getDetailAuto(res.id);
       st.textContent = (quadFound ? '🔲 ' : '') + (d ? d.name : res.id) + ' · ' + Math.round(res.d) + (res.d <= 148 ? ' ✓' : '…');
+    } else if (quadFound) {
+      st.textContent = '🔲 ' + T('card locked — matching…');
     }
   }
   if (res.d <= 148 && res.margin >= 8) {
