@@ -793,6 +793,17 @@ body.viewmode #binderSettings { display: none; }
   40% { transform: translate(-50%, -50%) scale(1.07); }
   100% { transform: translate(-50%, -50%) scale(1); }
 }
+#scanDbg {
+  position: absolute;
+  left: 10px; bottom: 10px;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, .3);
+  background: rgba(0, 0, 0, .5);
+  font-size: 1rem;
+  cursor: pointer;
+  z-index: 4;
+}
 #scanZoom {
   position: absolute;
   right: 10px; bottom: 10px;
@@ -2427,6 +2438,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <div id="scanLine"></div>
     </div>
     <button id="scanZoom" style="display:none">2×</button>
+    <button id="scanDbg" title="Send debug-frame">🐞</button>
   </div>
   <div id="scanStatus"></div>
   <div id="scanCands"></div>
@@ -7994,6 +8006,7 @@ let scanIdx = null;       // { ids: [], hashes: Uint8Array(n*40) }
 let scanIdxAt = 0;        // hvornaar indekset blev hentet — genhentes naar det aeldes
 let scanStream = null, scanTimer = null, scanCandidate = null, scanStableId = null, scanStableCount = 0;
 let scanSessionCount = 0; // samlebaand: kort scannet i denne session
+let lastScanDebug = null; // 🐞: seneste frame-analyse til fejlsoegning
 let scanVotes = [];
 let scanZoomLevel = 1;
 const POP = new Uint8Array(256);
@@ -8520,6 +8533,7 @@ async function scanTickInner() {
     res = await scanFrameOnce(scanTmpCv, scanTmpCv.width, scanTmpCv.height, 0.46);
   }
   drawQuad(quadFound, scanTmpCv.width, scanTmpCv.height);
+  lastScanDebug = { quad: quadFound, res: res ? { id: res.id, d: Math.round(res.d), margin: Math.round(res.margin), top: (res.top || []).map(t => t.id + '=' + Math.round(t.d)) } : null, w: scanTmpCv.width, h: scanTmpCv.height };
   if (!res) return;
   document.getElementById('scanFrame').classList.toggle('near', res.d <= 160);
   // live-feedback: hvad ser scanneren, og hvor taet er den paa?
@@ -8609,6 +8623,20 @@ function closeScanner() {
   scanStableId = null;
   if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
 }
+document.getElementById('scanDbg').addEventListener('click', async e => {
+  e.stopPropagation();
+  if (!scanTmpCv) return;
+  scanTmpCv.toBlob(async blob => {
+    try {
+      await fetch('/api/scan-debug', {
+        method: 'POST',
+        headers: { 'Content-Type': 'image/jpeg', 'x-scan-meta': JSON.stringify(lastScanDebug || {}) },
+        body: blob,
+      });
+      toast('🐞 Debug-frame sendt');
+    } catch (err) { toast('Debug fejlede'); }
+  }, 'image/jpeg', 0.85);
+});
 document.getElementById('scanVideoWrap').addEventListener('click', async () => {
   const track = scanStream && scanStream.getVideoTracks()[0];
   if (!track || !track.getCapabilities) return;

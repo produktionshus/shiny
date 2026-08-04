@@ -521,6 +521,31 @@ app.get('/api/img-missing', (req, res) => {
   res.json({ missing: db.prepare('SELECT card_id, name, count, last FROM img_missing ORDER BY count DESC LIMIT 500').all() });
 });
 
+// scanner-tuning: telefonen sender en debug-frame, vi henter den og analyserer (midlertidigt vaerktoej)
+const SCANDBG_DIR = path.join(path.dirname(DB_PATH), 'scan-debug');
+app.post('/api/scan-debug', express.raw({ type: ['image/*', 'application/octet-stream'], limit: '4mb' }), (req, res) => {
+  try {
+    fsMod.mkdirSync(SCANDBG_DIR, { recursive: true });
+    fsMod.writeFileSync(path.join(SCANDBG_DIR, 'latest.jpg'), req.body);
+    fsMod.writeFileSync(path.join(SCANDBG_DIR, 'latest.json'), String(req.headers['x-scan-meta'] || '{}'));
+    res.json({ ok: true });
+  } catch (e) { res.status(500).end(); }
+});
+app.get('/api/scan-debug/latest.jpg', (req, res) => {
+  const f = path.join(SCANDBG_DIR, 'latest.jpg');
+  if (!fsMod.existsSync(f)) return res.status(404).end();
+  res.set('Content-Type', 'image/jpeg');
+  res.set('Cache-Control', 'no-store');
+  res.send(fsMod.readFileSync(f));
+});
+app.get('/api/scan-debug/latest.json', (req, res) => {
+  const f = path.join(SCANDBG_DIR, 'latest.json');
+  if (!fsMod.existsSync(f)) return res.status(404).end();
+  res.set('Content-Type', 'application/json');
+  res.set('Cache-Control', 'no-store');
+  res.send(fsMod.readFileSync(f));
+});
+
 // korte delelinks: snapshot gemmes server-side, koden er content-hash (idempotent, ingen auth noedvendig)
 app.post('/api/tcg/snap', (req, res) => {
   const data = JSON.stringify(req.body || {});
