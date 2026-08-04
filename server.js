@@ -374,6 +374,24 @@ async function buildScanIndex() {
         await new Promise(r => setTimeout(r, 60)); // skaansom takt
       }
     }
+    // japanske saet: JP-samlinger kan ogsaa scannes (kun kort med billede — intet ptcgio-fallback for ja)
+    try {
+      const jsets = await fetch('https://api.tcgdex.net/v2/ja/sets').then(r => r.json());
+      for (const st of jsets) {
+        if (/^(a\d+[a-z]?|b\d+[a-z]?|p-a)$/i.test(st.id)) continue; // pocket-saet
+        let detail = null;
+        try {
+          const r = await fetch('https://api.tcgdex.net/v2/ja/sets/' + encodeURIComponent(st.id));
+          if (r.ok) detail = await r.json();
+        } catch (e) { /* videre */ }
+        if (!detail) continue;
+        for (const c of detail.cards || []) {
+          if (!c.image || have.has(c.id)) continue;
+          try { await hashOne(c); } catch (e) { /* enkelt kort fejler: videre */ }
+          await new Promise(r => setTimeout(r, 60));
+        }
+      }
+    } catch (e) { /* JP er best effort */ }
     console.log('scan-indeks:', db.prepare('SELECT COUNT(*) AS n FROM card_hashes').get().n, 'kort');
   } finally {
     scanIndexBuilding = false;

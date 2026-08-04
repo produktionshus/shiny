@@ -1855,6 +1855,14 @@ body.presenting #legal, body.viewmode #legal { display: none; }
   background: rgba(10, 12, 20, .78); padding: 2px 8px; border-radius: 8px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, .6);
 }
+#filterChips { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin: 6px 0 2px; }
+#filterChips button {
+  padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, .2); background: rgba(255, 255, 255, .05);
+  color: inherit; font: 700 .72rem 'Nunito', sans-serif;
+}
+#filterChips button.on { border-color: #ffd76a; background: rgba(255, 215, 106, .16); color: #ffd76a; }
+#filterChips .fc-sep { width: 1px; height: 16px; background: rgba(255, 255, 255, .2); margin: 0 3px; }
 .cs-label { text-align: left; font: 700 .8rem 'Fredoka', sans-serif; opacity: .7; margin: 10px 0 4px; }
 .cs-group { display: flex; gap: 6px; }
 .cs-group button {
@@ -1875,6 +1883,13 @@ body.presenting #legal, body.viewmode #legal { display: none; }
   border-color: #b8860b !important;
   box-shadow: 0 0 0 2px rgba(184, 134, 11, .3);
 }
+#authbtn.gbdot::after, #bbAccount.gbdot::after { /* ny gaestebogs-besked */
+  content: '';
+  position: absolute; top: 3px; right: 3px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: #ff5b5b; box-shadow: 0 0 6px rgba(255, 91, 91, .8);
+}
+#authbtn, #bbAccount { position: relative; }
 #trayBar { /* bor lige under binderen — ikke oven paa resten af UI'et */
   display: flex; align-items: center; gap: 10px;
   margin: 6px auto 0;
@@ -2086,6 +2101,11 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <button class="btn" id="customBtn" title="Add a card that isn't in the database">➕</button>
     </div>
     <div class="search-hint" id="hint" data-l="Click a card, then click pockets — the same card can be placed as many times as you like.">Click a card, then click pockets — the same card can be placed as many times as you like.</div>
+    <div id="filterChips">
+      <button data-era="" class="on" data-l="All">All</button><button data-era="me">ME</button><button data-era="sv">SV</button><button data-era="swsh">SWSH</button><button data-era="sm">SM</button><button data-era="xy">XY</button><button data-era="old" data-l="Older">Older</button>
+      <span class="fc-sep"></span>
+      <button data-rar="" class="on" data-l="All">All</button><button data-rar="Illustration rare|Special illustration rare">IR/SIR</button><button data-rar="Ultra Rare|Double rare|Hyper rare|Secret Rare">Ultra+</button><button data-rar="Holo Rare">Holo</button>
+    </div>
     <div id="recentChips"></div>
     <div class="results" id="results"></div>
   </div>
@@ -2244,6 +2264,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <button class="modal-close" aria-label="Close">✕</button>
     <h2 style="font: 700 1.4rem 'Fredoka', sans-serif; margin-bottom: 6px;">🗂️ <span data-l="Welcome to PokéBinder">Welcome to PokéBinder</span></h2>
     <p class="wsub" data-l="Your Pokémon TCG collection as a real binder — build goals, track prices, show it off.">Your Pokémon TCG collection as a real binder — build goals, track prices, show it off.</p>
+    <p class="wsub" data-l="📷 Got the physical cards? The Scan button reads them with your camera.">📷 Got the physical cards? The Scan button reads them with your camera.</p>
     <button class="authaction" id="wsMaster" data-l="🎯 Start a master set">🎯 Start a master set</button>
     <div id="wsSetRow" style="display:none">
       <select id="wsSetSel" style="width:100%; margin:6px 0; padding:9px; border-radius:10px; border:1.5px solid rgba(150,130,90,.5); font: 700 .9rem 'Nunito', sans-serif;"></select>
@@ -2697,6 +2718,12 @@ const STR_DA = {
   'No match — try more light or fill the frame': 'Intet match — prøv mere lys eller fyld rammen',
   'Added ': 'Tilføjede ',
   'Price on cards': 'Pris på kort',
+  'All': 'Alle',
+  'Older': 'Ældre',
+  'in a row': 'i træk',
+  'scanned — next card!': 'scannet — næste kort!',
+  '📷 Got the physical cards? The Scan button reads them with your camera.':
+    '📷 Har du kortene fysisk? Scan-knappen aflæser dem med kameraet.',
   'Show values to friends': 'Vis værdier for venner',
   '🔒 Private binder (hidden from friends)': '🔒 Privat binder (skjult for venner)',
   'Binder hidden from friends 🔒': 'Binderen er skjult for venner 🔒',
@@ -3144,6 +3171,27 @@ function scheduleSearch() {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(doSearch, 350);
 }
+let fEra = '', fRar = '';
+function eraMatch(id) {
+  const sid = id.toLowerCase();
+  if (fEra === 'me') return sid.startsWith('me');
+  if (fEra === 'sv') return sid.startsWith('sv') && !sid.startsWith('svp'); // svp = SV-promo, hoerer til sv
+  if (fEra === 'swsh') return sid.startsWith('swsh');
+  if (fEra === 'sm') return sid.startsWith('sm');
+  if (fEra === 'xy') return sid.startsWith('xy') || sid.startsWith('g1') || sid.startsWith('dc1');
+  if (fEra === 'old') return !/^(me|sv|swsh|sm|xy|g1|dc1)/.test(sid);
+  return true;
+}
+document.getElementById('filterChips').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const grp = btn.dataset.era !== undefined ? 'era' : 'rar';
+  document.querySelectorAll('#filterChips button').forEach(x => {
+    if ((x.dataset.era !== undefined) === (grp === 'era')) x.classList.toggle('on', x === btn);
+  });
+  if (grp === 'era') fEra = btn.dataset.era; else fRar = btn.dataset.rar;
+  doSearch();
+});
 $q.addEventListener('input', scheduleSearch);
 $set.addEventListener('change', doSearch);
 
@@ -3179,7 +3227,7 @@ async function doSearch() {
           } catch (e) { /* enkelt saet fejler: videre */ }
         }
       } else if (artistM) {
-        cards = await (await fetch(sAPI() + '/cards?illustrator=' + encodeURIComponent(artistM[2]))).json();
+        cards = await (await fetch(sAPI() + '/cards?illustrator=' + encodeURIComponent(artistM[2]) + (fRar ? '&rarity=' + encodeURIComponent(fRar) : ''))).json();
         cards = cards.filter(c => !isPocketCard(c.id));
         const nm = artistM[1].trim().toLowerCase();
         if (nm) cards = cards.filter(c => (c.name || '').toLowerCase().includes(nm)); // navnedelen filtrerer kunstnerens kort
@@ -3189,7 +3237,7 @@ async function doSearch() {
           const jn = await jaName(qname) || await jaName(qname.split(/\s+/)[0]);
           if (jn) qname = jn; // "mew" -> ミュウ
         }
-        cards = await (await fetch(sAPI() + '/cards?name=' + encodeURIComponent(qname))).json();
+        cards = await (await fetch(sAPI() + '/cards?name=' + encodeURIComponent(qname) + (fRar ? '&rarity=' + encodeURIComponent(fRar) : ''))).json();
         cards = cards.filter(c => !isPocketCard(c.id));
         if (pq.num) {
           const hits = cards.filter(c => normNum(c.localId || '') === pq.num);
@@ -3198,6 +3246,7 @@ async function doSearch() {
       }
     }
     if (seq !== searchSeq) return; // forældet svar
+    if (fEra) cards = cards.filter(c => eraMatch(c.id));
     renderResults(cards);
     if (emptySetHit && !cards.length) // saettet matchede, men TCGdex mangler kortdataene (fx JP 25th S8a)
       $hint.textContent = T('Set found (') + emptySetHit + T('), but the database has no card data for it yet — add it as a ➕ custom card.');
@@ -5039,6 +5088,7 @@ async function loadServerStore() {
         renderBinder();
       }
       toast(T('Binders synced from your account ✔'));
+      checkGuestbook();
     } else {
       pushStore(); // konto uden data endnu: skub lokal samling op
     }
@@ -5487,11 +5537,26 @@ document.getElementById('commentInput').addEventListener('keydown', e => {
 document.getElementById('viewComments').addEventListener('click', () => {
   if (currentFriend) openComments(currentFriend.token, currentFriend.name + "'s guestbook");
 });
+let gbNewest = '';
+async function checkGuestbook() { // roed prik ved nye gaestebogs-beskeder
+  try {
+    const j = await api('/api/share', { method: 'POST' });
+    const c = await (await fetch('/api/tcg/comments/' + j.token)).json();
+    gbNewest = ((c.comments || [])[0] || {}).created || '';
+    if (gbNewest && gbNewest !== localStorage.getItem('tcg-gb-seen')) {
+      document.getElementById('authbtn').classList.add('gbdot');
+      document.getElementById('bbAccount').classList.add('gbdot');
+    }
+  } catch (e) { /* ikke logget ind */ }
+}
 document.getElementById('myGuestbook').addEventListener('click', async () => {
   try {
     const j = await api('/api/share', { method: 'POST' });
     friendsmodal.hidden = true;
     openComments(j.token, 'Your guestbook');
+    localStorage.setItem('tcg-gb-seen', gbNewest || 'set');
+    document.getElementById('authbtn').classList.remove('gbdot');
+    document.getElementById('bbAccount').classList.remove('gbdot');
   } catch (e) { toast('Log in first'); }
 });
 commentsmodal.addEventListener('click', e => {
@@ -7925,6 +7990,7 @@ const SHW = 32, SHH = 44; // SKAL matche serverens HW/HH — algoritmen er porte
 let scanIdx = null;       // { ids: [], hashes: Uint8Array(n*40) }
 let scanIdxAt = 0;        // hvornaar indekset blev hentet — genhentes naar det aeldes
 let scanStream = null, scanTimer = null, scanCandidate = null, scanStableId = null, scanStableCount = 0;
+let scanSessionCount = 0; // samlebaand: kort scannet i denne session
 let scanVotes = [];
 let scanZoomLevel = 1;
 const POP = new Uint8Array(256);
@@ -8197,13 +8263,16 @@ function scanVideoCrop() {
   return { v, x: (VW - visW) / 2, y: (VH - visH) / 2, w: visW, h: visH };
 }
 
+async function getDetailAuto(id) { // scan-indekset blander EN og JP — proev begge sprog
+  return (await getDetail(id, 'en')) || (await getDetail(id, 'ja'));
+}
 async function presentScanHit(id, top) {
   scanCandidate = id;
   const fr = document.getElementById('scanFrame');
   fr.classList.remove('near');
   fr.classList.add('hit');
   if (navigator.vibrate) navigator.vibrate(40);
-  const d = await getDetail(id);
+  const d = await getDetailAuto(id);
   if (scanCandidate !== id) return;
   document.getElementById('scanResImg').src = d && briefImg(d) ? imgUrl(briefImg(d), 'low') : '';
   document.getElementById('scanResName').textContent = (d ? d.name : id) + (d && d.set ? ' · ' + d.set.name : '');
@@ -8213,7 +8282,7 @@ async function presentScanHit(id, top) {
   box.innerHTML = '';
   box.style.display = 'flex';
   for (const t of (top || []).slice(0, 8)) {
-    const td = await getDetail(t.id);
+    const td = await getDetailAuto(t.id);
     if (scanCandidate !== id && !(top || []).some(x => x.id === scanCandidate)) return;
     const el = document.createElement('div');
     el.className = 'sc';
@@ -8254,7 +8323,7 @@ async function scanTickInner() {
   document.getElementById('scanFrame').classList.toggle('near', res.d <= 160);
   // live-feedback: hvad ser scanneren, og hvor taet er den paa?
   if (res.d <= 160) {
-    const d = await getDetail(res.id);
+    const d = await getDetailAuto(res.id);
     const st = document.getElementById('scanStatus');
     if (document.getElementById('scanResult').style.display !== 'flex') {
       st.textContent = (d ? d.name : res.id) + ' · ' + Math.round(res.d) + (res.d <= 148 ? ' ✓' : '…');
@@ -8322,6 +8391,7 @@ async function openScanner() {
       }
     } catch (e) { /* fokus/zoom-styring er best effort */ }
     document.getElementById('scanStatus').textContent = T('Hold the card inside the frame');
+    scanSessionCount = 0;
     scanTimer = setInterval(scanTick, 250);
   } catch (e) {
     document.getElementById('scanStatus').textContent = T('No camera — use a photo instead');
@@ -8376,7 +8446,7 @@ document.getElementById('scanSkip').addEventListener('click', () => {
 document.getElementById('scanAdd').addEventListener('click', async () => {
   const id = scanCandidate;
   if (!id) return;
-  const d = await getDetail(id);
+  const d = await getDetailAuto(id);
   const card = {
     id,
     n: d ? d.name : id,
@@ -8389,8 +8459,10 @@ document.getElementById('scanAdd').addEventListener('click', async () => {
   jumpPage(t.page);
   snick();
   save(); renderBinder();
-  toast(T('Added ') + card.n + ' ✔');
+  scanSessionCount++;
+  toast(T('Added ') + card.n + ' ✔' + (scanSessionCount > 1 ? '  ·  ' + scanSessionCount + ' ' + T('in a row') : ''));
   document.getElementById('scanSkip').click();
+  document.getElementById('scanStatus').textContent = scanSessionCount + ' ' + T('scanned — next card!');
 });
 
 document.getElementById('scanFile').addEventListener('change', async e => {
