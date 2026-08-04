@@ -348,6 +348,19 @@ async function buildScanIndex() {
     const sets = await fetch('https://api.tcgdex.net/v2/en/sets').then(r => r.json());
     const have = new Set(db.prepare('SELECT card_id FROM card_hashes').all().map(r => r.card_id));
     const ins = db.prepare('INSERT OR REPLACE INTO card_hashes (card_id, hash) VALUES (?, ?)');
+    // admin-overrides hashes FOERST — lokale filer koster intet, og hyppige deploys afbryder bygget senere
+    try {
+      for (const f of fsMod.readdirSync(OVR_DIR)) {
+        if (!f.endsWith('.webp')) continue;
+        const oid = f.slice(0, -5);
+        if (have.has(oid)) continue;
+        try {
+          const rgb = await sharp(fsMod.readFileSync(path.join(OVR_DIR, f))).resize(HW, HH, { fit: 'fill' }).removeAlpha().raw().toBuffer();
+          ins.run(oid, hashFromRGB(rgb));
+          have.add(oid);
+        } catch (e) { /* videre */ }
+      }
+    } catch (e) { /* mappe mangler foerste gang */ }
     const hashOne = async c => {
       const url = c.image ? c.image + '/low.webp'
         : 'https://images.pokemontcg.io/' + ptcgioId(c.id).replace(/-(?=[^-]*$)/, '/') + '.png'; // TCGdex-hul: proev fallback-kilden
@@ -386,19 +399,6 @@ async function buildScanIndex() {
         await new Promise(r => setTimeout(r, 60)); // skaansom takt
       }
     }
-    // admin-overrides: uploadede billeder hashes ogsaa (de findes ingen andre steder)
-    try {
-      for (const f of fsMod.readdirSync(OVR_DIR)) {
-        if (!f.endsWith('.webp')) continue;
-        const oid = f.slice(0, -5);
-        if (have.has(oid)) continue;
-        try {
-          const rgb = await sharp(fsMod.readFileSync(path.join(OVR_DIR, f))).resize(HW, HH, { fit: 'fill' }).removeAlpha().raw().toBuffer();
-          ins.run(oid, hashFromRGB(rgb));
-          have.add(oid);
-        } catch (e) { /* videre */ }
-      }
-    } catch (e) { /* mappe mangler foerste gang */ }
     // japanske saet: JP-samlinger kan ogsaa scannes (kun kort med billede — intet ptcgio-fallback for ja)
     try {
       const jsets = await fetch('https://api.tcgdex.net/v2/ja/sets').then(r => r.json());
