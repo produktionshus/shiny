@@ -8011,11 +8011,11 @@ function matchOne(hb, hc) {
     const co = i * NCOL;
     for (let k = 0; k < NCOL; k++) cd += Math.abs(C[co + k] - hc[k]);
     const d = ham + cd / 96;
-    if (top.length < 4 || d < top[3].d) {
+    if (top.length < 8 || d < top[7].d) {
       top.push({ i, d });
       top.sort((a, b) => a.d - b.d);
-      if (top.length > 4) top.pop();
-      if (top.length === 4) cut = top[3].d;
+      if (top.length > 8) top.pop();
+      if (top.length === 8) cut = top[7].d;
     }
   }
   if (!top.length) return null;
@@ -8139,11 +8139,11 @@ function scanMatch(h) { // h: {bits: Uint8Array(40), cols: Int16Array(192)}
     const co = i * NCOL;
     for (let k = 0; k < NCOL; k++) cd += Math.abs(C[co + k] - h.cols[k]);
     const d = ham + cd / 96; // farveled skaleret til hamming-niveau (4x flere celler end v2)
-    if (top.length < 4 || d < top[3].d) {
+    if (top.length < 8 || d < top[7].d) {
       top.push({ i, d });
       top.sort((a, b) => a.d - b.d);
-      if (top.length > 4) top.pop();
-      if (top.length === 4) cut = top[3].d;
+      if (top.length > 8) top.pop();
+      if (top.length === 8) cut = top[7].d;
     }
   }
   return {
@@ -8220,7 +8220,7 @@ async function presentScanHit(id, top) {
   const box = document.getElementById('scanCands'); // ramte vi forkert, tapper man bare det rigtige
   box.innerHTML = '';
   box.style.display = 'flex';
-  for (const t of (top || []).slice(0, 4)) {
+  for (const t of (top || []).slice(0, 8)) {
     const td = await getDetail(t.id);
     if (scanCandidate !== id && !(top || []).some(x => x.id === scanCandidate)) return;
     const el = document.createElement('div');
@@ -8289,7 +8289,7 @@ async function scanTickInner() {
       const mergedTop = [...agg.entries()]
         .map(([id, e]) => ({ id, d: e.sum / e.n + (5 - e.n) * 15 })) // sjaeldent sete straffes
         .sort((a, b) => a.d - b.d)
-        .slice(0, 4);
+        .slice(0, 8);
       scanVotes = [];
       presentScanHit(winner.id, mergedTop);
     }
