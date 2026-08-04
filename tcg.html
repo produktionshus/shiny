@@ -8580,14 +8580,14 @@ async function scanTickInner() {
   // live-feedback: hvad ser scanneren, og hvor taet er den paa?
   if (document.getElementById('scanResult').style.display !== 'flex') {
     const st = document.getElementById('scanStatus');
-    if (res.d <= 160) {
+    if (res.d <= 175) {
       const d = await getDetailAuto(res.id);
       st.textContent = (quadFound ? '🔲 ' : '') + (d ? d.name : res.id) + ' · ' + Math.round(res.d) + (res.d <= 148 ? ' ✓' : '…');
     } else if (quadFound) {
       st.textContent = '🔲 ' + T('card locked — matching…');
     }
   }
-  if (res.d <= 148 && res.margin >= 8) {
+  if (res.d <= 165 && (res.margin >= 8 || res.d <= 100)) { // staerk absolut score behoever ikke margin (genoptryk ligger taet)
     scanVotes.push(res);
     if (scanVotes.length > 5) scanVotes.shift();
     // afstem: laveste gennemsnitsscore blandt kandidater set i mindst 3 af de sidste 5 frames
