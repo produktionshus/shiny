@@ -7863,6 +7863,7 @@ circlemodal.addEventListener('click', e => {
 const scanOverlay = document.getElementById('scanOverlay');
 const SHW = 32, SHH = 44; // SKAL matche serverens HW/HH — algoritmen er portet 1:1
 let scanIdx = null;       // { ids: [], hashes: Uint8Array(n*40) }
+let scanIdxAt = 0;        // hvornaar indekset blev hentet — genhentes naar det aeldes
 let scanStream = null, scanTimer = null, scanCandidate = null, scanStableId = null, scanStableCount = 0;
 let scanVotes = [];
 let scanZoomLevel = 1;
@@ -7912,10 +7913,12 @@ function normColors(arr, off) { // traek gennemsnittet fra: annullerer belysning
   return out;
 }
 async function loadScanIndex() {
+  if (scanIdx && Date.now() - scanIdxAt > 10 * 60 * 1000) scanIdx = null; // nye kort hashes loebende — aeldre end 10 min genhentes
   if (scanIdx) return true;
   document.getElementById('scanStatus').textContent = T('Loading card index…');
   try {
-    const buf = new Uint8Array(await (await fetch('/api/scan-index-bin?v=3-' + new Date().toISOString().slice(0, 13))).arrayBuffer()); // timestempel: friskt indeks hver time mens det vokser
+    const stamp = new Date();
+    const buf = new Uint8Array(await (await fetch('/api/scan-index-bin?v=3-' + stamp.toISOString().slice(0, 13) + '-' + Math.floor(stamp.getMinutes() / 10))).arrayBuffer()); // 10-min buckets: friskt indeks mens det vokser
     if (buf.length < 8 || String.fromCharCode(buf[0], buf[1], buf[2], buf[3]) !== 'PBS3') return false;
     const n = buf[4] | (buf[5] << 8) | (buf[6] << 16) | (buf[7] << 24);
     if (!n) return false;
@@ -7933,6 +7936,7 @@ async function loadScanIndex() {
       o += 232;
     }
     scanIdx = { ids, bits, cols };
+    scanIdxAt = Date.now();
     return true;
   } catch (e) { return false; }
 }
@@ -8070,7 +8074,7 @@ async function scanTick() {
       st.textContent = (d ? d.name : res.id) + ' · ' + Math.round(res.d) + (res.d <= 148 ? ' ✓' : '…');
     }
   }
-  if (res.d <= 148 && res.margin >= 4) {
+  if (res.d <= 148 && res.margin >= 8) {
     scanVotes.push(res);
     if (scanVotes.length > 5) scanVotes.shift();
     // afstem: laveste gennemsnitsscore blandt kandidater set i mindst 3 af de sidste 5 frames
