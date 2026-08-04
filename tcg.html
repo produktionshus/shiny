@@ -763,8 +763,9 @@ body.viewmode #binderSettings { display: none; }
   border: 3.5px solid rgba(255, 217, 94, .9);
   border-radius: 14px;
   box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .45);
-  transition: border-color .2s;
+  transition: border-color .2s, opacity .3s;
 }
+#scanFrame.qlock:not(.hit) { opacity: .18; } /* detektionen har laast: guiden traeder i baggrunden */
 #scanFrame .sc-c { display: none; }
 #scanLine { /* soege-sweep */
   position: absolute; left: 7%; right: 7%; height: 3px;
@@ -8533,7 +8534,8 @@ async function scanTickInner() {
     res = await scanFrameOnce(scanTmpCv, scanTmpCv.width, scanTmpCv.height, 0.46);
   }
   drawQuad(quadFound, scanTmpCv.width, scanTmpCv.height);
-  lastScanDebug = { quad: quadFound, res: res ? { id: res.id, d: Math.round(res.d), margin: Math.round(res.margin), top: (res.top || []).map(t => t.id + '=' + Math.round(t.d)) } : null, w: scanTmpCv.width, h: scanTmpCv.height };
+  document.getElementById('scanFrame').classList.toggle('qlock', !!quadFound);
+  lastScanDebug ={ quad: quadFound, res: res ? { id: res.id, d: Math.round(res.d), margin: Math.round(res.margin), top: (res.top || []).map(t => t.id + '=' + Math.round(t.d)) } : null, w: scanTmpCv.width, h: scanTmpCv.height };
   if (!res) return;
   document.getElementById('scanFrame').classList.toggle('near', res.d <= 160);
   // live-feedback: hvad ser scanneren, og hvor taet er den paa?
