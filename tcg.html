@@ -8047,8 +8047,7 @@ function workerMatch(frames) {
   return new Promise(resolve => {
     const id = ++scanReqId;
     scanPending.set(id, resolve);
-    scanWorker.postMessage({ type: 'match', id, frames: frames.map(f => ({ bits: f.bits.buffer, cols: f.cols.buffer })) },
-      frames.flatMap(f => [f.bits.buffer, f.cols.buffer]));
+    scanWorker.postMessage({ type: 'match', id, frames: frames.map(f => ({ bits: f.bits.buffer, cols: f.cols.buffer })) }); // ~2KB: kopi er billigere end transfer-boevl
   });
 }
 async function matchHashes(frames) { // worker naar muligt, ellers lokalt
