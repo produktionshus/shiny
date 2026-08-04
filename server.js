@@ -329,6 +329,17 @@ try {
   }
 } catch (e) {}
 
+try { // Pocket-kort er digitale — de kan aldrig scannes fysisk og forurener indekset som junk-attraktorer
+  const pocketRows = db.prepare('SELECT card_id FROM card_hashes').all();
+  const delHash = db.prepare('DELETE FROM card_hashes WHERE card_id = ?');
+  let nDel = 0;
+  for (const r of pocketRows) {
+    const setId = r.card_id.slice(0, r.card_id.lastIndexOf('-'));
+    if (/^(a\d+[a-z]?|b\d+[a-z]?|p-a)$/i.test(setId)) { delHash.run(r.card_id); nDel++; }
+  }
+  if (nDel) console.log('scan-indeks: fjernede', nDel, 'pocket-kort');
+} catch (e) { /* tom tabel foerste gang */ }
+
 let scanIndexBuilding = false;
 async function buildScanIndex() {
   if (!sharp || scanIndexBuilding) return;
@@ -362,6 +373,7 @@ async function buildScanIndex() {
       console.log('scan-indeks prioritet: mew-kort klar');
     } catch (e) { /* prioritet er best effort */ }
     for (const st of sets) {
+      if (/^(a\d+[a-z]?|b\d+[a-z]?|p-a)$/i.test(st.id)) continue; // pocket-saet: digitale kort
       let detail = null;
       try {
         const r = await fetch('https://api.tcgdex.net/v2/en/sets/' + encodeURIComponent(st.id));
