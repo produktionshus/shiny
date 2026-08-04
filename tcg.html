@@ -2175,6 +2175,8 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <label><input type="checkbox" id="darkPages"> <span data-l="Black pages">Black pages</span></label>
       <label><input type="checkbox" id="showPrices"> <span data-l="Show prices">Show prices</span></label>
       <label><input type="checkbox" id="priceTags"> <span data-l="Price on cards">Price on cards</span></label>
+      <label><input type="checkbox" id="shareValues"> <span data-l="Show values to friends">Show values to friends</span></label>
+      <label><input type="checkbox" id="binderPriv"> <span data-l="🔒 Private binder (hidden from friends)">🔒 Private binder (hidden from friends)</span></label>
       <label><input type="checkbox" id="soundFx"> <span data-l="Sounds">Sounds</span></label>
       <label><span data-l="Prices:">Prices:</span>
         <select id="priceSourceSel">
@@ -2703,6 +2705,10 @@ const STR_DA = {
   'No match — try more light or fill the frame': 'Intet match — prøv mere lys eller fyld rammen',
   'Added ': 'Tilføjede ',
   'Price on cards': 'Pris på kort',
+  'Show values to friends': 'Vis værdier for venner',
+  '🔒 Private binder (hidden from friends)': '🔒 Privat binder (skjult for venner)',
+  'Binder hidden from friends 🔒': 'Binderen er skjult for venner 🔒',
+  'Binder visible to friends': 'Binderen er synlig for venner',
   '🧺 Tray': '🧺 Bakke',
   'parked in the tray': 'parkeret i bakken',
   'has purchase info (price/date/condition/note) that will be lost.':
@@ -3419,7 +3425,7 @@ function renderPage(grid, pageIdx) {
             sh.className = 'holo-sheen';
             div.appendChild(sh);
           }
-          if (store.showPrices && store.priceTags && div.isConnected && !div.querySelector('.ptag')) {
+          if (showPricesNow() && store.priceTags && div.isConnected && !div.querySelector('.ptag')) {
             const pr = cardPrice(d);
             if (pr != null) {
               const t = document.createElement('div');
@@ -3721,7 +3727,7 @@ function binderShare(b) { // offentlig payload — koebsdata er privat
     const { pp, pd, note, ...rest } = cd;
     return rest;
   }));
-  return { v: 1, n: b.name, p: pubPages, c: b.cols, r: b.rows, col: b.color, d: b.dark ? 1 : 0, cv: b.cover || undefined };
+  return { v: 1, n: b.name, p: pubPages, c: b.cols, r: b.rows, col: b.color, d: b.dark ? 1 : 0, cv: b.cover || undefined, sv: store.shareValues ? 1 : 0 };
 }
 function encodeBinder(b) {
   const json = JSON.stringify(binderShare(b));
@@ -3729,7 +3735,7 @@ function encodeBinder(b) {
 }
 function fromShare(d) {
   if (d.v !== 1 || !Array.isArray(d.p)) throw new Error('bad payload');
-  return { name: String(d.n || 'Shared binder'), pages: d.p, cols: d.c || 3, rows: d.r || 3, color: d.col || 'blue', dark: !!d.d, cover: d.cv || null };
+  return { name: String(d.n || 'Shared binder'), pages: d.p, cols: d.c || 3, rows: d.r || 3, color: d.col || 'blue', dark: !!d.d, cover: d.cv || null, sv: d.sv === 1 };
 }
 function decodeBinder(s) {
   const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
@@ -3797,6 +3803,7 @@ function exitViewMode() {
   document.getElementById('viewBinderSelect').style.display = 'none';
   history.replaceState(null, '', location.pathname);
   document.body.classList.remove('viewmode');
+  updatePriceUI();
   jumpSpread(0);
   renderBinderSelect(); renderBinder();
 }
@@ -4029,14 +4036,20 @@ function getDetail(id, lang) {
   return detailCache.get(key);
 }
 function priceSource() { return store.priceSource === 'tcgplayer' ? 'tcgplayer' : 'cardmarket'; }
+function showPricesNow() { // i delte visninger bestemmer EJEREN om vaerdier vises — default nej
+  if (!store.showPrices) return false;
+  if (!viewBinder) return true;
+  if (viewStore) return !!viewStore.shareValues;
+  return !!viewBinder.sv; // snapshot-link baerer ejerens valg
+}
 function applyTheme() {
   document.body.classList.toggle('theme-display', (store.theme || 'display') === 'display'); // montre er standard
   applyLang();
 }
 function updatePriceUI() {
   applyTheme(); // globalt tema haandhaeves ved hver render (daekker synk/import)
-  document.getElementById('valueBtn').style.display = store.showPrices ? '' : 'none';
-  document.getElementById('curveBtn').style.display = store.showPrices ? '' : 'none';
+  document.getElementById('valueBtn').style.display = showPricesNow() ? '' : 'none';
+  document.getElementById('curveBtn').style.display = showPricesNow() ? '' : 'none';
   document.getElementById('priceSourceSel').disabled = !store.showPrices;
   document.getElementById('priceTags').disabled = !store.showPrices;
   document.getElementById('dispCurrency').disabled = !store.showPrices || priceSource() === 'tcgplayer';
@@ -4138,7 +4151,7 @@ async function fillInfo(panelId, card, stillCurrent) {
     const v = Object.keys(labels).filter(k => d.variants[k]).map(k => labels[k]).join(', ');
     if (v) rows.push(['Variants', v]);
   }
-  if (store.showPrices) {
+  if (showPricesNow()) {
     const price = cardPrice(d);
     rows.push(['Price', price != null ? fmtPrice(price) + ' (' + priceSourceName() + ')' : '—']);
   }
@@ -4158,7 +4171,7 @@ async function fillInfo(panelId, card, stillCurrent) {
     row.append(lab, val);
     panel.appendChild(row);
   }
-  if (store.showPrices && cardLang(card) === 'en') {
+  if (showPricesNow() && cardLang(card) === 'en') {
     try { // serverens daglige pris-snapshots -> kurve naar der er mindst 2 punkter
       const h = (await (await fetch('/api/prices/' + encodeURIComponent(card.id))).json()).history || [];
       if (!stillCurrent()) return;
@@ -4401,6 +4414,8 @@ document.getElementById('customColor').addEventListener('change', e => {
 function renderSettings() {
   const b = binder();
   document.getElementById('showPrices').checked = !!store.showPrices;
+  document.getElementById('shareValues').checked = !!store.shareValues;
+  document.getElementById('binderPriv').checked = !!b.priv;
   document.getElementById('priceTags').checked = !!store.priceTags;
   document.getElementById('soundFx').checked = musicOn;
   document.getElementById('themeSel').value = store.theme === 'classic' ? 'classic' : 'display';
@@ -4736,6 +4751,15 @@ document.getElementById('soundFx').addEventListener('change', e => {
 document.getElementById('priceTags').addEventListener('change', e => {
   store.priceTags = e.target.checked;
   save(); renderBinder();
+});
+document.getElementById('shareValues').addEventListener('change', e => {
+  store.shareValues = e.target.checked; // globalt: gaelder venne-link og nye snapshot-links
+  save();
+});
+document.getElementById('binderPriv').addEventListener('change', e => {
+  binder().priv = e.target.checked || undefined; // serveren filtrerer private bindere fra delinger
+  save();
+  toast(e.target.checked ? T('Binder hidden from friends 🔒') : T('Binder visible to friends'));
 });
 document.getElementById('showPrices').addEventListener('change', e => {
   store.showPrices = e.target.checked; // global, foelger kontoen via synk
@@ -5311,6 +5335,7 @@ async function openFriend(token, name) {
     document.body.classList.add('viewmode');
     document.getElementById('viewTitle').textContent = '👀 ' + j.username + "'s binders";
     currentFriend = { token, name: j.username };
+    updatePriceUI(); // vaerdi-knapper foelger ejerens delings-valg
     document.getElementById('viewComments').style.display = '';
     jumpSpread(-1); // start paa forsiden — fremvisning
     renderBinder();
@@ -7270,7 +7295,7 @@ document.getElementById('factsBtn').addEventListener('click', async () => {
     }
   }
   for (const id of ids) {
-    const pr = store.showPrices ? cardPrice(details.get(id)) : null;
+    const pr = showPricesNow() ? cardPrice(details.get(id)) : null;
     if (pr != null) priced.push([id, pr]);
   }
   priced.sort((a, b) => b[1] - a[1]);
@@ -7291,7 +7316,7 @@ document.getElementById('factsBtn').addEventListener('click', async () => {
   const rarStr = [...rarities.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)
     .map(([r, n]) => r + ' ×' + n).join(' · ') || '—';
   line('Rarities', rarStr);
-  if (store.showPrices && priced.length) {
+  if (showPricesNow() && priced.length) {
     const row = document.createElement('div');
     row.style.margin = '4px 0';
     const lb = document.createElement('span');

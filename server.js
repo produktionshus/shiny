@@ -193,7 +193,8 @@ function stripPrivate(store) {
   const { tray, ...pub } = store; // bakken (parkerede kort) er privat arbejdsflade
   return {
     ...pub,
-    binders: (store.binders || []).map(b => ({
+    shareValues: !!store.shareValues, // ejeren bestemmer om vaerdier vises hos venner (default nej)
+    binders: (store.binders || []).filter(b => !(b && b.priv)).map(b => ({
       ...b,
       pages: (b.pages || []).map(pg => pg.map(c => {
         if (!c) return null;
