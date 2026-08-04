@@ -8155,16 +8155,24 @@ function cropResample(px, W, H, sx, sy, sw, sh) { // box-gennemsnit -> 32x44 RGB
   }
   return out;
 }
-function warpQuad(px, W, H, q) { // bilineaer patch [TL,TR,BR,BL] -> 32x44
+function warpQuad(px, W, H, qIn) { // bilineaer patch [TL,TR,BR,BL] -> 32x44, 3x3-supersamplet
+  const cx = (qIn[0].x + qIn[1].x + qIn[2].x + qIn[3].x) / 4;
+  const cy = (qIn[0].y + qIn[1].y + qIn[2].y + qIn[3].y) / 4;
+  const q = qIn.map(pt => ({ x: pt.x + (cx - pt.x) * 0.05, y: pt.y + (cy - pt.y) * 0.05 })); // 5% inset: sleeve/kant
   const out = new Uint8ClampedArray(32 * 44 * 4);
   for (let ty = 0; ty < 44; ty++) for (let tx = 0; tx < 32; tx++) {
-    const u = (tx + 0.5) / 32, v = (ty + 0.5) / 44;
-    const xx = (1 - u) * (1 - v) * q[0].x + u * (1 - v) * q[1].x + u * v * q[2].x + (1 - u) * v * q[3].x;
-    const yy = (1 - u) * (1 - v) * q[0].y + u * (1 - v) * q[1].y + u * v * q[2].y + (1 - u) * v * q[3].y;
-    const xi = Math.max(0, Math.min(W - 1, Math.round(xx)));
-    const yi = Math.max(0, Math.min(H - 1, Math.round(yy)));
-    const o = (yi * W + xi) * 4, t = (ty * 32 + tx) * 4;
-    out[t] = px[o]; out[t + 1] = px[o + 1]; out[t + 2] = px[o + 2]; out[t + 3] = 255;
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let jy = 0; jy < 3; jy++) for (let jx = 0; jx < 3; jx++) {
+      const u = (tx + (jx + 0.5) / 3) / 32, v = (ty + (jy + 0.5) / 3) / 44;
+      const xx = (1 - u) * (1 - v) * q[0].x + u * (1 - v) * q[1].x + u * v * q[2].x + (1 - u) * v * q[3].x;
+      const yy = (1 - u) * (1 - v) * q[0].y + u * (1 - v) * q[1].y + u * v * q[2].y + (1 - u) * v * q[3].y;
+      const xi = Math.max(0, Math.min(W - 1, Math.round(xx)));
+      const yi = Math.max(0, Math.min(H - 1, Math.round(yy)));
+      const o = (yi * W + xi) * 4;
+      r += px[o]; g += px[o + 1]; b += px[o + 2]; n++;
+    }
+    const t = (ty * 32 + tx) * 4;
+    out[t] = r / n; out[t + 1] = g / n; out[t + 2] = b / n; out[t + 3] = 255;
   }
   return out;
 }
@@ -8274,16 +8282,13 @@ onmessage = e => {
       const hq = hashPatch(warpQuad(px, m.w, m.h, quad));
       res = matchOne(hq.bits, hq.cols);
     }
-    if (!res || res.d > 140) { // firkant fandt intet godt: suppler med faste skalaer
-      let best2 = res;
-      for (const sc of m.scales) {
-        const ch = m.h * sc, cw = ch * 63 / 88;
-        if (cw > m.w) continue;
-        const hh = hashPatch(cropResample(px, m.w, m.h, (m.w - cw) / 2, (m.h - ch) / 2, cw, ch));
-        const r = matchOne(hh.bits, hh.cols);
-        if (r && (!best2 || r.d < best2.d)) best2 = r;
-      }
-      res = best2;
+    // faste skalaer koeres ALTID — quad-vejen supplerer, den maa ikke blokere (sleeve/skaev firkant kan snyde den)
+    for (const sc of m.scales) {
+      const ch = m.h * sc, cw = ch * 63 / 88;
+      if (cw > m.w) continue;
+      const hh = hashPatch(cropResample(px, m.w, m.h, (m.w - cw) / 2, (m.h - ch) / 2, cw, ch));
+      const r = matchOne(hh.bits, hh.cols);
+      if (r && (!res || r.d < res.d)) res = r;
     }
     postMessage({ type: 'result', id: m.id, res, quad });
   }
