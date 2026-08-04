@@ -2289,6 +2289,10 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 <div id="welcomemodal" class="modal" hidden>
   <div class="modal-card">
     <button class="modal-close" aria-label="Close">✕</button>
+    <div style="display: flex; gap: 6px; justify-content: center; margin-bottom: 8px;">
+      <button class="btn sec" id="wsLangDa" style="padding: 4px 12px;">🇩🇰 Dansk</button>
+      <button class="btn sec" id="wsLangEn" style="padding: 4px 12px;">🇬🇧 English</button>
+    </div>
     <h2 style="font: 700 1.4rem 'Fredoka', sans-serif; margin-bottom: 6px;">🗂️ <span data-l="Welcome to PokéBinder">Welcome to PokéBinder</span></h2>
     <p class="wsub" data-l="Your Pokémon TCG collection as a real binder — build goals, track prices, show it off.">Your Pokémon TCG collection as a real binder — build goals, track prices, show it off.</p>
     <p class="wsub" data-l="📷 Got the physical cards? The Scan button reads them with your camera.">📷 Got the physical cards? The Scan button reads them with your camera.</p>
@@ -2881,6 +2885,7 @@ function leatherFor(color) { // preset-noegle ELLER egen hex
 
 // ---------- state ----------
 let store = load();
+if (store.uiLang === undefined && (navigator.language || '').toLowerCase().startsWith('da')) store.uiLang = 'da'; // ogsaa foerstegangsbesoeg
 let spread = 0;              // -1 = lukket (forside); 0 = kun side 1 til hoejre; derefter dobbeltopslag
 let placing = null;          // kort valgt fra søgning: {id, n, img}
 let picked = null;           // lomme løftet til flytning: {page, slot}
@@ -7782,6 +7787,8 @@ document.getElementById('helpBtn').addEventListener('click', () => {
   document.getElementById('wsFriendRow').style.display = 'none';
   welcomemodal.hidden = false;
 });
+document.getElementById('wsLangDa').addEventListener('click', () => { store.uiLang = 'da'; save(); applyLang(); });
+document.getElementById('wsLangEn').addEventListener('click', () => { store.uiLang = 'en'; save(); applyLang(); });
 document.getElementById('wsLogin').addEventListener('click', () => { finishOnboard(); authbtn.click(); });
 
 document.getElementById('wsBrowse').addEventListener('click', () => {
