@@ -801,15 +801,16 @@ body.viewmode #binderSettings { display: none; }
   color: #e8e4d8; font: 700 .68rem 'Nunito', sans-serif;
 }
 #scanPrints .sp-chip.on { border-color: #ffd76a; color: #ffd76a; background: rgba(255, 215, 106, .15); }
-#scanDbg { /* lodret pill i venstre kant — testholdet indsender fejlscans med eet tryk */
+#scanDbg { /* lodret pill i venstre kant — tekst roteret -90° (laeses nedefra og op), centreret */
   position: absolute;
   left: 0; top: 50%;
-  transform: translateY(-50%);
+  transform: translateY(-50%) rotate(180deg);
   writing-mode: vertical-rl;
+  text-align: center;
   padding: 14px 7px;
-  border-radius: 0 12px 12px 0;
+  border-radius: 12px 0 0 12px; /* spejles af rotationen til afrundet hoejre side */
   border: 1.5px solid rgba(255, 255, 255, .3);
-  border-left: none;
+  border-right: none;
   background: rgba(0, 0, 0, .55);
   color: #ffe9a8;
   font: 700 .72rem 'Fredoka', sans-serif;
