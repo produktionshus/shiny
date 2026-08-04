@@ -756,9 +756,49 @@ body.viewmode #binderSettings { display: none; }
   transform: translate(-50%, -50%);
   height: 46%; /* matcher kortstoerrelsen ved reel fokusafstand (~15-20 cm) */
   aspect-ratio: 63/88;
-  border: 3px dashed rgba(255,217,94,.75);
-  border-radius: 10px;
   pointer-events: none;
+}
+#scanFrame .sc-c { /* hjoerne-brackets i stedet for stiplet kasse */
+  position: absolute; width: 26px; height: 26px;
+  border: 3.5px solid rgba(255,217,94,.9);
+  transition: border-color .2s;
+}
+#scanFrame .tl { left: 0; top: 0; border-right: none; border-bottom: none; border-top-left-radius: 12px; }
+#scanFrame .tr { right: 0; top: 0; border-left: none; border-bottom: none; border-top-right-radius: 12px; }
+#scanFrame .bl { left: 0; bottom: 0; border-right: none; border-top: none; border-bottom-left-radius: 12px; }
+#scanFrame .br { right: 0; bottom: 0; border-left: none; border-top: none; border-bottom-right-radius: 12px; }
+#scanLine { /* soege-sweep */
+  position: absolute; left: 7%; right: 7%; height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(255,217,94,.95), transparent);
+  border-radius: 2px;
+  box-shadow: 0 0 14px rgba(255,217,94,.6);
+  animation: scanSweep 1.5s ease-in-out infinite alternate;
+}
+@keyframes scanSweep { from { top: 5%; } to { top: 93%; } }
+#scanFrame.near .sc-c { /* kandidat i sigte: ravgul puls */
+  border-color: #ffb347;
+  animation: nearPulse .45s ease-in-out infinite alternate;
+}
+@keyframes nearPulse {
+  from { box-shadow: 0 0 0 rgba(255, 179, 71, 0); }
+  to { box-shadow: 0 0 16px rgba(255, 179, 71, .85); }
+}
+#scanFrame.hit { animation: hitPop .35s ease-out; }
+#scanFrame.hit .sc-c {
+  border-color: #7dff9a;
+  box-shadow: 0 0 20px rgba(125, 255, 154, .9);
+  animation: none;
+}
+#scanFrame.hit #scanLine { display: none; }
+@keyframes hitPop {
+  0% { transform: translate(-50%, -50%) scale(1); }
+  40% { transform: translate(-50%, -50%) scale(1.07); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+#scanVideoWrap::after { /* vignette: fokus paa rammen */
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 62% 56% at 50% 50%, transparent 52%, rgba(0, 0, 0, .5) 100%);
 }
 #scanZoom {
   position: absolute;
@@ -2365,7 +2405,10 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 <div id="scanOverlay">
   <div id="scanVideoWrap">
     <video id="scanVideo" autoplay playsinline muted></video>
-    <div id="scanFrame"></div>
+    <div id="scanFrame">
+      <i class="sc-c tl"></i><i class="sc-c tr"></i><i class="sc-c bl"></i><i class="sc-c br"></i>
+      <div id="scanLine"></div>
+    </div>
     <button id="scanZoom" style="display:none">2×</button>
   </div>
   <div id="scanStatus"></div>
@@ -7912,6 +7955,110 @@ function normColors(arr, off) { // traek gennemsnittet fra: annullerer belysning
   }
   return out;
 }
+// ---------- scan-worker: indeks og matching af main-traaden (jaevnt kamerabillede) ----------
+const SCAN_WORKER_SRC = `
+const POP = new Uint8Array(256);
+for (let i = 0; i < 256; i++) POP[i] = (i & 1) + POP[i >> 1];
+const NCOL = 192;
+let ids = null, bits = null, cols = null;
+function normColors(arr, off) {
+  let mr = 0, mg = 0, mb = 0;
+  for (let c = 0; c < 64; c++) { mr += arr[off + c * 3]; mg += arr[off + c * 3 + 1]; mb += arr[off + c * 3 + 2]; }
+  mr /= 64; mg /= 64; mb /= 64;
+  const out = new Int16Array(NCOL);
+  for (let c = 0; c < 64; c++) {
+    out[c * 3] = arr[off + c * 3] - mr;
+    out[c * 3 + 1] = arr[off + c * 3 + 1] - mg;
+    out[c * 3 + 2] = arr[off + c * 3 + 2] - mb;
+  }
+  return out;
+}
+function matchOne(hb, hc) {
+  const n = ids.length, B = bits, C = cols;
+  const top = [];
+  let cut = Infinity;
+  for (let i = 0; i < n; i++) {
+    let ham = 0;
+    const bo = i * 40;
+    for (let k = 0; k < 40; k++) ham += POP[B[bo + k] ^ hb[k]];
+    if (ham >= cut) continue;
+    let cd = 0;
+    const co = i * NCOL;
+    for (let k = 0; k < NCOL; k++) cd += Math.abs(C[co + k] - hc[k]);
+    const d = ham + cd / 96;
+    if (top.length < 4 || d < top[3].d) {
+      top.push({ i, d });
+      top.sort((a, b) => a.d - b.d);
+      if (top.length > 4) top.pop();
+      if (top.length === 4) cut = top[3].d;
+    }
+  }
+  if (!top.length) return null;
+  return { id: ids[top[0].i], d: top[0].d, margin: (top[1] ? top[1].d : 9999) - top[0].d, top: top.map(t => ({ id: ids[t.i], d: t.d })) };
+}
+onmessage = e => {
+  const m = e.data;
+  if (m.type === 'index') {
+    const buf = new Uint8Array(m.buf);
+    const n = buf[4] | (buf[5] << 8) | (buf[6] << 16) | (buf[7] << 24);
+    ids = new Array(n);
+    bits = new Uint8Array(n * 40);
+    cols = new Int16Array(n * NCOL);
+    let o = 8;
+    const dec = new TextDecoder();
+    for (let i = 0; i < n; i++) {
+      const idLen = buf[o++];
+      ids[i] = dec.decode(buf.subarray(o, o + idLen));
+      o += idLen;
+      bits.set(buf.subarray(o, o + 40), i * 40);
+      cols.set(normColors(buf, o + 40), i * NCOL);
+      o += 232;
+    }
+    postMessage({ type: 'ready', n });
+  } else if (m.type === 'match') {
+    let best = null;
+    for (const f of m.frames) {
+      const r = matchOne(new Uint8Array(f.bits), new Int16Array(f.cols));
+      if (r && (!best || r.d < best.d)) best = r;
+    }
+    postMessage({ type: 'result', id: m.id, res: best });
+  }
+};
+`;
+let scanWorker = null, scanReqId = 0, scanReadyRes = null;
+const scanPending = new Map();
+function ensureScanWorker() {
+  if (scanWorker || !window.Worker) return scanWorker;
+  try {
+    scanWorker = new Worker(URL.createObjectURL(new Blob([SCAN_WORKER_SRC], { type: 'text/javascript' })));
+    scanWorker.onmessage = e => {
+      const m = e.data;
+      if (m.type === 'ready' && scanReadyRes) { scanReadyRes(m.n); scanReadyRes = null; }
+      else if (m.type === 'result') {
+        const r = scanPending.get(m.id);
+        if (r) { scanPending.delete(m.id); r(m.res); }
+      }
+    };
+    scanWorker.onerror = () => { try { scanWorker.terminate(); } catch (e2) {} scanWorker = null; };
+  } catch (e) { scanWorker = null; }
+  return scanWorker;
+}
+function workerMatch(frames) {
+  return new Promise(resolve => {
+    const id = ++scanReqId;
+    scanPending.set(id, resolve);
+    scanWorker.postMessage({ type: 'match', id, frames: frames.map(f => ({ bits: f.bits.buffer, cols: f.cols.buffer })) },
+      frames.flatMap(f => [f.bits.buffer, f.cols.buffer]));
+  });
+}
+async function matchHashes(frames) { // worker naar muligt, ellers lokalt
+  if (!frames.length) return null;
+  if (scanIdx && scanIdx.viaWorker && scanWorker) return workerMatch(frames);
+  let best = null;
+  for (const f of frames) { const r = scanMatch(f); if (!best || r.d < best.d) best = r; }
+  return best;
+}
+
 async function loadScanIndex() {
   if (scanIdx && Date.now() - scanIdxAt > 10 * 60 * 1000) scanIdx = null; // nye kort hashes loebende — aeldre end 10 min genhentes
   if (scanIdx) return true;
@@ -7922,6 +8069,20 @@ async function loadScanIndex() {
     if (buf.length < 8 || String.fromCharCode(buf[0], buf[1], buf[2], buf[3]) !== 'PBS3') return false;
     const n = buf[4] | (buf[5] << 8) | (buf[6] << 16) | (buf[7] << 24);
     if (!n) return false;
+    if (ensureScanWorker()) { // parse + match i baggrundstraaden
+      try {
+        const wn = await new Promise((resolve, reject) => {
+          scanReadyRes = resolve;
+          setTimeout(() => reject(new Error('worker timeout')), 8000);
+          scanWorker.postMessage({ type: 'index', buf: buf.buffer.slice(0) }); // kopi — lokal fallback beholder buf
+        });
+        if (wn > 0) {
+          scanIdx = { viaWorker: true, n: wn };
+          scanIdxAt = Date.now();
+          return true;
+        }
+      } catch (e) { /* worker fejlede: parse lokalt i stedet */ }
+    }
     const ids = new Array(n);
     const bits = new Uint8Array(n * 40);
     const cols = new Int16Array(n * NCOL);
@@ -7997,17 +8158,16 @@ function hashFromSource(src, sx, sy, sw, sh) { // graa-bits + normaliserede cell
   return { bits: scanHashFromGray(g), cols: normColors(raw, 0) };
 }
 
-function scanFrameOnce(src, w, h, guideFrac) {
+async function scanFrameOnce(src, w, h, guideFrac) {
   // guideFrac: rammens hoejde som andel af den SYNLIGE flade (object-fit: cover
   // beskaerer videoen — udsnittet skal regnes i det synlige omraade, ikke raa video)
-  let bestRes = null;
+  const frames = [];
   for (const scale of [guideFrac || 0.46, (guideFrac || 0.46) * 0.7, (guideFrac || 0.46) * 1.15, (guideFrac || 0.46) * 1.35, Math.min(0.95, (guideFrac || 0.46) * 1.8)]) {
     const ch = h * scale, cw = ch * 63 / 88;
     if (cw > w) continue;
-    const res = scanMatch(hashFromSource(src, (w - cw) / 2, (h - ch) / 2, cw, ch));
-    if (!bestRes || res.d < bestRes.d) bestRes = res;
+    frames.push(hashFromSource(src, (w - cw) / 2, (h - ch) / 2, cw, ch));
   }
-  return bestRes;
+  return matchHashes(frames);
 }
 
 function scanVideoCrop() {
@@ -8023,6 +8183,10 @@ function scanVideoCrop() {
 
 async function presentScanHit(id, top) {
   scanCandidate = id;
+  const fr = document.getElementById('scanFrame');
+  fr.classList.remove('near');
+  fr.classList.add('hit');
+  if (navigator.vibrate) navigator.vibrate(40);
   const d = await getDetail(id);
   if (scanCandidate !== id) return;
   document.getElementById('scanResImg').src = d && briefImg(d) ? imgUrl(briefImg(d), 'low') : '';
@@ -8055,8 +8219,13 @@ async function presentScanHit(id, top) {
 }
 
 let scanTmpCv = null;
+let scanBusy = false;
 async function scanTick() {
-  if (!scanIdx || document.getElementById('scanResult').style.display === 'flex') return;
+  if (scanBusy || !scanIdx || document.getElementById('scanResult').style.display === 'flex') return;
+  scanBusy = true;
+  try { await scanTickInner(); } finally { scanBusy = false; }
+}
+async function scanTickInner() {
   const crop = scanVideoCrop();
   if (!crop) return;
   // tegn KUN det synlige udsnit paa et mellemlaerred, saa rammen matcher det brugeren ser
@@ -8064,8 +8233,9 @@ async function scanTick() {
   scanTmpCv.width = 360;
   scanTmpCv.height = Math.round(360 * crop.h / crop.w);
   scanTmpCv.getContext('2d').drawImage(crop.v, crop.x, crop.y, crop.w, crop.h, 0, 0, scanTmpCv.width, scanTmpCv.height);
-  const res = scanFrameOnce(scanTmpCv, scanTmpCv.width, scanTmpCv.height, 0.46);
+  const res = await scanFrameOnce(scanTmpCv, scanTmpCv.width, scanTmpCv.height, 0.46);
   if (!res) return;
+  document.getElementById('scanFrame').classList.toggle('near', res.d <= 160);
   // live-feedback: hvad ser scanneren, og hvor taet er den paa?
   if (res.d <= 160) {
     const d = await getDetail(res.id);
@@ -8179,6 +8349,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeScanner
 document.getElementById('scanSkip').addEventListener('click', () => {
   document.getElementById('scanResult').style.display = 'none';
   document.getElementById('scanCands').style.display = 'none';
+  document.getElementById('scanFrame').classList.remove('hit', 'near');
   scanCandidate = null;
   scanStableId = null;
   scanStableCount = 0;
@@ -8211,11 +8382,11 @@ document.getElementById('scanFile').addEventListener('change', async e => {
   e.target.value = '';
   if (!file || !(await loadScanIndex())) return;
   const im = new Image();
-  im.onload = () => {
-    const res = scanFrameOnce(im, im.naturalWidth, im.naturalHeight, 0.9)
+  im.onload = async () => {
+    const res = (await scanFrameOnce(im, im.naturalWidth, im.naturalHeight, 0.9))
       || { d: 999, margin: 0 };
     // fotos er ofte hele kortet uden ramme — prov ogsaa fuld flade
-    const full = scanMatch(hashFromSource(im, 0, 0, im.naturalWidth, im.naturalHeight));
+    const full = (await matchHashes([hashFromSource(im, 0, 0, im.naturalWidth, im.naturalHeight)])) || { d: 999, margin: 0 };
     const pick = full.d < res.d ? full : res;
     if (pick.d <= 160) presentScanHit(pick.id, pick.top);
     else document.getElementById('scanStatus').textContent = T('No match — try more light or fill the frame');
