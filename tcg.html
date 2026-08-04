@@ -801,14 +801,19 @@ body.viewmode #binderSettings { display: none; }
   color: #e8e4d8; font: 700 .68rem 'Nunito', sans-serif;
 }
 #scanPrints .sp-chip.on { border-color: #ffd76a; color: #ffd76a; background: rgba(255, 215, 106, .15); }
-#scanDbg {
+#scanDbg { /* lodret pill i venstre kant — testholdet indsender fejlscans med eet tryk */
   position: absolute;
-  left: 10px; bottom: 10px;
-  width: 44px; height: 44px;
-  border-radius: 50%;
+  left: 0; top: 50%;
+  transform: translateY(-50%);
+  writing-mode: vertical-rl;
+  padding: 14px 7px;
+  border-radius: 0 12px 12px 0;
   border: 1.5px solid rgba(255, 255, 255, .3);
-  background: rgba(0, 0, 0, .5);
-  font-size: 1rem;
+  border-left: none;
+  background: rgba(0, 0, 0, .55);
+  color: #ffe9a8;
+  font: 700 .72rem 'Fredoka', sans-serif;
+  letter-spacing: .04em;
   cursor: pointer;
   z-index: 4;
 }
@@ -2446,7 +2451,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <div id="scanLine"></div>
     </div>
     <button id="scanZoom" style="display:none">2×</button>
-    <button id="scanDbg" title="Send debug-frame">🐞</button>
+    <button id="scanDbg" title="Send fejlscan til udviklerne"><span data-l="Report bad scan">Report bad scan</span> 🐞</button>
   </div>
   <div id="scanStatus"></div>
   <div id="scanCands"></div>
@@ -2746,6 +2751,8 @@ const STR_DA = {
   'in a row': 'i træk',
   'scanned — next card!': 'scannet — næste kort!',
   'card locked — matching…': 'kort låst — matcher…',
+  'Report bad scan': 'Indsend fejlscan',
+  '🐞 Bad scan reported — thanks!': '🐞 Fejlscan indsendt — tak!',
   '📷 Got the physical cards? The Scan button reads them with your camera.':
     '📷 Har du kortene fysisk? Scan-knappen aflæser dem med kameraet.',
   'Show values to friends': 'Vis værdier for venner',
@@ -8719,7 +8726,7 @@ document.getElementById('scanDbg').addEventListener('click', async e => {
         headers: { 'Content-Type': 'image/jpeg', 'x-scan-meta': JSON.stringify(lastScanDebug || {}) },
         body: blob,
       });
-      toast('🐞 Debug-frame sendt');
+      toast(T('🐞 Bad scan reported — thanks!'));
     } catch (err) { toast('Debug fejlede'); }
   }, 'image/jpeg', 0.85);
 });

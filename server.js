@@ -555,10 +555,31 @@ const SCANDBG_DIR = path.join(path.dirname(DB_PATH), 'scan-debug');
 app.post('/api/scan-debug', express.raw({ type: ['image/*', 'application/octet-stream'], limit: '4mb' }), (req, res) => {
   try {
     fsMod.mkdirSync(SCANDBG_DIR, { recursive: true });
+    const ts = Date.now().toString(36); // testholdet maa ikke overskrive hinandens frames
+    fsMod.writeFileSync(path.join(SCANDBG_DIR, ts + '.jpg'), req.body);
+    fsMod.writeFileSync(path.join(SCANDBG_DIR, ts + '.json'), String(req.headers['x-scan-meta'] || '{}'));
     fsMod.writeFileSync(path.join(SCANDBG_DIR, 'latest.jpg'), req.body);
     fsMod.writeFileSync(path.join(SCANDBG_DIR, 'latest.json'), String(req.headers['x-scan-meta'] || '{}'));
+    const old = fsMod.readdirSync(SCANDBG_DIR).filter(f => /^[a-z0-9]+\.jpg$/.test(f) && f !== 'latest.jpg').sort();
+    while (old.length > 80) fsMod.rmSync(path.join(SCANDBG_DIR, old.shift()), { force: true }); // + .json soesteren
     res.json({ ok: true });
   } catch (e) { res.status(500).end(); }
+});
+app.get('/api/scan-debug/list', (req, res) => { // alle indsendte frames, nyeste foerst
+  try {
+    const fs2 = fsMod.readdirSync(SCANDBG_DIR).filter(f => f.endsWith('.json') && f !== 'latest.json').sort().reverse();
+    res.set('Cache-Control', 'no-store');
+    res.json({ frames: fs2.map(f => f.slice(0, -5)) });
+  } catch (e) { res.json({ frames: [] }); }
+});
+app.get('/api/scan-debug/f/:name.:ext', (req, res) => {
+  const name = String(req.params.name), ext = String(req.params.ext);
+  if (!/^[a-z0-9]{4,20}$/.test(name) || !['jpg', 'json'].includes(ext)) return res.status(400).end();
+  const f = path.join(SCANDBG_DIR, name + '.' + ext);
+  if (!fsMod.existsSync(f)) return res.status(404).end();
+  res.set('Content-Type', ext === 'jpg' ? 'image/jpeg' : 'application/json');
+  res.set('Cache-Control', 'no-store');
+  res.send(fsMod.readFileSync(f));
 });
 app.get('/api/scan-debug/latest.jpg', (req, res) => {
   const f = path.join(SCANDBG_DIR, 'latest.jpg');
