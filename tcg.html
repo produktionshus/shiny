@@ -6996,8 +6996,8 @@ function startBattlePoll() {
   stopBattlePoll();
   battle.poll = setInterval(async () => {
     if (!battle || battle.mode !== 'online') return;
-    if (pack) return; // jeg er midt i min egen pakke — lad UI'et vaere
-    try {
+    try { // henter altid — renderBattleState freder selv en aktiv pakke
+
       const j = await battleApi('/' + battle.code);
       battle.state = j.state;
       renderBattleState();
@@ -7047,10 +7047,33 @@ function renderBattleState() {
     const turnId = st.order[st.turn];
     if (turnId === battle.playerId) showTurnPrompt();
     else renderSpectate(turnId);
+  } else if (st.phase === 'reveal') {
+    battle.doneShown = false;
+    renderRevealGate(); // ingen ser vinderen foer alle har meldt sig klar
   } else if (st.phase === 'done') {
     if (pack) { pack = null; } // min summary viger for holdresultatet
     renderOnlineResult();
   }
+}
+
+function renderRevealGate() {
+  if (pack) pack = null; // sidste spillers summary viger for trommehvirvlen
+  hidePackStages();
+  document.getElementById('packLanding').style.display = 'none';
+  document.getElementById('spectateStage').style.display = 'flex';
+  const st = battle.state;
+  const meReady = !!st.ready[battle.playerId];
+  document.getElementById('specTitle').textContent = '🥁 All packs opened!';
+  document.getElementById('specCard').innerHTML = '<div class="spec-wait">🏆</div>';
+  document.getElementById('specName').textContent = meReady ? 'Waiting for the others…' : 'Ready to see the winner?';
+  document.getElementById('specGrid').innerHTML = '';
+  const btn = document.getElementById('specTurnBtn');
+  btn.style.display = meReady ? 'none' : '';
+  btn.textContent = '🥁 Reveal the winner!';
+  const readyCount = st.players.filter(p => st.ready[p.id]).length;
+  document.getElementById('specStatus').textContent = readyCount + '/' + st.players.length + ' ready · '
+    + st.players.map(p => (st.ready[p.id] ? '✓ ' : '') + p.name).join(' · ');
+  $packOverlay.classList.add('open');
 }
 
 function renderLobby() {
@@ -7110,11 +7133,18 @@ function showTurnPrompt() {
   document.getElementById('specCard').innerHTML = '<div class="spec-wait">🎁</div>';
   document.getElementById('specName').textContent = '';
   document.getElementById('specGrid').innerHTML = '';
-  document.getElementById('specTurnBtn').style.display = '';
+  const tb = document.getElementById('specTurnBtn');
+  tb.style.display = '';
+  tb.textContent = '🎁 Your turn — open your pack!';
   document.getElementById('specStatus').textContent = battleOrderLine();
   $packOverlay.classList.add('open');
 }
 document.getElementById('specTurnBtn').addEventListener('click', e => {
+  if (battle.state.phase === 'reveal') { // klar-melding til vinder-afsloeringen
+    e.currentTarget.style.display = 'none';
+    battleAct('ready').catch(() => {});
+    return;
+  }
   if (battle.opening) return; // dobbelt-tap maa ikke aabne to pakker
   battle.opening = true;
   openPackFlow(battle.state.setId, e.currentTarget).finally(() => { if (battle) battle.opening = false; });

@@ -844,6 +844,7 @@ function roomState(r) { // spillernes view — uden interne felter
     v: r.v, phase: r.phase, setId: r.setId, setName: r.setName,
     players: r.players.map(p => ({ id: p.id, name: p.name, team: p.team })),
     order: r.order, turn: r.turn, pulls: r.pulls, host: r.players[0] && r.players[0].id,
+    ready: r.ready || {},
   };
 }
 function touchRoom(r) { r.touched = Date.now(); r.v++; }
@@ -944,7 +945,11 @@ app.post('/api/battle/:code/act', (req, res) => {
         p: typeof best.p === 'number' && isFinite(best.p) ? best.p : null };
     }
     r.turn++;
-    if (r.turn >= r.order.length) r.phase = 'done';
+    if (r.turn >= r.order.length) { r.phase = 'reveal'; r.ready = {}; } // vinderen afsloeres foerst naar ALLE er klar
+  } else if (type === 'ready') {
+    if (r.phase !== 'reveal') return res.status(409).json({ error: 'not_reveal_phase' });
+    r.ready[playerId] = true;
+    if (r.players.every(p => r.ready[p.id])) r.phase = 'done'; // alle klar → alle ser dommen samtidig
   } else {
     return res.status(400).json({ error: 'bad_action' });
   }
