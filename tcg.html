@@ -3297,7 +3297,7 @@ function renderOwnHits(q) { // "hvor er min Mew?" — soeg i egne bindere foer A
     }));
   }
   if (!hits.length) return;
-  box.style.display = '';
+  box.style.display = 'block'; // basen er display:none — tom inline-style falder tilbage til den
   const head = document.createElement('div');
   head.className = 'oh-head';
   head.textContent = '📁 ' + T('In your collection:') + ' ' + hits.length;
