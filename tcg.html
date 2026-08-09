@@ -5262,7 +5262,8 @@ api('/api/me').then(j => { me = j.username; updateAuthUI(); if (me) loadServerSt
 const DK_SHOP_USERS = ['soren']; // oplaast til aftale med pokemons.dk er paa plads — referral-param tilfoejes her
 function dkShopUrl(name, localId) {
   if (!me || !DK_SHOP_USERS.includes(String(me).toLowerCase())) return null;
-  return 'https://www.pokemons.dk/?s=' + encodeURIComponent(name + (localId ? ' ' + localId : '')) + '&post_type=product';
+  // deres soegning bruger hr-search med JSON-payload; kortnummer udelades (deres titler bruger saetkode-format)
+  return 'https://www.pokemons.dk/?hr-search=' + encodeURIComponent(JSON.stringify({ search_term: name }));
 }
 
 // ---------- Add all (fyld binderen med soegeresultatet) ----------
