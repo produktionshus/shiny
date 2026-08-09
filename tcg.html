@@ -1044,9 +1044,10 @@ body.scanopen #bottomBar { display: none !important; }
   text-shadow: 0 2px 8px rgba(0,0,0,.8);
   padding: 0 10px; text-align: center;
 }
+#packWrap { touch-action: none; } /* fruit ninja-snittet maa ikke blive til scroll */
 #packWrap.rip { pointer-events: none; animation: none; }
 #packWrap.rip #packTear { animation: tearOff .5s ease-in forwards; }
-@keyframes tearOff { to { transform: translate(70%, -160%) rotate(26deg); opacity: 0; } }
+@keyframes tearOff { to { transform: translate(var(--tearX, 70%), -160%) rotate(var(--tearR, 26deg)); opacity: 0; } }
 #packWrap.rip #packFoil { animation: packDrop .45s ease-in .3s forwards; }
 @keyframes packDrop { to { transform: translateY(75vh) rotate(-7deg); opacity: 0; } }
 #packStack {
@@ -6113,8 +6114,17 @@ function startPack(pools) {
   if (musicOn) startMusic(); // temaet spiller mens pakken er aaben
 }
 
-$packWrap.addEventListener('click', () => {
-  if (!pack || pack.i >= 0) return;
+function ripPack(dir) { // dir: -1/1 = fruit ninja-snit i den retning, 0 = tap
+  if (!pack || pack.i >= 0 || $packWrap.classList.contains('rip')) return;
+  const tear = document.getElementById('packTear');
+  tear.style.transition = '';
+  if (dir) {
+    tear.style.setProperty('--tearX', (dir * 90) + '%');
+    tear.style.setProperty('--tearR', (dir * 30) + 'deg');
+  } else { // tap: standard-retning, ikke sidste snits
+    tear.style.removeProperty('--tearX');
+    tear.style.removeProperty('--tearR');
+  }
   playRip();
   if (pack.golden) { // golden fejres allerede ved rippet
     packCelebrate('GOLDEN PACK!');
@@ -6125,11 +6135,48 @@ $packWrap.addEventListener('click', () => {
   setTimeout(() => {
     if (!pack) return; // lukket midt i rivet
     $packWrap.style.display = 'none';
+    tear.style.transform = '';
     document.getElementById('packStack').style.display = '';
     document.getElementById('packBtns').style.display = '';
     document.getElementById('packHint').textContent = 'Tap for the next card · swipe ↑ to keep — the best is saved for last';
     packNext();
   }, 700);
+}
+
+// tap ELLER vandret snit hen over toppen — folk proever fruit ninja helt af sig selv
+$packWrap.addEventListener('pointerdown', e => {
+  if (!pack || pack.i >= 0 || $packWrap.classList.contains('rip')) return;
+  e.preventDefault();
+  const sx = e.clientX, sy = e.clientY;
+  const tear = document.getElementById('packTear');
+  let dx = 0, dy = 0, sliced = false;
+  function onMove(ev) {
+    if (sliced) return;
+    dx = ev.clientX - sx;
+    dy = ev.clientY - sy;
+    if (Math.abs(dx) > 8) tear.style.transform = 'translateX(' + dx * 0.5 + 'px)'; // strippen foelger fingeren
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      sliced = true;
+      cleanup();
+      ripPack(dx > 0 ? 1 : -1);
+    }
+  }
+  function onUp() {
+    cleanup();
+    if (sliced) return;
+    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) { ripPack(0); return; } // tap som altid
+    tear.style.transition = 'transform .2s';
+    tear.style.transform = '';
+    setTimeout(() => { tear.style.transition = ''; }, 210);
+  }
+  function cleanup() {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
+  }
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
 });
 
 function renderPackCard() {
