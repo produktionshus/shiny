@@ -6924,7 +6924,7 @@ function renderTeamResult(pulls) { // pulls: [{name, team, value, best}] — N h
   const verdictTxt = leaders.length > 1 ? "IT'S A DRAW!"
     : (solo ? leaders[0].ps[0].name.toUpperCase() : 'TEAM ' + leaders[0].t) + ' WINS!';
   document.getElementById('duelVerdict').textContent = '🏆 ' + verdictTxt;
-  packCelebrate(verdictTxt);
+  packCelebrate(); // kun konfetti — den blivende guldlinje ovenfor baerer teksten, ellers staar dommen dobbelt
   playFx('wow.mp3', 0.6);
   const withBest = pulls.filter(p => p.best);
   const top = withBest.sort((a, b) => ((b.best.p) || 0) - ((a.best.p) || 0))[0];
