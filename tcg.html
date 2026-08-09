@@ -1715,7 +1715,23 @@ body.scanopen #bottomBar { display: none !important; }
 .zi-row { display: flex; gap: 10px; justify-content: space-between; margin: 5px 0; }
 .zi-row .zi-l { color: #ffd95e; font-family: 'Fredoka', sans-serif; font-weight: 600; flex: 0 0 auto; }
 .zi-row span:last-child { text-align: right; }
-@media (max-width: 900px) { #zoomInfo, #pileInfo { display: none !important; } } /* lille skaerm: kortet er pointen */
+@media (max-width: 900px) { /* bunken: kortet er pointen — men zoom er inspektions-hub, saa DENS panel skal med */
+  #pileInfo { display: none !important; }
+  #zoomOverlay.open { align-items: flex-start; }
+  #zoomCard { margin-top: 5vh; width: min(58vw, 34vh, 420px); }
+  #zoomInfo {
+    right: auto; top: auto;
+    left: 50%; bottom: 150px;
+    transform: translateX(-50%);
+    width: min(92vw, 340px);
+    max-height: 26vh;
+    overflow-y: auto;
+    touch-action: pan-y; /* overlayet er ellers touch-action:none (tilt) */
+    z-index: 605;
+  }
+  #zoomActions { width: 96vw; display: flex; gap: 6px; justify-content: center; }
+  #zoomActions .btn { flex: 1 1 auto; min-width: 0; white-space: nowrap; padding: 10px 8px; font-size: .78rem; }
+}
 #zoomMeta {
   position: fixed; left: 50%; bottom: 108px; transform: translateX(-50%);
   display: none; align-items: center; gap: 8px;
@@ -2766,8 +2782,8 @@ const STR_DA = {
   'Added ': 'Tilføjede ',
   'Price on cards': 'Pris på kort',
   'Buy': 'Køb',
-  '✓ Have — tap for Need': '✓ Har — tryk for Mangler',
-  '☆ Need — tap for Have': '☆ Mangler — tryk for Har',
+  '✓ Have': '✓ Har',
+  '☆ Need': '☆ Mangler',
   'All': 'Alle',
   'Older': 'Ældre',
   'in a row': 'i træk',
@@ -4394,7 +4410,7 @@ function openZoom(card, from) {
   // koebspris/dato: kun for kortet som lomme-instans i egen binder
   const inBinder = !viewBinder && binder().pages.flat().includes(card);
   ownBtn.style.display = inBinder ? '' : 'none';
-  if (inBinder) ownBtn.textContent = card.o === false ? T('☆ Need — tap for Have') : T('✓ Have — tap for Need');
+  if (inBinder) ownBtn.textContent = card.o === false ? T('☆ Need') : T('✓ Have');
   purchaseCard = inBinder ? card : null;
   const pw = document.getElementById('zoomPurchase');
   pw.style.display = inBinder ? 'flex' : 'none';
@@ -4491,7 +4507,7 @@ document.getElementById('alarmInput').addEventListener('change', e => {
 document.getElementById('zoomOwn').addEventListener('click', () => {
   if (!zoomedCard) return;
   zoomedCard.o = zoomedCard.o === false ? true : false;
-  document.getElementById('zoomOwn').textContent = zoomedCard.o === false ? T('☆ Need — tap for Have') : T('✓ Have — tap for Need');
+  document.getElementById('zoomOwn').textContent = zoomedCard.o === false ? T('☆ Need') : T('✓ Have');
   save(); renderBinder();
 });
 document.getElementById('zoomCover').addEventListener('click', () => {
