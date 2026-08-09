@@ -1909,6 +1909,18 @@ body.presenting #legal, body.viewmode #legal { display: none; }
   background: rgba(10, 12, 20, .78); padding: 2px 8px; border-radius: 8px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, .6);
 }
+#ownHits {
+  display: none;
+  margin: 6px 0 2px;
+  background: rgba(255, 215, 106, .08);
+  border: 1px solid rgba(255, 215, 106, .3);
+  border-radius: 10px;
+  padding: 6px 10px;
+  text-align: left;
+}
+#ownHits .oh-head { font: 700 .78rem 'Fredoka', sans-serif; color: #ffd76a; margin-bottom: 2px; }
+#ownHits .oh-row { font: 700 .78rem 'Nunito', sans-serif; padding: 3px 0; cursor: pointer; opacity: .92; }
+#ownHits .oh-row:hover { color: #ffd76a; }
 #filterChips { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin: 6px 0 2px; }
 #filterChips button {
   padding: 4px 10px; border-radius: 999px; cursor: pointer;
@@ -2155,6 +2167,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <button class="btn" id="customBtn" title="Add a card that isn't in the database">➕</button>
     </div>
     <div class="search-hint" id="hint" data-l="Click a card, then click pockets — the same card can be placed as many times as you like.">Click a card, then click pockets — the same card can be placed as many times as you like.</div>
+    <div id="ownHits"></div>
     <div id="filterChips">
       <button data-era="" class="on" data-l="All">All</button><button data-era="me">ME</button><button data-era="sv">SV</button><button data-era="swsh">SWSH</button><button data-era="sm">SM</button><button data-era="xy">XY</button><button data-era="old" data-l="Older">Older</button>
       <span class="fc-sep"></span>
@@ -2259,6 +2272,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <button class="btn" id="clearBinder" data-l="🧹 Clear binder">🧹 Clear binder</button>
       <button class="btn" id="sortBinder" data-l="⇅ Sort by set">⇅ Sort by set</button>
       <button class="btn" id="colorSort" data-l="🌈 Sort by color">🌈 Sort by color</button>
+      <button class="btn" id="valueSort" data-l="💰 Sort by value">💰 Sort by value</button>
       <button class="btn" id="exportBinder" data-l="⬇ Export">⬇ Export</button>
       <button class="btn" id="importBinder" data-l="⬆ Import">⬆ Import</button>
       <input type="file" id="importFile" accept=".json,application/json" style="display:none">
@@ -2811,6 +2825,11 @@ const STR_DA = {
   '🧹 Clear binder': '🧹 Tøm binder',
   '⇅ Sort by set': '⇅ Sortér efter sæt',
   '🌈 Sort by color': '🌈 Sortér efter farve',
+  '💰 Sort by value': '💰 Sortér efter værdi',
+  'In your collection:': 'I din samling:',
+  'page': 'side',
+  'Fetching prices…': 'Henter priser…',
+  'Sorted by value — most valuable first': 'Sorteret efter værdi — dyreste først',
   'Color-sort the whole binder (new binder) or just this spread?':
     'Farvesortér hele binderen (ny binder) eller kun dette opslag?',
   'Whole binder': 'Hele binderen',
@@ -3265,9 +3284,49 @@ document.getElementById('filterChips').addEventListener('click', e => {
 $q.addEventListener('input', scheduleSearch);
 $set.addEventListener('change', doSearch);
 
+function renderOwnHits(q) { // "hvor er min Mew?" — soeg i egne bindere foer API'et svarer
+  const box = document.getElementById('ownHits');
+  box.innerHTML = '';
+  box.style.display = 'none';
+  const term = (q || '').trim().toLowerCase();
+  if (term.length < 2 || viewBinder || /^(?:artist|illustrator):/.test(term)) return;
+  const hits = [];
+  for (const { b, i } of modeBinders()) {
+    b.pages.forEach((pg, pi) => pg.forEach((c, si) => {
+      if (c && c.n.toLowerCase().includes(term)) hits.push({ c, bi: i, bn: b.name, pi, si });
+    }));
+  }
+  if (!hits.length) return;
+  box.style.display = '';
+  const head = document.createElement('div');
+  head.className = 'oh-head';
+  head.textContent = '📁 ' + T('In your collection:') + ' ' + hits.length;
+  box.appendChild(head);
+  for (const h of hits.slice(0, 10)) {
+    const row = document.createElement('div');
+    row.className = 'oh-row';
+    row.textContent = (h.c.o === false ? '☆ ' : '✓ ') + h.c.n + ' — ' + h.bn + ' · ' + T('page') + ' ' + (h.pi + 1);
+    row.addEventListener('click', () => { // hop direkte til lommen — kortet popper
+      store.active = h.bi;
+      lastPlaced = { page: h.pi, slot: h.si };
+      jumpPage(h.pi);
+      save(); renderBinderSelect(); renderBinder();
+      if (isSingle() && !document.body.classList.contains('drawer-closed')) document.getElementById('drawerTab').click();
+    });
+    box.appendChild(row);
+  }
+  if (hits.length > 10) {
+    const more = document.createElement('div');
+    more.className = 'oh-row';
+    more.style.opacity = '.6';
+    more.textContent = '+' + (hits.length - 10) + ' …';
+    box.appendChild(more);
+  }
+}
 async function doSearch() {
   const q = $q.value.trim();
   const setId = $set.value;
+  renderOwnHits(q);
   if (!q && !setId) { $results.innerHTML = ''; $hint.textContent = T('Search by name or choose a set.'); return; }
   const seq = ++searchSeq;
   $hint.textContent = T('Searching…');
@@ -4167,6 +4226,7 @@ function updatePriceUI() {
   document.getElementById('curveBtn').style.display = showPricesNow() ? '' : 'none';
   document.getElementById('priceSourceSel').disabled = !store.showPrices;
   document.getElementById('priceTags').disabled = !store.showPrices;
+  document.getElementById('valueSort').style.display = store.showPrices ? '' : 'none';
   document.getElementById('dispCurrency').disabled = !store.showPrices || priceSource() === 'tcgplayer';
 }
 function priceSourceName() { return priceSource() === 'tcgplayer' ? 'TCGplayer' : 'Cardmarket'; }
@@ -4835,6 +4895,38 @@ document.getElementById('csGo').addEventListener('click', async () => {
   jumpSpread(0);
   save(); renderBinderSelect(); renderBinder();
   toast(T('Color version created as a new binder 🌈'), true);
+});
+
+document.getElementById('valueSort').addEventListener('click', async () => {
+  const b = binder();
+  const cards = b.pages.flat().filter(c => c);
+  if (!cards.length) { toast(T('The binder is empty')); return; }
+  toast(T('Fetching prices…'));
+  const ids = [...new Set(cards.map(c => c.id))];
+  const langById = new Map(cards.map(c => [c.id, cardLang(c)]));
+  const queue = ids.slice();
+  const priceById = new Map();
+  await Promise.all(Array.from({ length: 8 }, async () => {
+    while (queue.length) {
+      const id = queue.shift();
+      priceById.set(id, cardPrice(await getDetail(id, langById.get(id))));
+    }
+  }));
+  snapshot();
+  const pv = c => { const v = priceById.get(c.id); return v == null ? -1 : v; };
+  cards.sort((x, y) => pv(y) - pv(x));
+  const per = slotsOf(b);
+  const pages = [];
+  for (let i = 0; i < cards.length; i += per) {
+    const pg = cards.slice(i, i + per);
+    while (pg.length < per) pg.push(null);
+    pages.push(pg);
+  }
+  while (pages.length < 2 || pages.length % 2) pages.push(emptyPage(per));
+  b.pages = pages;
+  jumpSpread(0);
+  save(); renderBinder();
+  toast(T('Sorted by value — most valuable first'), true);
 });
 
 document.getElementById('exportBinder').addEventListener('click', () => {
