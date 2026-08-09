@@ -621,7 +621,11 @@ body.viewmode #binderSettings { display: none; }
 
 @media (hover: none) {
   #pilePrev, #pileNext { display: none; } /* swipe + strimlen daekker paa touch */
-  .pocket .ptool, .result .zoom { opacity: .85; }
+  .pocket .ptool, .result .zoom { /* touch har ingen hover — knapperne skal staa tydeligt */
+    opacity: 1;
+    background: rgba(10, 14, 24, .82);
+    border: 1.5px solid rgba(255, 255, 255, .35);
+  }
   .pocket .ptool { width: 34px; height: 34px; font-size: 1rem; } /* Apples 44pt er maalet — 34 er kompromis paa smaa lommer */
   .toolbar input, .toolbar select,
   .search-row input, .search-row select,
@@ -2673,6 +2677,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   </div>
   <div id="zoomActions">
     <button class="btn primary" id="zoomPlace" data-l="Add to binder">Add to binder</button>
+    <button class="btn" id="zoomOwn" style="display:none"></button>
     <button class="btn" id="zoomCover" style="display:none">Set as cover</button>
     <button class="btn" id="zoomClose" data-l="Close">Close</button>
   </div>
@@ -2761,6 +2766,8 @@ const STR_DA = {
   'Added ': 'Tilføjede ',
   'Price on cards': 'Pris på kort',
   'Buy': 'Køb',
+  '✓ Have — tap for Need': '✓ Har — tryk for Mangler',
+  '☆ Need — tap for Have': '☆ Mangler — tryk for Har',
   'All': 'Alle',
   'Older': 'Ældre',
   'in a row': 'i træk',
@@ -3603,6 +3610,10 @@ function pocketClick(pageIdx, slot) {
     return;
   }
   if (pages[pageIdx][slot]) {
+    if (isSingle()) { // mobil: tap = inspicer (traek = flyt) — zoom er hub for pris/links/Har-Mangler
+      openZoom(pages[pageIdx][slot], { page: pageIdx, slot });
+      return;
+    }
     picked = { page: pageIdx, slot };
     toast(T('Card picked up — click another pocket to move or swap'));
     renderBinder();
@@ -4376,11 +4387,14 @@ function openZoom(card, from) {
   fillZoomInfo(card);
   // "Læg i binder" kun for kort der ikke allerede ligger der
   document.getElementById('zoomPlace').style.display = (viewBinder || from) ? 'none' : '';
+  const ownBtn = document.getElementById('zoomOwn');
   const coverBtn = document.getElementById('zoomCover');
   coverBtn.style.display = viewBinder ? 'none' : '';
   coverBtn.textContent = binder().cover === card.img ? 'Remove cover' : 'Set as cover';
   // koebspris/dato: kun for kortet som lomme-instans i egen binder
   const inBinder = !viewBinder && binder().pages.flat().includes(card);
+  ownBtn.style.display = inBinder ? '' : 'none';
+  if (inBinder) ownBtn.textContent = card.o === false ? T('☆ Need — tap for Have') : T('✓ Have — tap for Need');
   purchaseCard = inBinder ? card : null;
   const pw = document.getElementById('zoomPurchase');
   pw.style.display = inBinder ? 'flex' : 'none';
@@ -4473,6 +4487,12 @@ document.getElementById('alarmInput').addEventListener('change', e => {
   if (isNaN(v) || v <= 0) delete purchaseCard.al;
   else purchaseCard.al = store.dispCurrency === 'dkk' ? +(v / DKK_RATE).toFixed(4) : v; // kanonisk EUR
   save();
+});
+document.getElementById('zoomOwn').addEventListener('click', () => {
+  if (!zoomedCard) return;
+  zoomedCard.o = zoomedCard.o === false ? true : false;
+  document.getElementById('zoomOwn').textContent = zoomedCard.o === false ? T('☆ Need — tap for Have') : T('✓ Have — tap for Need');
+  save(); renderBinder();
 });
 document.getElementById('zoomCover').addEventListener('click', () => {
   const card = zoomedCard;
