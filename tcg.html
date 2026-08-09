@@ -2760,6 +2760,7 @@ const STR_DA = {
   'No match — try more light or fill the frame': 'Intet match — prøv mere lys eller fyld rammen',
   'Added ': 'Tilføjede ',
   'Price on cards': 'Pris på kort',
+  'Buy': 'Køb',
   'All': 'Alle',
   'Older': 'Ældre',
   'in a row': 'i træk',
@@ -4258,6 +4259,26 @@ async function fillInfo(panelId, card, stillCurrent) {
     row.append(lab, val);
     panel.appendChild(row);
   }
+  { // koebslinks — inkl. dansk webshop for DK-samlere
+    const lrow = document.createElement('div');
+    lrow.className = 'zi-row';
+    const ll = document.createElement('span');
+    ll.className = 'zi-l';
+    ll.textContent = T('Buy');
+    const lv = document.createElement('span');
+    const mk = (href, txt, title) => {
+      const a = document.createElement('a');
+      a.href = href; a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = txt; a.title = title;
+      a.style.marginRight = '10px';
+      return a;
+    };
+    const nm = d.name || card.n;
+    lv.appendChild(mk('https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=' + encodeURIComponent(nm), 'CM ↗', 'Cardmarket'));
+    lv.appendChild(mk('https://www.pokemons.dk/?s=' + encodeURIComponent(nm + ' ' + (d.localId || '')) + '&post_type=product', '🇩🇰 pokemons.dk ↗', 'Søg hos pokemons.dk'));
+    lrow.append(ll, lv);
+    panel.appendChild(lrow);
+  }
   if (showPricesNow() && cardLang(card) === 'en') {
     try { // serverens daglige pris-snapshots -> kurve naar der er mindst 2 punkter
       const h = (await (await fetch('/api/prices/' + encodeURIComponent(card.id))).json()).history || [];
@@ -5288,6 +5309,15 @@ document.getElementById('needBtn').addEventListener('click', async () => {
         a.textContent = 'TCG ↗';
         a.title = 'Open on TCGplayer';
         job.links.appendChild(a);
+      }
+      { // dansk webshop — soegning paa navn + kortnummer
+        const dk = document.createElement('a');
+        dk.href = 'https://www.pokemons.dk/?s=' + encodeURIComponent(job.n + (d && d.localId ? ' ' + d.localId : '')) + '&post_type=product';
+        dk.target = '_blank';
+        dk.rel = 'noopener';
+        dk.textContent = '🇩🇰 ↗';
+        dk.title = 'Søg hos pokemons.dk';
+        job.links.appendChild(dk);
       }
       if (store.showPrices) {
         const pr = cardPrice(d);
