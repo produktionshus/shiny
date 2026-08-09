@@ -6949,9 +6949,12 @@ function hidePackStages() {
 
 // --- setup-panelet ---
 document.getElementById('pvpBtn').addEventListener('click', () => {
-  if (!chosenSetId) { packToast('Choose a set first'); return; }
+  // ingen saet-krav her: joinere skal bare bruge navn + kode — kun host/local vaelger saet
   const s = document.getElementById('pvpSetup');
   s.style.display = s.style.display === 'flex' ? 'none' : 'flex';
+  const lastMode = localStorage.getItem('tcg-pvp-mode');
+  if (lastMode === 'online') { document.getElementById('pvpOnline').style.display = 'flex'; document.getElementById('pvpLocal').style.display = 'none'; }
+  else if (lastMode === 'local') { document.getElementById('pvpLocal').style.display = 'flex'; document.getElementById('pvpOnline').style.display = 'none'; }
   try {
     const names = JSON.parse(localStorage.getItem('tcg-pvp-names') || '[]');
     ['pvpT1a', 'pvpT1b', 'pvpT2a', 'pvpT2b'].forEach((id, i) => { if (names[i]) document.getElementById(id).value = names[i]; });
@@ -6963,10 +6966,12 @@ document.getElementById('pvpCancel').addEventListener('click', () => document.ge
 document.getElementById('pvpLocalBtn').addEventListener('click', () => {
   document.getElementById('pvpLocal').style.display = 'flex';
   document.getElementById('pvpOnline').style.display = 'none';
+  localStorage.setItem('tcg-pvp-mode', 'local');
 });
 document.getElementById('pvpOnlineBtn').addEventListener('click', () => {
   document.getElementById('pvpOnline').style.display = 'flex';
   document.getElementById('pvpLocal').style.display = 'none';
+  localStorage.setItem('tcg-pvp-mode', 'online');
 });
 
 // --- een enhed: send iPad'en rundt ---
@@ -6978,6 +6983,7 @@ function buildLocalOrder() { // fletter holdene: A1 -> B1 (-> A2 -> B2)
   for (let i = 0; i < a.length; i++) battle.order.push(a[i], b[i]);
 }
 document.getElementById('pvpLocalStart').addEventListener('click', e => {
+  if (!chosenSetId) { packToast('Choose a set first'); return; }
   const val = id => document.getElementById(id).value.trim();
   const t1 = [val('pvpT1a'), val('pvpT1b')].filter(Boolean);
   const t2 = [val('pvpT2a'), val('pvpT2b')].filter(Boolean);
@@ -7016,6 +7022,7 @@ async function enterRoom(j) {
 document.getElementById('pvpCreate').addEventListener('click', async () => {
   const name = document.getElementById('pvpName').value.trim();
   if (!name) { document.getElementById('pvpErr').textContent = 'Write your name first'; return; }
+  if (!chosenSetId) { document.getElementById('pvpErr').textContent = 'Hosting? Pick a set on the landing first'; return; }
   localStorage.setItem('tcg-pvp-me', name);
   try {
     const j = await battleApi('', { name });
