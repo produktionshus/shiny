@@ -1184,12 +1184,18 @@ body.scanopen #bottomBar { display: none !important; }
   text-shadow: 0 0 18px rgba(255,217,94,.8);
 }
 #packStats { font: 600 .8rem 'Nunito', sans-serif; color: #cbbf9f; opacity: .85; }
-#duelVerdict { /* dommen bliver staaende til naeste kamp */
-  font: 700 clamp(1.3rem, 4.5vw, 2rem) 'Fredoka', sans-serif;
+#duelVerdict { /* dommen bliver staaende til naeste kamp — og den ejer scenen */
+  font: 700 clamp(2rem, 7vw, 3.4rem) 'Fredoka', sans-serif;
   color: #ffd95e;
-  text-shadow: 0 3px 0 #8a5a00, 0 8px 30px rgba(0,0,0,.6), 0 0 30px rgba(255,217,94,.6);
+  text-shadow: 0 4px 0 #8a5a00, 0 10px 34px rgba(0,0,0,.6), 0 0 44px rgba(255,217,94,.75);
+  animation: verdictPop .55s cubic-bezier(.34, 1.56, .64, 1);
+  text-align: center;
 }
 #duelVerdict:empty { display: none; }
+@keyframes verdictPop {
+  from { transform: scale(.2); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
 /* /packs-landing: egen forside for pack-aabneren */
 #packLanding { display: none; flex-direction: column; align-items: center; gap: 16px; padding: 0 16px; }
 #packLandTitle {
