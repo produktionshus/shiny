@@ -4302,7 +4302,7 @@ async function fillInfo(panelId, card, stillCurrent) {
     };
     const nm = d.name || card.n;
     lv.appendChild(mk('https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=' + encodeURIComponent(nm), 'CM ↗', 'Cardmarket'));
-    const dkUrl = dkShopUrl(nm, d.localId);
+    const dkUrl = dkShopUrl(nm, d.localId, d.set && d.set.cardCount && d.set.cardCount.official);
     if (dkUrl) lv.appendChild(mk(dkUrl, '🇩🇰 pokemons.dk ↗', 'Søg hos pokemons.dk'));
     lrow.append(ll, lv);
     panel.appendChild(lrow);
@@ -5260,9 +5260,13 @@ authmodal.addEventListener('click', e => {
 });
 api('/api/me').then(j => { me = j.username; updateAuthUI(); if (me) loadServerStore(); }).catch(() => {});
 const DK_SHOP_USERS = ['soren']; // oplaast til aftale med pokemons.dk er paa plads — referral-param tilfoejes her
-function dkShopUrl(name, localId) {
+function dkShopUrl(name, localId, official) {
   if (!me || !DK_SHOP_USERS.includes(String(me).toLowerCase())) return null;
-  // deres soegning bruger hr-search med JSON-payload; kortnummer udelades (deres titler bruger saetkode-format)
+  if (localId && official && /^\d+$/.test(String(localId))) { // deres slugs: kebab(navn)-nummer-total, 3-cifret padding
+    const slug = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return 'https://www.pokemons.dk/product/' + slug + '-' + String(localId).padStart(3, '0') + '-' + String(official).padStart(3, '0') + '/';
+  }
+  // fallback: deres egen soegemekanisme (hr-search m. JSON-payload)
   return 'https://www.pokemons.dk/?hr-search=' + encodeURIComponent(JSON.stringify({ search_term: name }));
 }
 
@@ -5353,7 +5357,7 @@ document.getElementById('needBtn').addEventListener('click', async () => {
         a.title = 'Open on TCGplayer';
         job.links.appendChild(a);
       }
-      const dkUrl = dkShopUrl(job.n, d && d.localId);
+      const dkUrl = dkShopUrl(job.n, d && d.localId, d && d.set && d.set.cardCount && d.set.cardCount.official);
       if (dkUrl) { // dansk webshop — kun oplaast for udvalgte konti indtil samarbejdet er aftalt
         const dk = document.createElement('a');
         dk.href = dkUrl;
