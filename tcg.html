@@ -4275,7 +4275,8 @@ async function fillInfo(panelId, card, stillCurrent) {
     };
     const nm = d.name || card.n;
     lv.appendChild(mk('https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=' + encodeURIComponent(nm), 'CM ↗', 'Cardmarket'));
-    lv.appendChild(mk('https://www.pokemons.dk/?s=' + encodeURIComponent(nm + ' ' + (d.localId || '')) + '&post_type=product', '🇩🇰 pokemons.dk ↗', 'Søg hos pokemons.dk'));
+    const dkUrl = dkShopUrl(nm, d.localId);
+    if (dkUrl) lv.appendChild(mk(dkUrl, '🇩🇰 pokemons.dk ↗', 'Søg hos pokemons.dk'));
     lrow.append(ll, lv);
     panel.appendChild(lrow);
   }
@@ -5222,6 +5223,11 @@ authmodal.addEventListener('click', e => {
   if (e.target === authmodal || e.target.closest('.modal-close')) authmodal.hidden = true;
 });
 api('/api/me').then(j => { me = j.username; updateAuthUI(); if (me) loadServerStore(); }).catch(() => {});
+const DK_SHOP_USERS = ['soren']; // oplaast til aftale med pokemons.dk er paa plads — referral-param tilfoejes her
+function dkShopUrl(name, localId) {
+  if (!me || !DK_SHOP_USERS.includes(String(me).toLowerCase())) return null;
+  return 'https://www.pokemons.dk/?s=' + encodeURIComponent(name + (localId ? ' ' + localId : '')) + '&post_type=product';
+}
 
 // ---------- Add all (fyld binderen med soegeresultatet) ----------
 document.getElementById('fillBtn').addEventListener('click', () => {
@@ -5310,9 +5316,10 @@ document.getElementById('needBtn').addEventListener('click', async () => {
         a.title = 'Open on TCGplayer';
         job.links.appendChild(a);
       }
-      { // dansk webshop — soegning paa navn + kortnummer
+      const dkUrl = dkShopUrl(job.n, d && d.localId);
+      if (dkUrl) { // dansk webshop — kun oplaast for udvalgte konti indtil samarbejdet er aftalt
         const dk = document.createElement('a');
-        dk.href = 'https://www.pokemons.dk/?s=' + encodeURIComponent(job.n + (d && d.localId ? ' ' + d.localId : '')) + '&post_type=product';
+        dk.href = dkUrl;
         dk.target = '_blank';
         dk.rel = 'noopener';
         dk.textContent = '🇩🇰 ↗';
