@@ -2842,6 +2842,8 @@ const STR_DA = {
   'In your collection:': 'I din samling:',
   'page': 'side',
   'Fetching prices…': 'Henter priser…',
+  'cards not in the curve yet — newly added cards join at the next hourly snapshot':
+    'kort er endnu ikke med i kurven — nytilføjede kort optages ved næste time-snapshot',
   'Sorted by value — most valuable first': 'Sorteret efter værdi — dyreste først',
   'Color-sort the whole binder (new binder) or just this spread?':
     'Farvesortér hele binderen (ny binder) eller kun dette opslag?',
@@ -4438,6 +4440,13 @@ async function fillInfo(panelId, card, stillCurrent) {
   }
 }
 function fillZoomInfo(card) { return fillInfo('zoomInfo', card, () => zoomedCard === card); }
+function curveCoverageNote(body, uncovered, total) { // gabet mellem 💰 og 📈 skal vaere synligt, ikke mystisk
+  if (!uncovered) return;
+  const note = document.createElement('div');
+  note.style.cssText = 'font-size:.75rem;opacity:.65;margin-top:6px;';
+  note.textContent = uncovered + '/' + total + ' ' + T('cards not in the curve yet — newly added cards join at the next hourly snapshot');
+  body.appendChild(note);
+}
 
 // ---------- binder-vaerdi ----------
 let valueBusy = false;
@@ -7788,6 +7797,7 @@ document.getElementById('curveBtn').addEventListener('click', async () => {
     body.textContent = 'The curve builds from daily snapshots — check back in a couple of days.';
     return;
   }
+  const uncovered = ids.filter(id => !(hist.get(id) || []).length).length;
   // forward-fill: hvert korts senest kendte pris paa hver dag
   const totals = days.map(day => {
     let sum = 0;
@@ -7823,6 +7833,7 @@ document.getElementById('curveBtn').addEventListener('click', async () => {
   foot.style.cssText = 'display:flex;justify-content:space-between;opacity:.7;font-size:.8rem;';
   foot.innerHTML = '<span>low ' + fmtMoneyEUR(min) + '</span><span>high ' + fmtMoneyEUR(max) + '</span>';
   body.appendChild(foot);
+  curveCoverageNote(body, uncovered, ids.length);
 });
 curvemodal.addEventListener('click', e => {
   if (e.target === curvemodal || e.target.closest('.modal-close')) curvemodal.hidden = true;

@@ -708,12 +708,12 @@ async function snapshotPrices() {
 }
 
 function maybeSnapshotPrices() {
-  const day = new Date().toISOString().slice(0, 10);
-  const done = db.prepare('SELECT 1 FROM price_history WHERE day = ? LIMIT 1').get(day);
-  if (!done) snapshotPrices().catch(e => console.error('price snapshot fejlede:', e));
+  // snapshotPrices' INSERT OR IGNORE goer den idempotent pr. dag — timevise koersler samler
+  // kort op som er TILFOEJET efter dagens foerste koersel (ellers undertaeller vaerdikurven)
+  snapshotPrices().catch(e => console.error('price snapshot fejlede:', e));
 }
-setTimeout(maybeSnapshotPrices, 30 * 1000);          // kort efter boot
-setInterval(maybeSnapshotPrices, 6 * 60 * 60 * 1000); // og loebende — koerer kun een gang pr. dag
+setTimeout(maybeSnapshotPrices, 45 * 1000);      // kort efter boot
+setInterval(maybeSnapshotPrices, 60 * 60 * 1000); // timevis opsamling af nytilfoejede kort
 
 app.get('/api/prices/:id', (req, res) => {
   const rows = db.prepare(
