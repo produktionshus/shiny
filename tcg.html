@@ -238,11 +238,19 @@ button.btn.primary { background: rgba(232,184,75,.35); border-color: var(--stitc
 .spine .ms-star { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); writing-mode: horizontal-tb; font-size: .8rem; }
 .spine.newspine { background: rgba(0,0,0,.15); border-style: dashed; color: #6b5d3f; text-shadow: none; }
 
-body.presenting header, body.presenting .toolbar, body.presenting .binder-switch,
+body.presenting .toolbar, body.presenting .binder-switch,
 body.presenting #drawerTab, body.presenting .search-panel, body.presenting .binder-controls,
 body.presenting .progress-wrap, body.presenting #setProgress, body.presenting .spread-label,
 body.presenting .viewbar { display: none !important; }
 body.presenting .navbtn { opacity: .12; }
+body.presenting header { /* gratis reklame under fremvisning — navnet skal med paa skaermen */
+  display: block !important;
+  position: fixed; top: 12px; left: 0; right: 0;
+  z-index: 50;
+  opacity: .92;
+  pointer-events: none;
+  padding: 0;
+}
 body.presenting .layout { /* fremvisning: binderen centreres lodret — resten af skaermen er tom alligevel */
   min-height: 100vh;
   align-items: center;
