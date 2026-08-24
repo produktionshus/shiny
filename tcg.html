@@ -3332,7 +3332,8 @@ async function doSearch() {
   $hint.textContent = T('Searching…');
   try {
     const artistM = q.match(/^(.*?)\s*(?:artist|illustrator):\s*(.+)$/i); // "pikachu artist:arita" — navn foer, kunstner efter
-    const pq = parseQuery(q);
+    // "Mew ex 88/92": navn + nummer/total — totalen klippes af, saa navne+nummer-flowet tager over
+    const pq = parseQuery(q.replace(/^(.+\S)\s+([A-Za-z]{0,3}\d{1,4}[A-Za-z]?)\s*\/\s*\d{1,4}$/, '$1 $2'));
     let cards;
     let emptySetHit = null;
     if (setId) {
