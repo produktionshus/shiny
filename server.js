@@ -717,7 +717,8 @@ setInterval(maybeSnapshotPrices, 6 * 60 * 60 * 1000); // og loebende — koerer 
 
 app.get('/api/prices/:id', (req, res) => {
   const rows = db.prepare(
-    'SELECT day, eur, usd FROM price_history WHERE card_id = ? ORDER BY day ASC LIMIT 400')
+    // foer 2026-08-02 var Cardmarket-junk (XY110-trend mv.) ufiltreret — de dage forurener kurverne
+    "SELECT day, eur, usd FROM price_history WHERE card_id = ? AND day >= '2026-08-02' ORDER BY day ASC LIMIT 400")
     .all(String(req.params.id));
   res.json({ history: rows });
 });
