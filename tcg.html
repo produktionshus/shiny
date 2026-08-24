@@ -4324,7 +4324,33 @@ async function fillInfo(panelId, card, stillCurrent) {
   const d = await getDetail(card.id, cardLang(card));
   if (!stillCurrent()) return; // bruger har lukket/skiftet
   panel.textContent = '';
-  if (!d) { panel.textContent = 'No details available'; return; }
+  if (!d) { // eget/ukendt kort: ingen API-data, men navnesoegning paa CM rammer ofte alligevel (JP-promoer!)
+    const lrow = document.createElement('div');
+    lrow.className = 'zi-row';
+    const ll = document.createElement('span');
+    ll.className = 'zi-l';
+    ll.textContent = T('Buy');
+    const lv = document.createElement('span');
+    const a = document.createElement('a');
+    a.href = cmUrl(null, card.n);
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = 'CM ↗';
+    a.style.marginRight = '10px';
+    lv.appendChild(a);
+    const dkU = dkShopUrl(card.n);
+    if (dkU) {
+      const a2 = document.createElement('a');
+      a2.href = dkU;
+      a2.target = '_blank';
+      a2.rel = 'noopener';
+      a2.textContent = '🇩🇰 ↗';
+      lv.appendChild(a2);
+    }
+    lrow.append(ll, lv);
+    panel.appendChild(lrow);
+    return;
+  }
   const rows = [];
   if (d.set) {
     const total = d.set.cardCount && d.set.cardCount.official;
