@@ -4375,8 +4375,7 @@ async function fillInfo(panelId, card, stillCurrent) {
       return a;
     };
     const nm = d.name || card.n;
-    const cmTerm = nm + (d.set && d.set.name ? ' ' + d.set.name : ''); // saetnavn med: 'Mew' alene er for bredt
-    lv.appendChild(mk('https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=' + encodeURIComponent(cmTerm), 'CM ↗', 'Cardmarket'));
+    lv.appendChild(mk(cmUrl(d, nm), 'CM ↗', 'Cardmarket'));
     const dkUrl = dkShopUrl(nm, d.localId, d.set && d.set.cardCount && d.set.cardCount.official, d.set && d.set.id);
     if (dkUrl) lv.appendChild(mk(dkUrl, '🇩🇰 pokemons.dk ↗', 'Søg hos pokemons.dk'));
     lrow.append(ll, lv);
@@ -5367,6 +5366,15 @@ authmodal.addEventListener('click', e => {
 });
 api('/api/me').then(j => { me = j.username; updateAuthUI(); if (me) loadServerStore(); }).catch(() => {});
 const DK_SHOP_USERS = ['soren']; // oplaast til aftale med pokemons.dk er paa plads — referral-param tilfoejes her
+function cmUrl(d, name) { // saet-side filtreret paa navn — rammer kort-niveau (produkt-slugs kraever CM's egne koder)
+  const cleanName = String(name).replace(/[^ -~]/g, '').trim() || name;
+  if (d && d.set && d.set.name) {
+    const cmSetName = (/^ex\d+$/.test(d.set.id) ? 'EX ' : '') + d.set.name;
+    const slug = cmSetName.replace(/&/g, ' ').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return 'https://www.cardmarket.com/en/Pokemon/Products/Singles/' + slug + '?searchString=' + encodeURIComponent(cleanName);
+  }
+  return 'https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=' + encodeURIComponent(cleanName);
+}
 function dkShopUrl(name, localId, official, setId) {
   if (!me || !DK_SHOP_USERS.includes(String(me).toLowerCase())) return null;
   const promo = setId && (/p$/i.test(String(setId)) || /^pop/i.test(String(setId))); // promo-saet foelger ikke nummer-total-moensteret
@@ -5447,14 +5455,7 @@ document.getElementById('needBtn').addEventListener('click', async () => {
       const job = queue.shift();
       const d = await getDetail(job.id, job.lang);
       if (gen !== needGen) return;
-      if (d && d.set && d.set.name) {
-        // saet-side filtreret paa navn rammer kortniveau (praecist produkt-slug kraever Cardmarkets egne saetkoder)
-        const cmSetName = (/^ex\d+$/.test(d.set.id) ? 'EX ' : '') + d.set.name; // CM kalder ex-aeraens saet "EX …"
-        const slug = cmSetName.replace(/&/g, ' ').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-        const cleanName = job.n.replace(/[^ -~]/g, '').trim() || job.n; // δ o.l. matcher ikke CM-navne
-        job.cm.href = 'https://www.cardmarket.com/en/Pokemon/Products/Singles/' + slug
-          + '?searchString=' + encodeURIComponent(cleanName);
-      }
+      if (d && d.set && d.set.name) job.cm.href = cmUrl(d, job.n);
       const pid = tcgplayerProductId(d);
       if (pid) {
         const a = document.createElement('a');
