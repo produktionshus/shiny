@@ -5399,7 +5399,7 @@ function cmUrl(d, name) { // saet-side filtreret paa navn — rammer kort-niveau
     return 'https://www.cardmarket.com/en/Pokemon/Products/Search?searchString='
       + encodeURIComponent(String(d.set.id).toLowerCase() + String(d.localId).padStart(3, '0'));
   }
-  if (d && d.set && d.set.name) {
+  if (d && d.set && d.set.name && !/^misc/i.test(d.set.id || '')) { // misc-saet findes ikke som CM-kategori — navnesoegning rammer (Ancient Mew)
     const cmSetName = (/^ex\d+$/.test(d.set.id) ? 'EX ' : '') + d.set.name;
     const slug = cmSetName.replace(/&/g, ' ').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     return 'https://www.cardmarket.com/en/Pokemon/Products/Singles/' + slug + '?searchString=' + encodeURIComponent(cleanName);
