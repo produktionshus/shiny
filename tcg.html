@@ -5394,7 +5394,7 @@ api('/api/me').then(j => { me = j.username; updateAuthUI(); if (me) loadServerSt
 const DK_SHOP_USERS = ['soren']; // oplaast til aftale med pokemons.dk er paa plads — referral-param tilfoejes her
 function cmUrl(d, name) { // saet-side filtreret paa navn — rammer kort-niveau (produkt-slugs kraever CM's egne koder)
   const cleanName = String(name).replace(/[^ -~]/g, '').trim() || name;
-  if (/[^ -]/.test(String(name)) && d && d.set && d.set.id && d.localId) {
+  if (/[^\x00-\x7f]/.test(String(name)) && d && d.set && d.set.id && d.localId) {
     // japansk kort: CM's titler baerer saetkode+nummer (fx "Mew V s12a053") — soeg paa den
     return 'https://www.cardmarket.com/en/Pokemon/Products/Search?searchString='
       + encodeURIComponent(String(d.set.id).toLowerCase() + String(d.localId).padStart(3, '0'));
