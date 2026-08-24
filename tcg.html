@@ -243,7 +243,12 @@ body.presenting #drawerTab, body.presenting .search-panel, body.presenting .bind
 body.presenting .progress-wrap, body.presenting #setProgress, body.presenting .spread-label,
 body.presenting .viewbar { display: none !important; }
 body.presenting .navbtn { opacity: .12; }
-body.presenting .layout { padding-top: 2vh; }
+body.presenting .layout { /* fremvisning: binderen centreres lodret — resten af skaermen er tom alligevel */
+  min-height: 100vh;
+  align-items: center;
+  padding: 0;
+}
+body.presenting .binder-col { justify-content: center; }
 body.presenting .page, body.presenting #cover {
   width: min(calc((100vw - 180px) / 2), calc((100vh - 90px) * 0.716 * var(--cols, 3) / var(--rows, 3)), calc(var(--cols, 3) * 430px));
 }
