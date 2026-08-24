@@ -270,6 +270,21 @@ body.presenting .page, body.presenting #cover {
   color: #ffe9a8; cursor: pointer;
 }
 body.presenting #presentExit { display: block; }
+#presentProgress { display: none; }
+body.presenting #presentProgress { /* fyldes op mod naeste sideskift — publikum kan se rytmen */
+  display: block;
+  position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+  width: min(40vw, 420px); height: 4px;
+  background: rgba(255, 255, 255, .14);
+  border-radius: 999px;
+  overflow: hidden;
+  z-index: 55;
+}
+#presentProgressFill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, #ffd76a, #ffe9a0);
+  border-radius: 999px;
+}
 #presentSound {
   position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 70px;
   z-index: 700;
@@ -2338,6 +2353,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
 </div>
 
 <button id="presentExit" title="Exit presentation (Esc)">✕</button>
+<div id="presentProgress"><div id="presentProgressFill"></div></div>
 <button id="presentSound" title="Sound on/off">🎵</button>
 
 <div id="welcomemodal" class="modal" hidden>
@@ -7880,7 +7896,17 @@ shelfmodal.addEventListener('click', e => {
 
 // ---------- praesentations-mode ----------
 let presentTimer = null;
+function presentBarRestart() { // nulstil og fyld op over intervallet
+  const f = document.getElementById('presentProgressFill');
+  if (!f) return;
+  f.style.transition = 'none';
+  f.style.width = '0%';
+  void f.offsetWidth;
+  f.style.transition = 'width 5s linear';
+  f.style.width = '100%';
+}
 function presentStep() {
+  presentBarRestart();
   if (isSingle()) singleIdx = singleIdx >= pageCount() - 1 ? -1 : singleIdx + 1;
   else spread = spread >= maxSpread() ? -1 : spread + 1; // loop: forside -> sidste -> forside
   whoosh();
@@ -7944,6 +7970,7 @@ function startPresent() {
   jumpSpread(-1);
   renderBinder();
   presentTimer = setInterval(presentStep, 5000);
+  presentBarRestart();
   updatePresentSound();
   if (musicOn) startMusic(); // pakke-temaet som baggrund (samme lyd-toggle)
   try { document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
@@ -7976,6 +8003,7 @@ document.querySelector('.binder-wrap').addEventListener('click', e => {
   if (!e.target.closest('.navbtn')) presentStep();
   clearInterval(presentTimer);
   presentTimer = setInterval(presentStep, 5000);
+  presentBarRestart(); // manuel bladring nulstiller ogsaa rytmen
 });
 
 // ---------- del opslag som billede ----------
