@@ -8717,7 +8717,7 @@ function workerFrame(idata, scales) { // hel frame til workeren: quad-detektion 
   return new Promise(resolve => {
     const id = ++scanReqId;
     scanPending.set(id, m => resolve({ res: m.res, quad: m.quad }));
-    scanWorker.postMessage({ type: 'frame', id, rgba: idata.data.buffer, w: idata.width, h: idata.height, scales }, [idata.data.buffer]);
+    scanWorker.postMessage({ type: 'frame', id, rgba: idata.data.buffer, w: idata.width, h: idata.height, scales }); // uden transfer: Safari kan kaste paa detach
   });
 }
 async function matchHashes(frames) { // worker naar muligt, ellers lokalt
@@ -8975,7 +8975,11 @@ let scanBusy = false;
 async function scanTick() {
   if (scanBusy || !scanIdx || document.getElementById('scanResult').style.display === 'flex') return;
   scanBusy = true;
-  try { await scanTickInner(); } finally { scanBusy = false; }
+  try { await scanTickInner(); }
+  catch (e) { // fjern-debugging: iOS-fejl skal kunne LAESES, ikke gaettes
+    document.getElementById('scanStatus').textContent = '⚠ ' + (e && e.message ? e.message : e);
+  }
+  finally { scanBusy = false; }
 }
 async function scanTickInner() {
   const crop = scanVideoCrop();
@@ -9065,7 +9069,9 @@ async function openScanner() {
     scanStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false,
     });
-    document.getElementById('scanVideo').srcObject = scanStream;
+    const vEl = document.getElementById('scanVideo');
+    vEl.srcObject = scanStream;
+    try { await vEl.play(); } catch (e) { /* iOS: autoplay kan kraeve eksplicit play() */ }
     const track = scanStream.getVideoTracks()[0];
     try { // kontinuerligt autofokus hvor kameraet kan
       const caps = track.getCapabilities ? track.getCapabilities() : {};
