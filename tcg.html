@@ -746,7 +746,7 @@ body.viewmode #binderSettings { display: none; }
 .friendrow button:hover { background: rgba(0,0,0,.16); }
 .needrow { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,.12); }
 #needlist { overflow-x: hidden; }
-.nr-thumb { width: 64px; height: 64px; border-radius: 10px; background-size: 100% auto; background-position: center 22%; background-color: rgba(0,0,0,.1); box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+.nr-thumb { width: 64px; aspect-ratio: 63 / 88; border-radius: 4px; background-size: cover; background-position: center; background-color: rgba(0,0,0,.1); box-shadow: 0 2px 6px rgba(0,0,0,.25); align-self: center; } /* hele kortet — raekken er hoej nok */
 .nr-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 .nr-name { font-weight: 800; }
 .nr-meta { color: #6b5d3f; font-size: .85em; }
