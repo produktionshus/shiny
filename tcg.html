@@ -1607,8 +1607,9 @@ body.scanopen #bottomBar { display: none !important; }
 .pocket .zoom { bottom: 4px; right: 4px; }
 .pocket .dup { top: 50%; right: 4px; transform: translateY(-50%); }
 .buychip { display: inline-flex; align-items: center; gap: .4em; padding: .35em .8em; border-radius: 999px; font-weight: 700; font-size: 1em; text-decoration: none; margin: 3px 8px 3px 0; white-space: nowrap; }
-.buychip.cm { background: #0d2c6b; color: #fff; }
-.buychip .cmlogo { height: 1.7em; width: auto; display: block; }
+.buychip.cm { background: #0d2c6b; color: #fff; min-height: 2.9em; }
+.buychip.dk { min-height: 2.9em; }
+.buychip .cmlogo { height: 2.2em; width: auto; display: block; }
 .buychip.dk { background: #eaece8; color: #243c79; }
 .buychip.tcg { background: #1f3a5f; color: #fff; }
 .needrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
@@ -1616,8 +1617,11 @@ body.scanopen #bottomBar { display: none !important; }
 .buychip .dklogo { height: 2.2em; width: auto; display: block; }
 .zi-row.buyrow { flex-direction: column; align-items: flex-start; gap: 4px; }
 .zi-row.buyrow > span:last-child { display: flex; flex-wrap: wrap; align-items: center; text-align: left; }
+.buychip .stockdot { width: .7em; height: .7em; border-radius: 50%; flex: 0 0 auto; }
 .buychip.stock-in { box-shadow: 0 0 0 3px #3ddc84, 0 0 12px #3ddc84aa; }
-.buychip.stock-out { box-shadow: 0 0 0 3px #e04848; opacity: .7; }
+.buychip.stock-in .stockdot { background: #3ddc84; box-shadow: 0 0 6px #3ddc84; }
+.buychip.stock-out { box-shadow: 0 0 0 3px #e04848; opacity: .75; }
+.buychip.stock-out .stockdot { background: #e04848; box-shadow: 0 0 6px #e04848; }
 .pocket:hover .ptool { opacity: 1; }
 .result .zoom {
   position: absolute; bottom: 3px; right: 3px;
@@ -4252,8 +4256,11 @@ function buyChip(kind, href, title) { // kind: 'cm' | 'tcg' | 'dk' — brand-chi
 function stockLamp(a, slug) { // groen/roed lampe i DK-chippen; 'missing' -> deres soegning
   fetch('/api/dk-stock?slug=' + encodeURIComponent(slug)).then(r => r.json()).then(st => {
     if (!a.isConnected) return;
-    if (st.state === 'in' || st.state === 'out') { // stroke om chippen: groen = paa lager, roed = udsolgt
+    if (st.state === 'in' || st.state === 'out') { // prik + stroke om chippen: groen = paa lager, roed = udsolgt
       a.classList.add('stock-' + st.state);
+      const dot = document.createElement('span');
+      dot.className = 'stockdot';
+      a.prepend(dot);
       a.title = T(st.state === 'in' ? 'in stock' : 'sold out') + ' · pokemons.dk';
     } else if (st.state === 'missing') {
       a.href = 'https://www.pokemons.dk/?hr-search=' + encodeURIComponent(JSON.stringify({ search_term: a.dataset.nm || '' }));
