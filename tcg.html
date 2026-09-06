@@ -1605,6 +1605,7 @@ body.scanopen #bottomBar { display: none !important; }
 .pocket .rm { top: 4px; right: 4px; }
 .pocket .own { top: 4px; left: 4px; }
 .pocket .zoom { bottom: 4px; right: 4px; }
+.pocket .dup { top: 50%; right: 4px; transform: translateY(-50%); }
 .pocket:hover .ptool { opacity: 1; }
 .result .zoom {
   position: absolute; bottom: 3px; right: 3px;
@@ -2283,6 +2284,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <label><input type="checkbox" id="showPrices"> <span data-l="Show prices">Show prices</span></label>
       <label><input type="checkbox" id="priceTags"> <span data-l="Price on cards">Price on cards</span></label>
       <label><input type="checkbox" id="shareValues"> <span data-l="Show values to friends">Show values to friends</span></label>
+      <label><input type="checkbox" id="vendorMode"> <span data-l="⧉ Vendor mode (quick duplicate)">⧉ Vendor mode (quick duplicate)</span></label>
       <label><input type="checkbox" id="binderPriv"> <span data-l="🔒 Private binder (hidden from friends)">🔒 Private binder (hidden from friends)</span></label>
       <label><input type="checkbox" id="soundFx"> <span data-l="Sounds">Sounds</span></label>
       <label><span data-l="Prices:">Prices:</span>
@@ -2840,6 +2842,7 @@ const STR_DA = {
     '📷 Har du kortene fysisk? Scan-knappen aflæser dem med kameraet.',
   'Show values to friends': 'Vis værdier for venner',
   '🔒 Private binder (hidden from friends)': '🔒 Privat binder (skjult for venner)',
+  '⧉ Vendor mode (quick duplicate)': '⧉ Forhandler-tilstand (hurtig duplikering)',
   'Binder hidden from friends 🔒': 'Binderen er skjult for venner 🔒',
   'Binder visible to friends': 'Binderen er synlig for venner',
   '🧺 Tray': '🧺 Bakke',
@@ -3670,6 +3673,25 @@ function renderPage(grid, pageIdx) {
           }, T('Remove'));
         });
         div.appendChild(rm);
+        if (store.vendorMode) { // ⧉: duplikér til naeste ledige lomme (samme side foerst) — uden koebsinfo
+          const dup = document.createElement('button');
+          dup.className = 'ptool dup';
+          dup.textContent = '⧉';
+          dup.title = 'Duplicate card';
+          dup.addEventListener('click', e => {
+            e.stopPropagation();
+            const { pp, pd, note, al, cond, ...clean } = card;
+            const pg = binder().pages[pageIdx];
+            let slot2 = pg.findIndex(x => !x);
+            let page2 = pageIdx;
+            if (slot2 < 0) { const t = firstFreeSlot(); page2 = t.page; slot2 = t.slot; }
+            binder().pages[page2][slot2] = { ...clean };
+            lastPlaced = { page: page2, slot: slot2 };
+            snick();
+            save(); renderBinder();
+          });
+          div.appendChild(dup);
+        }
         const own = document.createElement('button');
         own.className = 'ptool own';
         own.textContent = card.o === false ? '☆' : '✓';
@@ -4701,6 +4723,7 @@ function renderSettings() {
   const b = binder();
   document.getElementById('showPrices').checked = !!store.showPrices;
   document.getElementById('shareValues').checked = !!store.shareValues;
+  document.getElementById('vendorMode').checked = !!store.vendorMode;
   document.getElementById('binderPriv').checked = !!b.priv;
   document.getElementById('priceTags').checked = !!store.priceTags;
   document.getElementById('soundFx').checked = musicOn;
@@ -5073,6 +5096,10 @@ document.getElementById('priceTags').addEventListener('change', e => {
 document.getElementById('shareValues').addEventListener('change', e => {
   store.shareValues = e.target.checked; // globalt: gaelder venne-link og nye snapshot-links
   save();
+});
+document.getElementById('vendorMode').addEventListener('change', e => {
+  store.vendorMode = e.target.checked; // bulk-bindere: ⧉-knap paa hvert kort duplikerer til naeste ledige lomme
+  save(); renderBinder();
 });
 document.getElementById('binderPriv').addEventListener('change', e => {
   binder().priv = e.target.checked || undefined; // serveren filtrerer private bindere fra delinger

@@ -612,9 +612,12 @@ app.get('/api/dk-stock', async (req, res) => {
     });
     if (r.ok) {
       const h = await r.text();
-      state = /outofstock|out-of-stock|"availability"[^,}]{0,60}OutOfStock/i.test(h) ? 'out'
-        : /"availability"[^,}]{0,60}InStock|\bin-stock\b|single_add_to_cart|add-to-cart/i.test(h) ? 'in'
-        : 'unknown';
+      const av = h.match(/"availability":"[^"]*?(InStock|OutOfStock|SoldOut|PreOrder)"/i);
+      if (av) { // schema.org er autoritativ — klasse-heuristik rammer relaterede produkters badges
+        state = /InStock|PreOrder/i.test(av[1]) ? 'in' : 'out';
+      } else {
+        state = /single_add_to_cart/i.test(h) ? 'in' : 'unknown';
+      }
     }
   } catch (e) { state = 'unknown'; }
   dkStockCache.set(slug, { t: Date.now(), state });
