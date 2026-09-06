@@ -2290,6 +2290,7 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
       <label><span data-l="Prices:">Prices:</span>
         <select id="priceSourceSel">
           <option value="cardmarket">Cardmarket (EU, €)</option>
+          <option value="hybrid">Hybrid (EU + vintage US, €)</option>
           <option value="tcgplayer">TCGplayer (NA, $)</option>
         </select>
       </label>
@@ -4265,7 +4266,7 @@ function getDetail(id, lang) {
   }
   return detailCache.get(key);
 }
-function priceSource() { return store.priceSource === 'tcgplayer' ? 'tcgplayer' : 'cardmarket'; }
+function priceSource() { return ['tcgplayer', 'hybrid'].includes(store.priceSource) ? store.priceSource : 'cardmarket'; }
 function showPricesNow() { // i delte visninger bestemmer EJEREN om vaerdier vises — default nej
   if (!store.showPrices) return false;
   if (!viewBinder) return true;
@@ -4285,7 +4286,7 @@ function updatePriceUI() {
   document.getElementById('valueSort').style.display = store.showPrices ? '' : 'none';
   document.getElementById('dispCurrency').disabled = !store.showPrices || priceSource() === 'tcgplayer';
 }
-function priceSourceName() { return priceSource() === 'tcgplayer' ? 'TCGplayer' : 'Cardmarket'; }
+function priceSourceName() { return priceSource() === 'tcgplayer' ? 'TCGplayer' : priceSource() === 'hybrid' ? 'Hybrid' : 'Cardmarket'; }
 function cmValue(cm) { // foerste brugbare vaerdi, spike-daempet: lav-volumen promos faar vilde trends (xyp-XY110: trend 549, avg7 102)
   if (!cm) return null;
   let v = null;
@@ -4301,30 +4302,64 @@ function saneCM(cm) { // korrupt upstream-data (fx xyp-XY192: low=100000 >> tren
   if (typeof cm.low === 'number' && ref && cm.low > ref * 5) return null;
   return cm;
 }
-function cardPrice(d) {
-  if (!d) return null;
+let USD_EUR = 0.86; // fallback; ECB-kurs hentes async herunder (1 dags cache)
+try {
+  const fxc = JSON.parse(localStorage.getItem('usdEur') || 'null');
+  if (fxc && Date.now() - fxc.t < 864e5) USD_EUR = fxc.v;
+  else fetch('https://api.frankfurter.app/latest?from=USD&to=EUR').then(r => r.json()).then(j => {
+    if (j && j.rates && j.rates.EUR) { USD_EUR = j.rates.EUR; localStorage.setItem('usdEur', JSON.stringify({ t: Date.now(), v: USD_EUR })); }
+  }).catch(() => {});
+} catch (e) {}
+function priceBlocks(d) {
   const blocks = [];
   if (d.pricing) blocks.push(d.pricing);
   for (const v of d.variants_detailed || []) if (v.pricing) blocks.push(v.pricing);
-  if (priceSource() === 'tcgplayer') {
-    for (const b of blocks) {
-      const tp = b && b.tcgplayer;
-      if (tp) {
-        for (const k of ['normal', 'holofoil', 'reverse-holofoil']) {
-          if (tp[k] && typeof tp[k].marketPrice === 'number') return tp[k].marketPrice;
-        }
-        for (const k of Object.keys(tp)) { // enhver variant med markedspris
-          if (tp[k] && typeof tp[k].marketPrice === 'number') return tp[k].marketPrice;
-        }
+  return blocks;
+}
+function tpUSD(blocks) {
+  for (const b of blocks) {
+    const tp = b && b.tcgplayer;
+    if (tp) {
+      for (const k of ['normal', 'holofoil', 'reverse-holofoil']) {
+        if (tp[k] && typeof tp[k].marketPrice === 'number') return tp[k].marketPrice;
+      }
+      for (const k of Object.keys(tp)) { // enhver variant med markedspris
+        if (tp[k] && typeof tp[k].marketPrice === 'number') return tp[k].marketPrice;
       }
     }
-    return null;
-  }
-  for (const b of blocks) {
-    const v = cmValue(saneCM(b && b.cardmarket));
-    if (v != null) return v;
   }
   return null;
+}
+function cardPriceEx(d) { // { v, src } — src kun sat i hybrid ('CM'/'US')
+  if (!d) return null;
+  const blocks = priceBlocks(d);
+  if (priceSource() === 'tcgplayer') {
+    const v = tpUSD(blocks);
+    return v != null ? { v, src: null } : null;
+  }
+  let eu = null;
+  for (const b of blocks) {
+    const v = cmValue(saneCM(b && b.cardmarket));
+    if (v != null) { eu = v; break; }
+  }
+  if (priceSource() === 'hybrid') {
+    // CM-trend paa vintage traekkes ned af IT/DE-kopier; US-marked er de facto EN-only.
+    // ratio > 2 er selve kontaminerings-signalet — saa vinder TCGplayer x kurs.
+    const us = tpUSD(blocks);
+    const usEur = us != null ? us * USD_EUR : null;
+    if (eu == null) return usEur != null ? { v: usEur, src: 'US' } : null;
+    if (usEur == null) return { v: eu, src: 'CM' };
+    return usEur > eu * 2 ? { v: usEur, src: 'US' } : { v: eu, src: 'CM' };
+  }
+  return eu != null ? { v: eu, src: null } : null;
+}
+function cardPrice(d) { const r = cardPriceEx(d); return r ? r.v : null; }
+function histVal(r) { // kurve-snapshot ({eur, usd}) gennem samme hybrid-regel som cardPriceEx
+  if (priceSource() !== 'hybrid') return r.eur;
+  const usEur = r.usd != null ? r.usd * USD_EUR : null;
+  if (r.eur == null) return usEur;
+  if (usEur == null) return r.eur;
+  return usEur > r.eur * 2 ? usEur : r.eur;
 }
 function tcgplayerProductId(d) {
   if (!d) return null;
@@ -4409,8 +4444,16 @@ async function fillInfo(panelId, card, stillCurrent) {
     if (v) rows.push(['Variants', v]);
   }
   if (showPricesNow()) {
-    const price = cardPrice(d);
-    rows.push(['Price', price != null ? fmtPrice(price) + ' (' + priceSourceName() + ')' : '—']);
+    const px = cardPriceEx(d);
+    let ptxt = '—';
+    if (px) {
+      ptxt = fmtPrice(px.v) + ' (' + (px.src === 'US' ? 'TCGplayer×kurs' : px.src === 'CM' ? 'Cardmarket' : priceSourceName()) + ')';
+      if (px.src === 'US') { // vis det forkastede CM-tal som reference
+        const eu = cmEUR(d);
+        if (eu != null) ptxt += ' · CM: ' + fmtMoneyEUR(eu);
+      }
+    }
+    rows.push(['Price', ptxt]);
   }
   if (card.pp != null) {
     rows.push(['Bought', fmtMoneyEUR(card.pp) + (card.pd ? ' · ' + card.pd : '')]);
@@ -7846,7 +7889,7 @@ document.getElementById('curveBtn').addEventListener('click', async () => {
       const id = queue.shift();
       try {
         const j = await (await fetch('/api/prices/' + encodeURIComponent(id))).json();
-        hist.set(id, (j.history || []).filter(r => r.eur != null));
+        hist.set(id, (j.history || []).filter(r => histVal(r) != null));
       } catch (e) { hist.set(id, []); }
     }
   }));
@@ -7862,8 +7905,8 @@ document.getElementById('curveBtn').addEventListener('click', async () => {
     let sum = 0;
     for (const [id, h] of hist) {
       let v = null;
-      for (const r of h) { if (r.day <= day) v = r.eur; else break; }
-      if (v === null && h.length) v = h[0].eur; // backfill foer foerste snapshot
+      for (const r of h) { if (r.day <= day) v = histVal(r); else break; }
+      if (v === null && h.length) v = histVal(h[0]); // backfill foer foerste snapshot
       if (v !== null) sum += v * countById.get(id);
     }
     return sum;
