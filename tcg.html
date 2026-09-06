@@ -1618,6 +1618,9 @@ body.scanopen #bottomBar { display: none !important; }
 .buychip .cmlogo { height: 2.5em; width: auto; display: block; }
 .buychip.dk { background: #eaece8; color: #243c79; }
 .buychip.tcg { background: #1f3a5f; color: #fff; }
+.varchips { display: inline-flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.varchip { font: inherit; font-size: .85em; font-weight: 700; border: 1px solid rgba(255,217,94,.5); background: transparent; color: inherit; border-radius: 999px; padding: .12em .6em; cursor: pointer; }
+.varchip.on { background: #ffd95e; color: #1a1a1a; border-color: #ffd95e; }
 .needlinks { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 0; }
 .buychip .dklogo { height: 2.2em; width: auto; display: block; }
 .zi-row.buyrow { flex-direction: column; align-items: flex-start; gap: 4px; }
@@ -3660,7 +3663,7 @@ function renderPage(grid, pageIdx) {
             div.appendChild(sh);
           }
           if (showPricesNow() && store.priceTags && div.isConnected && !div.querySelector('.ptag')) {
-            const pr = cardPrice(d);
+            const pr = cardPrice(d, card.v);
             if (pr != null) {
               const t = document.createElement('div');
               t.className = 'ptag';
@@ -4267,7 +4270,7 @@ function stockLamp(a, slug, retried) { // groen/roed lampe i DK-chippen; 'missin
   fetch('/api/dk-stock?slug=' + encodeURIComponent(slug)).then(r => r.json()).then(st => {
     if (!a.isConnected) return;
     if (st.state === 'missing' && !retried) {
-      const alt = slug.replace(/-(\d+)-(\d+)$/, (m, n, t) => '-' + (n.length < 3 ? n.padStart(3, '0') : String(parseInt(n, 10))) + '-' + t);
+      const alt = slug.replace(/-(\d+)-(\d+)(-reverse)?$/, (m, n, t, r) => '-' + (n.length < 3 ? n.padStart(3, '0') : String(parseInt(n, 10))) + '-' + t + (r || ''));
       if (alt !== slug) { a.href = 'https://www.pokemons.dk/product/' + alt + '/'; return stockLamp(a, alt, true); }
     }
     if (st.state === 'in' || st.state === 'out') { // prik + stroke om chippen: groen = paa lager, roed = udsolgt
@@ -4355,10 +4358,13 @@ function updatePriceUI() {
   document.getElementById('dispCurrency').disabled = !store.showPrices || priceSource() === 'tcgplayer';
 }
 function priceSourceName() { return priceSource() === 'tcgplayer' ? 'TCGplayer' : priceSource() === 'hybrid' ? 'Hybrid' : 'Cardmarket'; }
-function cmValue(cm) { // foerste brugbare vaerdi, spike-daempet: lav-volumen promos faar vilde trends (xyp-XY110: trend 549, avg7 102)
+function cmValue(cm, variant) { // foerste brugbare vaerdi, spike-daempet: lav-volumen promos faar vilde trends (xyp-XY110: trend 549, avg7 102)
   if (!cm) return null;
   let v = null;
-  for (const k of ['trend', 'avg30', 'avg', 'trend-holo', 'avg30-holo', 'avg-holo', 'low']) {
+  const keys = variant === 'reverse'
+    ? ['trend-holo', 'avg30-holo', 'avg-holo', 'low-holo', 'trend', 'avg30', 'avg', 'low'] // reverse: CM's holo-felter foerst
+    : ['trend', 'avg30', 'avg', 'trend-holo', 'avg30-holo', 'avg-holo', 'low'];
+  for (const k of keys) {
     if (typeof cm[k] === 'number' && cm[k] > 0) { v = cm[k]; break; }
   }
   if (v != null && typeof cm.avg7 === 'number' && cm.avg7 > 0 && v > cm.avg7 * 3) v = cm.avg7;
@@ -4384,11 +4390,14 @@ function priceBlocks(d) {
   for (const v of d.variants_detailed || []) if (v.pricing) blocks.push(v.pricing);
   return blocks;
 }
-function tpUSD(blocks) {
+function tpUSD(blocks, variant) {
+  const order = variant === 'reverse' ? ['reverse-holofoil', 'holofoil', 'normal']
+    : variant === 'holo' ? ['holofoil', 'normal', 'reverse-holofoil']
+    : ['normal', 'holofoil', 'reverse-holofoil'];
   for (const b of blocks) {
     const tp = b && b.tcgplayer;
     if (tp) {
-      for (const k of ['normal', 'holofoil', 'reverse-holofoil']) {
+      for (const k of order) {
         if (tp[k] && typeof tp[k].marketPrice === 'number') return tp[k].marketPrice;
       }
       for (const k of Object.keys(tp)) { // enhver variant med markedspris
@@ -4398,22 +4407,22 @@ function tpUSD(blocks) {
   }
   return null;
 }
-function cardPriceEx(d) { // { v, src } — src kun sat i hybrid ('CM'/'US')
+function cardPriceEx(d, variant) { // { v, src } — src kun sat i hybrid ('CM'/'US'); variant = ejerens valg (normal/reverse/holo)
   if (!d) return null;
   const blocks = priceBlocks(d);
   if (priceSource() === 'tcgplayer') {
-    const v = tpUSD(blocks);
+    const v = tpUSD(blocks, variant);
     return v != null ? { v, src: null } : null;
   }
   let eu = null;
   for (const b of blocks) {
-    const v = cmValue(saneCM(b && b.cardmarket));
+    const v = cmValue(saneCM(b && b.cardmarket), variant);
     if (v != null) { eu = v; break; }
   }
   if (priceSource() === 'hybrid') {
     // CM-trend paa vintage traekkes ned af IT/DE-kopier; US-marked er de facto EN-only.
     // ratio > 2 er selve kontaminerings-signalet — saa vinder TCGplayer x kurs.
-    const us = tpUSD(blocks);
+    const us = tpUSD(blocks, variant);
     const usEur = us != null ? us * USD_EUR : null;
     if (eu == null) return usEur != null ? { v: usEur, src: 'US' } : null;
     if (usEur == null) return { v: eu, src: 'CM' };
@@ -4421,7 +4430,7 @@ function cardPriceEx(d) { // { v, src } — src kun sat i hybrid ('CM'/'US')
   }
   return eu != null ? { v: eu, src: null } : null;
 }
-function cardPrice(d) { const r = cardPriceEx(d); return r ? r.v : null; }
+function cardPrice(d, variant) { const r = cardPriceEx(d, variant); return r ? r.v : null; }
 function histVal(r) { // kurve-snapshot ({eur, usd}) gennem samme hybrid-regel som cardPriceEx
   if (priceSource() !== 'hybrid') return r.eur;
   const usEur = r.usd != null ? r.usd * USD_EUR : null;
@@ -4506,13 +4515,31 @@ async function fillInfo(panelId, card, stillCurrent) {
     rows.push(['Rarity', meta ? d.rarity + ' (' + meta[0] + ' · ~' + meta[1] + ' packs)' : d.rarity]);
   }
   if (d.illustrator) rows.push(['Illustrator', d.illustrator]);
+  const inOwnBinder = !viewBinder && binder().pages.flat().includes(card);
   if (d.variants) {
     const labels = { normal: 'Normal', reverse: 'Reverse', holo: 'Holo', firstEdition: '1st ed.' };
-    const v = Object.keys(labels).filter(k => d.variants[k]).map(k => labels[k]).join(', ');
-    if (v) rows.push(['Variants', v]);
+    const avail = Object.keys(labels).filter(k => d.variants[k]);
+    if (avail.length && inOwnBinder) { // ejeren vaelger hvilken variant der ligger i lommen — styrer pris og shop-link
+      const wrap = document.createElement('span');
+      wrap.className = 'varchips';
+      const cur = card.v || (avail.includes('normal') ? 'normal' : avail[0]);
+      for (const k of avail) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'varchip' + (k === cur ? ' on' : '');
+        b.textContent = labels[k];
+        b.addEventListener('click', () => {
+          card.v = k;
+          save(); renderBinder();
+          fillInfo(panelId, card, stillCurrent);
+        });
+        wrap.appendChild(b);
+      }
+      rows.push(['Variants', wrap]);
+    } else if (avail.length) rows.push(['Variants', avail.map(k => labels[k]).join(', ')]);
   }
   if (showPricesNow()) {
-    const px = cardPriceEx(d);
+    const px = cardPriceEx(d, card.v);
     let ptxt = '—';
     if (px) {
       ptxt = fmtPrice(px.v) + ' (' + (px.src === 'US' ? 'TCGplayer×kurs' : px.src === 'CM' ? 'Cardmarket' : priceSourceName()) + ')';
@@ -4535,7 +4562,7 @@ async function fillInfo(panelId, card, stillCurrent) {
     lab.className = 'zi-l';
     lab.textContent = l;
     const val = document.createElement('span');
-    val.textContent = v;
+    if (v instanceof Node) val.appendChild(v); else val.textContent = v;
     row.append(lab, val);
     panel.appendChild(row);
   }
@@ -4548,7 +4575,7 @@ async function fillInfo(panelId, card, stillCurrent) {
     const lv = document.createElement('span');
     const nm = d.name || card.n;
     lv.appendChild(buyChip('cm', cmUrl(d, nm), 'Cardmarket'));
-    const dkUrl = dkShopUrl(nm, d.localId, d.set && d.set.cardCount && d.set.cardCount.official, d.set && d.set.id);
+    const dkUrl = dkShopUrl(nm, d.localId, d.set && d.set.cardCount && d.set.cardCount.official, d.set && d.set.id, card.v);
     if (dkUrl) {
       const dkA = buyChip('dk', dkUrl, 'Søg hos pokemons.dk');
       dkA.dataset.nm = nm;
@@ -4609,19 +4636,19 @@ document.getElementById('valueBtn').addEventListener('click', async () => {
   const ids = [...new Set(cards.map(c => c.id))];
   const langById = new Map(cards.map(c => [c.id, cardLang(c)]));
   const queue = ids.slice();
-  const prices = new Map();
+  const details = new Map();
   let done = 0;
   btn.textContent = '💰 0/' + ids.length;
   await Promise.all(Array.from({ length: 8 }, async () => { // ponytail: 8 samtidige opslag
     while (queue.length) {
       const id = queue.shift();
-      prices.set(id, cardPrice(await getDetail(id, langById.get(id))));
+      details.set(id, await getDetail(id, langById.get(id)));
       btn.textContent = '💰 ' + (++done) + '/' + ids.length;
     }
   }));
   let have = 0, need = 0, unpriced = 0;
   for (const c of cards) {
-    const pr = prices.get(c.id);
+    const pr = cardPrice(details.get(c.id), c.v); // pr. instans: samme kort kan ligge som normal og reverse
     if (pr == null) { unpriced++; continue; }
     if (c.o === false) need += pr; else have += pr;
   }
@@ -5105,15 +5132,15 @@ document.getElementById('valueSort').addEventListener('click', async () => {
   const ids = [...new Set(cards.map(c => c.id))];
   const langById = new Map(cards.map(c => [c.id, cardLang(c)]));
   const queue = ids.slice();
-  const priceById = new Map();
+  const detailById = new Map();
   await Promise.all(Array.from({ length: 8 }, async () => {
     while (queue.length) {
       const id = queue.shift();
-      priceById.set(id, cardPrice(await getDetail(id, langById.get(id))));
+      detailById.set(id, await getDetail(id, langById.get(id)));
     }
   }));
   snapshot();
-  const pv = c => { const v = priceById.get(c.id); return v == null ? -1 : v; };
+  const pv = c => { const v = cardPrice(detailById.get(c.id), c.v); return v == null ? -1 : v; };
   cards.sort((x, y) => pv(y) - pv(x));
   const per = slotsOf(b);
   const pages = [];
@@ -5570,7 +5597,7 @@ function cmUrl(d, name) { // saet-side filtreret paa navn — rammer kort-niveau
   }
   return 'https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=' + encodeURIComponent(cleanName);
 }
-function dkShopUrl(name, localId, official, setId) {
+function dkShopUrl(name, localId, official, setId, variant) {
   if (!me || !DK_SHOP_USERS.includes(String(me).toLowerCase())) return null;
   const promo = setId && (/p$/i.test(String(setId)) || /^pop/i.test(String(setId))); // promo-saet foelger ikke nummer-total-moensteret
   const slug = String(name).normalize('NFD').replace(/[̀-ͯ]/g, '') // WP sanitize_title: accenter og apostroffer forsvinder (Ethan's -> ethans)
@@ -5578,7 +5605,7 @@ function dkShopUrl(name, localId, official, setId) {
   if (!promo && localId && official && /^\d+$/.test(String(localId))) { // deres slugs: kebab(navn)-nummer-total som trykt paa kortet
     const pad3 = /^(swsh|sv|me)/i.test(String(setId)); // fra SWSH og frem trykkes 3 cifre (078/189); SM/XY og aeldre ikke (94/145)
     const num = pad3 ? String(localId).padStart(3, '0') : String(parseInt(localId, 10));
-    return 'https://www.pokemons.dk/product/' + slug + '-' + num + '-' + String(official).padStart(3, '0') + '/';
+    return 'https://www.pokemons.dk/product/' + slug + '-' + num + '-' + String(official).padStart(3, '0') + (variant === 'reverse' ? '-reverse' : '') + '/'; // deres reverse-varianter: eget produkt med -reverse
   }
   if (promo && localId && /p$/i.test(String(setId))) { // promoer: kebab(navn)-setkode+nummer uden bindestreg (mew-ex-svp053, mew-sm215, pikachu-swsh020)
     const lid = String(localId).toLowerCase();
