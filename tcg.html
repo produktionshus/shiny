@@ -1606,14 +1606,16 @@ body.scanopen #bottomBar { display: none !important; }
 .pocket .own { top: 4px; left: 4px; }
 .pocket .zoom { bottom: 4px; right: 4px; }
 .pocket .dup { top: 50%; right: 4px; transform: translateY(-50%); }
-.buychip { display: inline-flex; align-items: center; gap: .35em; padding: .22em .65em; border-radius: 999px; font-weight: 700; font-size: .85em; text-decoration: none; margin: 2px 8px 2px 0; white-space: nowrap; }
+.buychip { display: inline-flex; align-items: center; gap: .4em; padding: .35em .8em; border-radius: 999px; font-weight: 700; font-size: 1em; text-decoration: none; margin: 3px 8px 3px 0; white-space: nowrap; }
 .buychip.cm { background: #0d2c6b; color: #fff; }
-.buychip .cmlogo { height: 1.1em; width: auto; display: block; }
+.buychip .cmlogo { height: 1.7em; width: auto; display: block; }
 .buychip.dk { background: #eaece8; color: #243c79; }
 .buychip.tcg { background: #1f3a5f; color: #fff; }
 .needrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .needlinks { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px 0; }
-.buychip .dklogo { height: 1.5em; width: auto; display: block; }
+.buychip .dklogo { height: 2.2em; width: auto; display: block; }
+.zi-row.buyrow { flex-direction: column; align-items: flex-start; gap: 4px; }
+.zi-row.buyrow > span:last-child { display: flex; flex-wrap: wrap; align-items: center; text-align: left; }
 .stockdot { display: inline-block; width: .6em; height: .6em; border-radius: 50%; vertical-align: middle; box-shadow: 0 0 5px currentColor; }
 .stockdot.in { background: #3ddc84; color: #3ddc84; }
 .stockdot.out { background: #e04848; color: #e04848; }
@@ -4452,7 +4454,7 @@ async function fillInfo(panelId, card, stillCurrent) {
   panel.textContent = '';
   if (!d) { // eget/ukendt kort: ingen API-data, men navnesoegning paa CM rammer ofte alligevel (JP-promoer!)
     const lrow = document.createElement('div');
-    lrow.className = 'zi-row';
+    lrow.className = 'zi-row buyrow';
     const ll = document.createElement('span');
     ll.className = 'zi-l';
     ll.textContent = T('Buy');
@@ -4522,7 +4524,7 @@ async function fillInfo(panelId, card, stillCurrent) {
   }
   { // koebslinks — inkl. dansk webshop for DK-samlere
     const lrow = document.createElement('div');
-    lrow.className = 'zi-row';
+    lrow.className = 'zi-row buyrow';
     const ll = document.createElement('span');
     ll.className = 'zi-l';
     ll.textContent = T('Buy');
