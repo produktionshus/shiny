@@ -1607,9 +1607,9 @@ body.scanopen #bottomBar { display: none !important; }
 .pocket .zoom { bottom: 4px; right: 4px; }
 .pocket .dup { top: 50%; right: 4px; transform: translateY(-50%); }
 .buychip { display: inline-flex; align-items: center; gap: .4em; padding: .35em .8em; border-radius: 999px; font-weight: 700; font-size: 1em; text-decoration: none; margin: 3px 8px 3px 0; white-space: nowrap; }
-.buychip.cm { background: #0d2c6b; color: #fff; min-height: 2.9em; }
-.buychip.dk { min-height: 2.9em; }
-.buychip .cmlogo { height: 2.2em; width: auto; display: block; }
+.buychip.cm, .buychip.dk { min-height: 3em; min-width: 10.5em; justify-content: center; } /* ens knapper: logoet faar hele bredden */
+.buychip.cm { background: #0d2c6b; color: #fff; }
+.buychip .cmlogo { height: 2.5em; width: auto; display: block; }
 .buychip.dk { background: #eaece8; color: #243c79; }
 .buychip.tcg { background: #1f3a5f; color: #fff; }
 .needrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
