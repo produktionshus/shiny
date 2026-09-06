@@ -744,9 +744,14 @@ body.viewmode #binderSettings { display: none; }
   cursor: pointer;
 }
 .friendrow button:hover { background: rgba(0,0,0,.16); }
-.needrow { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; margin: 6px 0; }
-.needrow a { color: #1d4e9c; font-weight: 800; margin-left: 8px; text-decoration: underline; white-space: nowrap; }
-.needrow .nr-price { color: #6b5d3f; margin-left: 8px; white-space: nowrap; }
+.needrow { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,.12); }
+.nr-thumb { width: 64px; height: 64px; border-radius: 10px; background-size: 100% auto; background-position: center 22%; background-color: rgba(0,0,0,.1); box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+.nr-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.nr-name { font-weight: 800; }
+.nr-meta { color: #6b5d3f; font-size: .85em; }
+.needrow .nr-price { margin-left: auto; color: #6b5d3f; white-space: nowrap; font-weight: 700; }
+.needrow .buychip, .needrow .buychip.cm, .needrow .buychip.dk { min-width: 7.4em; min-height: 2.4em; justify-content: center; font-size: .9em; margin: 2px 6px 2px 0; }
+.needrow .buychip .cmlogo, .needrow .buychip .dklogo { height: 1.8em; }
 #frienderr {
   color: #a01818;
   font: 700 .82rem 'Nunito', sans-serif;
@@ -1612,8 +1617,7 @@ body.scanopen #bottomBar { display: none !important; }
 .buychip .cmlogo { height: 2.5em; width: auto; display: block; }
 .buychip.dk { background: #eaece8; color: #243c79; }
 .buychip.tcg { background: #1f3a5f; color: #fff; }
-.needrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.needlinks { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px 0; }
+.needlinks { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 0; }
 .buychip .dklogo { height: 2.2em; width: auto; display: block; }
 .zi-row.buyrow { flex-direction: column; align-items: flex-start; gap: 4px; }
 .zi-row.buyrow > span:last-child { display: flex; flex-wrap: wrap; align-items: center; text-align: left; }
@@ -5601,7 +5605,7 @@ document.getElementById('needBtn').addEventListener('click', async () => {
   for (const c of binder().pages.flat()) {
     if (c && c.o === false) {
       const k = c.id;
-      if (!counts.has(k)) counts.set(k, { n: c.n, count: 0, lang: cardLang(c) });
+      if (!counts.has(k)) counts.set(k, { n: c.n, count: 0, lang: cardLang(c), img: c.img });
       counts.get(k).count++;
     }
   }
@@ -5617,16 +5621,30 @@ document.getElementById('needBtn').addEventListener('click', async () => {
       needLines.push(line);
       const row = document.createElement('div');
       row.className = 'needrow';
+      const thumb = document.createElement('div'); // udsnit af artwork som visuel reference
+      thumb.className = 'nr-thumb';
+      thumb.style.backgroundImage = 'url("' + (v.img ? imgUrl(v.img, 'low') : placeholderImg(v.n)) + '")';
+      row.appendChild(thumb);
+      const body = document.createElement('div');
+      body.className = 'nr-body';
+      const head = document.createElement('div');
+      head.className = 'nr-head';
       const name = document.createElement('span');
-      name.textContent = line;
-      row.appendChild(name);
+      name.className = 'nr-name';
+      name.textContent = v.n;
+      const meta = document.createElement('span');
+      meta.className = 'nr-meta';
+      meta.textContent = id + (v.count > 1 ? ' ×' + v.count : '');
+      head.append(name, meta);
+      body.appendChild(head);
+      row.appendChild(body);
       const links = document.createElement('span');
       links.className = 'needlinks';
       const cm = buyChip('cm', 'https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=' + encodeURIComponent(v.n), 'Search on Cardmarket');
       links.appendChild(cm);
-      row.appendChild(links);
+      body.appendChild(links);
       list.appendChild(row);
-      jobs.push({ id, n: v.n, lang: v.lang, links, cm });
+      jobs.push({ id, n: v.n, lang: v.lang, links, cm, head });
     }
   }
   document.getElementById('needcopy').style.display = counts.size ? '' : 'none';
@@ -5655,7 +5673,7 @@ document.getElementById('needBtn').addEventListener('click', async () => {
           const sp = document.createElement('span');
           sp.className = 'nr-price';
           sp.textContent = fmtPrice(pr);
-          job.links.appendChild(sp);
+          job.head.appendChild(sp);
         }
       }
     }
