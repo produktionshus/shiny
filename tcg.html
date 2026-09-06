@@ -2825,6 +2825,8 @@ const STR_DA = {
   'Added ': 'Tilføjede ',
   'Price on cards': 'Pris på kort',
   'Buy': 'Køb',
+  'in stock': 'på lager',
+  'sold out': 'udsolgt',
   '✓ Have': '✓ Har',
   '☆ Need': '☆ Mangler',
   'All': 'Alle',
@@ -4421,7 +4423,21 @@ async function fillInfo(panelId, card, stillCurrent) {
     const nm = d.name || card.n;
     lv.appendChild(mk(cmUrl(d, nm), 'CM ↗', 'Cardmarket'));
     const dkUrl = dkShopUrl(nm, d.localId, d.set && d.set.cardCount && d.set.cardCount.official, d.set && d.set.id);
-    if (dkUrl) lv.appendChild(mk(dkUrl, '🇩🇰 pokemons.dk ↗', 'Søg hos pokemons.dk'));
+    if (dkUrl) {
+      const dkA = mk(dkUrl, '🇩🇰 pokemons.dk ↗', 'Søg hos pokemons.dk');
+      lv.appendChild(dkA);
+      const slugM = dkUrl.match(/\/product\/([a-z0-9-]+)\//);
+      if (slugM) { // direkte produkt-link: annotér med lagerstatus (cachet server-tjek)
+        fetch('/api/dk-stock?slug=' + encodeURIComponent(slugM[1])).then(r => r.json()).then(st => {
+          if (!dkA.isConnected) return;
+          if (st.state === 'in') dkA.textContent = '🇩🇰 pokemons.dk · ' + T('in stock') + ' ↗';
+          else if (st.state === 'out') dkA.textContent = '🇩🇰 pokemons.dk · ' + T('sold out') + ' ↗';
+          else if (st.state === 'missing') { // produktet findes ikke: fald tilbage til deres soegning
+            dkA.href = 'https://www.pokemons.dk/?hr-search=' + encodeURIComponent(JSON.stringify({ search_term: nm }));
+          }
+        }).catch(() => {});
+      }
+    }
     lrow.append(ll, lv);
     panel.appendChild(lrow);
   }

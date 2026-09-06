@@ -596,6 +596,32 @@ app.get('/api/scan-debug/latest.json', (req, res) => {
   res.send(fsMod.readFileSync(f));
 });
 
+// pokemons.dk lager-tjek: on-demand pr. produkt-slug, 6t cache, aerlig User-Agent.
+// Skaansomt link-preview-niveau — formaliseres som feed naar partner-aftalen lander.
+const dkStockCache = new Map(); // slug -> {t, state}
+app.get('/api/dk-stock', async (req, res) => {
+  const slug = String(req.query.slug || '');
+  if (!/^[a-z0-9-]{3,120}$/.test(slug)) return res.status(400).end();
+  const hit = dkStockCache.get(slug);
+  if (hit && Date.now() - hit.t < 6 * 3600 * 1000) return res.json({ state: hit.state });
+  let state = 'missing';
+  try {
+    const r = await fetch('https://www.pokemons.dk/product/' + slug + '/', {
+      headers: { 'User-Agent': 'PokeBinder-linkcheck/1.0 (+https://www.pokebinder.dk)' },
+      redirect: 'follow',
+    });
+    if (r.ok) {
+      const h = await r.text();
+      state = /outofstock|out-of-stock|"availability"[^,}]{0,60}OutOfStock/i.test(h) ? 'out'
+        : /"availability"[^,}]{0,60}InStock|\bin-stock\b|single_add_to_cart|add-to-cart/i.test(h) ? 'in'
+        : 'unknown';
+    }
+  } catch (e) { state = 'unknown'; }
+  dkStockCache.set(slug, { t: Date.now(), state });
+  res.set('Cache-Control', 'no-store');
+  res.json({ state });
+});
+
 // korte delelinks: snapshot gemmes server-side, koden er content-hash (idempotent, ingen auth noedvendig)
 app.post('/api/tcg/snap', (req, res) => {
   const data = JSON.stringify(req.body || {});
