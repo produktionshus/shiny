@@ -5559,10 +5559,15 @@ function cmUrl(d, name) { // saet-side filtreret paa navn — rammer kort-niveau
 function dkShopUrl(name, localId, official, setId) {
   if (!me || !DK_SHOP_USERS.includes(String(me).toLowerCase())) return null;
   const promo = setId && (/p$/i.test(String(setId)) || /^pop/i.test(String(setId))); // promo-saet foelger ikke nummer-total-moensteret
+  const slug = String(name).normalize('NFD').replace(/[̀-ͯ]/g, '') // WP sanitize_title: accenter og apostroffer forsvinder (Ethan's -> ethans)
+    .toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   if (!promo && localId && official && /^\d+$/.test(String(localId))) { // deres slugs: kebab(navn)-nummer-total, 3-cifret padding
-    const slug = String(name).normalize('NFD').replace(/[̀-ͯ]/g, '') // WP sanitize_title: accenter og apostroffer forsvinder (Ethan's -> ethans)
-      .toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     return 'https://www.pokemons.dk/product/' + slug + '-' + String(localId).padStart(3, '0') + '-' + String(official).padStart(3, '0') + '/';
+  }
+  if (promo && localId && /p$/i.test(String(setId))) { // promoer: kebab(navn)-setkode+nummer uden bindestreg (mew-ex-svp053, mew-sm215, pikachu-swsh020)
+    const lid = String(localId).toLowerCase();
+    const code = /^\d+$/.test(lid) ? String(setId).toLowerCase() + lid : lid; // svp har bart nummer; xyp/smp/swshp baerer praefiks i localId
+    return 'https://www.pokemons.dk/product/' + slug + '-' + code + '/';
   }
   // fallback: deres egen soegemekanisme (hr-search m. JSON-payload)
   return 'https://www.pokemons.dk/?hr-search=' + encodeURIComponent(JSON.stringify({ search_term: name }));
