@@ -4518,7 +4518,7 @@ async function fillInfo(panelId, card, stillCurrent) {
   const inOwnBinder = !viewBinder && binder().pages.flat().includes(card);
   if (d.variants) {
     const labels = { normal: 'Normal', reverse: 'Reverse', holo: 'Holo', firstEdition: '1st ed.' };
-    const avail = Object.keys(labels).filter(k => d.variants[k]);
+    const avail = Object.keys(labels).filter(k => d.variants[k] || (k === 'reverse' && d.variants.normal)); // TCGdex mangler reverse-flag paa mange (Goomy sm2-94) — normal-print har naesten altid reverse
     if (avail.length && inOwnBinder) { // ejeren vaelger hvilken variant der ligger i lommen — styrer pris og shop-link
       const wrap = document.createElement('span');
       wrap.className = 'varchips';
