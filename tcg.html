@@ -5560,7 +5560,8 @@ function dkShopUrl(name, localId, official, setId) {
   if (!me || !DK_SHOP_USERS.includes(String(me).toLowerCase())) return null;
   const promo = setId && (/p$/i.test(String(setId)) || /^pop/i.test(String(setId))); // promo-saet foelger ikke nummer-total-moensteret
   if (!promo && localId && official && /^\d+$/.test(String(localId))) { // deres slugs: kebab(navn)-nummer-total, 3-cifret padding
-    const slug = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const slug = String(name).normalize('NFD').replace(/[̀-ͯ]/g, '') // WP sanitize_title: accenter og apostroffer forsvinder (Ethan's -> ethans)
+      .toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     return 'https://www.pokemons.dk/product/' + slug + '-' + String(localId).padStart(3, '0') + '-' + String(official).padStart(3, '0') + '/';
   }
   // fallback: deres egen soegemekanisme (hr-search m. JSON-payload)
