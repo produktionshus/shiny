@@ -1606,6 +1606,9 @@ body.scanopen #bottomBar { display: none !important; }
 .pocket .own { top: 4px; left: 4px; }
 .pocket .zoom { bottom: 4px; right: 4px; }
 .pocket .dup { top: 50%; right: 4px; transform: translateY(-50%); }
+.stockdot { display: inline-block; width: .6em; height: .6em; border-radius: 50%; margin-right: .35em; vertical-align: middle; box-shadow: 0 0 5px currentColor; }
+.stockdot.in { background: #3ddc84; color: #3ddc84; }
+.stockdot.out { background: #e04848; color: #e04848; }
 .pocket:hover .ptool { opacity: 1; }
 .result .zoom {
   position: absolute; bottom: 3px; right: 3px;
@@ -4501,14 +4504,19 @@ async function fillInfo(panelId, card, stillCurrent) {
     const dkUrl = dkShopUrl(nm, d.localId, d.set && d.set.cardCount && d.set.cardCount.official, d.set && d.set.id);
     if (dkUrl) {
       const dkA = mk(dkUrl, '🇩🇰 pokemons.dk ↗', 'Søg hos pokemons.dk');
+      dkA.style.whiteSpace = 'nowrap';
       lv.appendChild(dkA);
       const slugM = dkUrl.match(/\/product\/([a-z0-9-]+)\//);
       if (slugM) { // direkte produkt-link: annotér med lagerstatus (cachet server-tjek)
         fetch('/api/dk-stock?slug=' + encodeURIComponent(slugM[1])).then(r => r.json()).then(st => {
           if (!dkA.isConnected) return;
-          if (st.state === 'in') dkA.textContent = '🇩🇰 pokemons.dk · ' + T('in stock') + ' ↗';
-          else if (st.state === 'out') dkA.textContent = '🇩🇰 pokemons.dk · ' + T('sold out') + ' ↗';
-          else if (st.state === 'missing') { // produktet findes ikke: fald tilbage til deres soegning
+          if (st.state === 'in' || st.state === 'out') { // lampe i stedet for tekst: laesbart paa mobil
+            const dot = document.createElement('span');
+            dot.className = 'stockdot ' + st.state;
+            dot.title = T(st.state === 'in' ? 'in stock' : 'sold out');
+            dkA.prepend(dot);
+            dkA.title = dot.title + ' · pokemons.dk';
+          } else if (st.state === 'missing') { // produktet findes ikke: fald tilbage til deres soegning
             dkA.href = 'https://www.pokemons.dk/?hr-search=' + encodeURIComponent(JSON.stringify({ search_term: nm }));
           }
         }).catch(() => {});
