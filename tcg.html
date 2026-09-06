@@ -1616,9 +1616,8 @@ body.scanopen #bottomBar { display: none !important; }
 .buychip .dklogo { height: 2.2em; width: auto; display: block; }
 .zi-row.buyrow { flex-direction: column; align-items: flex-start; gap: 4px; }
 .zi-row.buyrow > span:last-child { display: flex; flex-wrap: wrap; align-items: center; text-align: left; }
-.stockdot { display: inline-block; width: .6em; height: .6em; border-radius: 50%; vertical-align: middle; box-shadow: 0 0 5px currentColor; }
-.stockdot.in { background: #3ddc84; color: #3ddc84; }
-.stockdot.out { background: #e04848; color: #e04848; }
+.buychip.stock-in { box-shadow: 0 0 0 3px #3ddc84, 0 0 12px #3ddc84aa; }
+.buychip.stock-out { box-shadow: 0 0 0 3px #e04848; opacity: .7; }
 .pocket:hover .ptool { opacity: 1; }
 .result .zoom {
   position: absolute; bottom: 3px; right: 3px;
@@ -4253,12 +4252,9 @@ function buyChip(kind, href, title) { // kind: 'cm' | 'tcg' | 'dk' — brand-chi
 function stockLamp(a, slug) { // groen/roed lampe i DK-chippen; 'missing' -> deres soegning
   fetch('/api/dk-stock?slug=' + encodeURIComponent(slug)).then(r => r.json()).then(st => {
     if (!a.isConnected) return;
-    if (st.state === 'in' || st.state === 'out') {
-      const dot = document.createElement('span');
-      dot.className = 'stockdot ' + st.state;
-      dot.title = T(st.state === 'in' ? 'in stock' : 'sold out');
-      a.prepend(dot);
-      a.title = dot.title + ' · pokemons.dk';
+    if (st.state === 'in' || st.state === 'out') { // stroke om chippen: groen = paa lager, roed = udsolgt
+      a.classList.add('stock-' + st.state);
+      a.title = T(st.state === 'in' ? 'in stock' : 'sold out') + ' · pokemons.dk';
     } else if (st.state === 'missing') {
       a.href = 'https://www.pokemons.dk/?hr-search=' + encodeURIComponent(JSON.stringify({ search_term: a.dataset.nm || '' }));
     }
