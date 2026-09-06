@@ -484,7 +484,7 @@ app.get('/api/pxprice/:id', async (req, res) => {
     const r = await fetch('https://api.pokemontcg.io/v2/cards/' + encodeURIComponent(id) + '?select=cardmarket,tcgplayer');
     const data = r.ok ? ((await r.json()).data || null) : null;
     if (data || r.status === 404) pxCache.set(id, { t: Date.now(), data });
-    res.set('Cache-Control', 'public, max-age=3600');
+    res.set('Cache-Control', data || r.status === 404 ? 'public, max-age=3600' : 'no-store');
     res.json(data);
   } catch (e) { res.status(502).end(); }
 });
@@ -711,6 +711,7 @@ async function snapshotPrices() {
       const r = await fetch('https://api.tcgdex.net/v2/en/cards/' + encodeURIComponent(id));
       if (r.ok) {
         let { eur, usd } = extractPrices(await r.json());
+        if (id === 'xyp-XY192') eur = null; // TCGdex idProduct 554275 er forkert produkt (trend 5550 mod reel 94)
         if (eur === null && usd === null) { // TCGdex-prishul: proev pokemontcg.io
           try {
             const pr = await fetch('https://api.pokemontcg.io/v2/cards/' + encodeURIComponent(ptcgioId(id)) + '?select=cardmarket,tcgplayer');

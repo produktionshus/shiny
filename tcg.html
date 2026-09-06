@@ -4224,6 +4224,7 @@ function getSetInfo(setId, lang) {
   }
   return setInfoCache.get(key);
 }
+const CM_JUNK = new Set(['xyp-XY192']); // TCGdex idProduct 554275: trend €5550 mod reel €94
 function hasAnyPrice(d) { // brugbar pris efter sanity-filter — korrupt Cardmarket-data udloeser ogsaa fallback
   const blocks = [d.pricing, ...(d.variants_detailed || []).map(v => v.pricing)].filter(Boolean);
   return blocks.some(b =>
@@ -4250,13 +4251,23 @@ function getDetail(id, lang) {
     detailCache.set(key, fetch(API_ROOT + '/' + lang + '/cards/' + id)
       .then(r => r.ok ? r.json() : null)
       .then(async d => {
-        if (d && lang === 'en' && !hasAnyPrice(d)) { // TCGdex-prishul: proev pokemontcg.io
+        if (d && CM_JUNK.has(id)) { // TCGdex peger paa forkert CM-produkt: smid deres CM, fallback tager over
+          for (const b of priceBlocks(d)) if (b) b.cardmarket = null;
+        }
+        const needUS = priceSource() === 'hybrid' && d && tpUSD(priceBlocks(d)) == null;
+        if (d && lang === 'en' && (!hasAnyPrice(d) || needUS)) { // TCGdex-prishul (eller manglende US-ben): proev pokemontcg.io
           try {
             const pt = ptcgPath(id);
             const pr = await fetch('/api/pxprice/' + encodeURIComponent(pt ? pt.replace('/', '-') : id)); // egen cachede proxy
             if (pr.ok) {
               const gp = ptcgioPricing(await pr.json());
-              if (gp) d.pricing = gp;
+              if (gp && !hasAnyPrice(d)) d.pricing = gp;
+              else if (gp) {
+                const ours = cmEUR(d), theirs = cmValue(gp.cardmarket);
+                const cm = (ours != null && theirs != null && ours > theirs * 5) ? gp.cardmarket : null; // TCGdex-CM 5x over ptcgio-CM = forkert produkt
+                d.pricing = { ...(d.pricing || {}), ...(cm ? { cardmarket: cm } : {}), ...(gp.tcgplayer ? { tcgplayer: gp.tcgplayer } : {}) };
+                if (cm) for (const v of d.variants_detailed || []) if (v.pricing) v.pricing.cardmarket = null;
+              }
             }
           } catch (e) { /* fallback er best effort */ }
         }
