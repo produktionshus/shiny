@@ -4263,9 +4263,13 @@ function buyChip(kind, href, title) { // kind: 'cm' | 'tcg' | 'dk' — brand-chi
   } else a.textContent = 'TCGplayer ↗';
   return a;
 }
-function stockLamp(a, slug) { // groen/roed lampe i DK-chippen; 'missing' -> deres soegning
+function stockLamp(a, slug, retried) { // groen/roed lampe i DK-chippen; 'missing' -> alternativ padding, saa deres soegning
   fetch('/api/dk-stock?slug=' + encodeURIComponent(slug)).then(r => r.json()).then(st => {
     if (!a.isConnected) return;
+    if (st.state === 'missing' && !retried) {
+      const alt = slug.replace(/-(\d+)-(\d+)$/, (m, n, t) => '-' + (n.length < 3 ? n.padStart(3, '0') : String(parseInt(n, 10))) + '-' + t);
+      if (alt !== slug) { a.href = 'https://www.pokemons.dk/product/' + alt + '/'; return stockLamp(a, alt, true); }
+    }
     if (st.state === 'in' || st.state === 'out') { // prik + stroke om chippen: groen = paa lager, roed = udsolgt
       a.classList.add('stock-' + st.state);
       const dot = document.createElement('span');
@@ -5571,8 +5575,10 @@ function dkShopUrl(name, localId, official, setId) {
   const promo = setId && (/p$/i.test(String(setId)) || /^pop/i.test(String(setId))); // promo-saet foelger ikke nummer-total-moensteret
   const slug = String(name).normalize('NFD').replace(/[̀-ͯ]/g, '') // WP sanitize_title: accenter og apostroffer forsvinder (Ethan's -> ethans)
     .toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  if (!promo && localId && official && /^\d+$/.test(String(localId))) { // deres slugs: kebab(navn)-nummer-total, 3-cifret padding
-    return 'https://www.pokemons.dk/product/' + slug + '-' + String(localId).padStart(3, '0') + '-' + String(official).padStart(3, '0') + '/';
+  if (!promo && localId && official && /^\d+$/.test(String(localId))) { // deres slugs: kebab(navn)-nummer-total som trykt paa kortet
+    const pad3 = /^(swsh|sv|me)/i.test(String(setId)); // fra SWSH og frem trykkes 3 cifre (078/189); SM/XY og aeldre ikke (94/145)
+    const num = pad3 ? String(localId).padStart(3, '0') : String(parseInt(localId, 10));
+    return 'https://www.pokemons.dk/product/' + slug + '-' + num + '-' + String(official).padStart(3, '0') + '/';
   }
   if (promo && localId && /p$/i.test(String(setId))) { // promoer: kebab(navn)-setkode+nummer uden bindestreg (mew-ex-svp053, mew-sm215, pikachu-swsh020)
     const lid = String(localId).toLowerCase();
