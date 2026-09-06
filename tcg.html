@@ -1609,7 +1609,8 @@ body.scanopen #bottomBar { display: none !important; }
 .buychip { display: inline-flex; align-items: center; gap: .35em; padding: .22em .65em; border-radius: 999px; font-weight: 700; font-size: .85em; text-decoration: none; margin: 2px 8px 2px 0; white-space: nowrap; }
 .buychip.cm { background: #0d2c6b; color: #fff; }
 .buychip .cmlogo { height: 1.1em; width: auto; display: block; }
-.buychip.dk { background: #c8102e; color: #fff; }
+.buychip.dk { background: #eaece8; color: #243c79; }
+.buychip .dklogo { height: 1.5em; width: auto; display: block; }
 .stockdot { display: inline-block; width: .6em; height: .6em; border-radius: 50%; vertical-align: middle; box-shadow: 0 0 5px currentColor; }
 .stockdot.in { background: #3ddc84; color: #3ddc84; }
 .stockdot.out { background: #e04848; color: #e04848; }
@@ -4512,8 +4513,11 @@ async function fillInfo(panelId, card, stillCurrent) {
     lv.appendChild(cmA);
     const dkUrl = dkShopUrl(nm, d.localId, d.set && d.set.cardCount && d.set.cardCount.official, d.set && d.set.id);
     if (dkUrl) {
-      const dkA = mk(dkUrl, 'pokemons.dk ↗', 'Søg hos pokemons.dk');
+      const dkA = mk(dkUrl, '', 'Søg hos pokemons.dk');
       dkA.classList.add('dk');
+      const dkImg = document.createElement('img'); // Papklubbens logo — godkendt til brug (moede 2026-09-04)
+      dkImg.src = '/papklubben-logo.svg'; dkImg.alt = 'pokemons.dk'; dkImg.className = 'dklogo';
+      dkA.append(dkImg, ' ↗');
       lv.appendChild(dkA);
       const slugM = dkUrl.match(/\/product\/([a-z0-9-]+)\//);
       if (slugM) { // direkte produkt-link: annotér med lagerstatus (cachet server-tjek)
