@@ -6204,12 +6204,15 @@ const packBrief = c => ({ id: c.id, n: c.name, img: briefImg(c) });
 async function loadPackPools(setId) {
   if (packPoolCache.has(setId)) return packPoolCache.get(setId);
   const enc = encodeURIComponent(setId);
-  const [set, commons, uncommons] = await Promise.all([
+  const [set, commons, uncommons, pika] = await Promise.all([
     fetch(API + '/sets/' + enc).then(r => r.json()),
     fetch(API + '/cards?set.id=eq:' + enc + '&rarity=eq:Common').then(r => r.json()),
     fetch(API + '/cards?set.id=eq:' + enc + '&rarity=eq:Uncommon').then(r => r.json()),
+    setId === '30th' // 30th Celebration: 5-korts pakker, sidste kort er altid en af de 30 Pikachu'er (023-052)
+      ? fetch(API + '/cards?set.id=eq:' + enc + '&rarity=eq:' + encodeURIComponent('Pikachu Rare')).then(r => r.json()).catch(() => [])
+      : [],
   ]);
-  const cu = new Set([...commons, ...uncommons].map(c => c.id));
+  const cu = new Set([...commons, ...uncommons, ...pika].map(c => c.id)); // Pikachu'erne holdes ude af rare-puljen
   const official = (set.cardCount && set.cardCount.official) || Infinity;
   const rest = (set.cards || []).filter(c => !cu.has(c.id));
   const isSecret = c => parseInt(c.localId, 10) > official; // secret rares nummereres over saettets officielle antal
@@ -6222,6 +6225,7 @@ async function loadPackPools(setId) {
     uncommons: uncommons.map(packBrief),
     rares: rest.filter(c => !isSecret(c)).map(packBrief),
     secrets: rest.filter(isSecret).map(packBrief),
+    pika: pika.map(packBrief),
   };
   packPoolCache.set(setId, pools);
   return pools;
@@ -6270,11 +6274,22 @@ function buildPack(pools, pity, golden) {
   const used = new Set();
   const cards = [];
   if (golden) { // 1:50 — alt er rare+, halv chance for secret i hit-slottet
-    for (let i = 0; i < 9; i++) cards.push(packDraw(pools.rares, pools.all, used));
+    const pika5 = pools.pika && pools.pika.length; // 30th Celebration: ogsaa gyldne pakker er 5 kort med Pikachu sidst
+    for (let i = 0; i < (pika5 ? 3 : 9); i++) cards.push(packDraw(pools.rares, pools.all, used));
     const gotSecret = pools.secrets.length && (pity || Math.random() < 1 / 2);
     const hit = packDraw(gotSecret ? pools.secrets : pools.rares, pools.all, used);
     if (gotSecret) hit.hit = true;
     cards.push(hit);
+    if (pika5) cards.push(packDraw(pools.pika, pools.pika, used));
+    return cards;
+  }
+  if (pools.pika && pools.pika.length) { // 30th Celebration: 5 kort — 3 common (saettet har ingen uncommons), hit-slot, Pikachu til sidst
+    for (let i = 0; i < 3; i++) cards.push(packDraw(pools.commons, pools.rares, used));
+    const gotSecret5 = pools.secrets.length && (pity || Math.random() < 1 / 8);
+    const hit5 = packDraw(gotSecret5 ? pools.secrets : pools.rares, pools.all, used);
+    if (gotSecret5) hit5.hit = true;
+    cards.push(hit5);
+    cards.push(packDraw(pools.pika, pools.pika, used));
     return cards;
   }
   for (let i = 0; i < 4; i++) cards.push(packDraw(pools.commons, pools.all, used));
