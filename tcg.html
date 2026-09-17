@@ -6270,6 +6270,9 @@ function awardBadge(id) {
   packToast('🏅 Achievement: ' + b[1] + ' ' + b[2]);
 }
 
+function packHitIdx() { // hit-slottets plads: sidste kort — dog naestsidste i 30th-pakker, hvor Pikachu'en er fast bagest
+  return pack.cards.length - 1 - (pack.pools.pika && pack.pools.pika.length ? 1 : 0);
+}
 function buildPack(pools, pity, golden) {
   const used = new Set();
   const cards = [];
@@ -6510,7 +6513,7 @@ function startPack(pools) {
   if (golden) { st.golden++; awardBadge('golden'); }
   if (st.packs >= 10) awardBadge('packs-10');
   if (st.packs >= 50) awardBadge('packs-50');
-  if (cards[cards.length - 1].hit) {
+  if (cards.some(c => c.hit)) { // hit-slottet er ikke altid sidst (30th: Pikachu bagest)
     st.secrets++;
     if (!pvp) st.dry = 0;
     awardBadge('first-secret');
@@ -6649,7 +6652,7 @@ function renderPackCard() {
   $packCard.style.setProperty('--gy', '50%');
   $packCard.classList.toggle('holo-on', !!(c.hit || c.rev));
   if (!c.hit && !c.rev) {
-    const last = pack.i === pack.cards.length - 1; // sidste kort fejres ved afsloeringen
+    const last = pack.i === packHitIdx(); // hit-slottet fejres ved afsloeringen
     getDetail(c.id).then(d => {
       if (!pack || pack.cards[pack.i] !== c || !d) return;
       if (d.variants && d.variants.holo) $packCard.classList.add('holo-on'); // aegte holo-kort faar ogsaa effekten
@@ -6662,8 +6665,8 @@ function renderPackCard() {
     });
   }
   document.getElementById('packCounter').textContent = 'Card ' + (pack.i + 1) + ' / ' + pack.cards.length;
-  if (pack.i === pack.cards.length - 1) {
-    // sidste kort: bagsiden opad — traek det af for at afsloere (fejringen venter)
+  if (pack.i === packHitIdx()) {
+    // hit-slottet: bagsiden opad — traek det af for at afsloere (fejringen venter)
     const glow = document.createElement('div');
     glow.id = 'packGlow';
     $packCard.appendChild(glow);
@@ -6677,8 +6680,9 @@ function renderPackCard() {
     document.getElementById('packName').textContent = '???';
     document.getElementById('packMeta').textContent = '';
     document.getElementById('packBtns').style.display = 'none';
-    document.getElementById('packHint').textContent = 'The last card is the big one…';
+    document.getElementById('packHint').textContent = pack.i === pack.cards.length - 1 ? 'The last card is the big one…' : 'This one is the big one…';
   } else {
+    if (pack.i === pack.cards.length - 1) document.getElementById('packHint').textContent = 'Tap the card for the summary'; // 30th: fast Pikachu lukker pakken
     celebrateCard(c);
     showPackBadge(c);
     postReveal(c);
@@ -6752,7 +6756,7 @@ function celebrateCard(c) {
     getDetail(c.id).then(d => { // topsjaeldenheder faar publikums-gisp oveni
       if (d && /special illustration|hyper/i.test(d.rarity || '')) setTimeout(playGasp, 250);
     });
-  } else if (c.rev || pack.i === pack.cards.length - 1) { // rare-slottet og reverse: lille fejring
+  } else if (c.rev || pack.i === packHitIdx()) { // rare-slottet og reverse: lille fejring
     playFx('sparkle.mp3', 0.5);
     sparkleBurst($packCard);
     if (navigator.vibrate) navigator.vibrate(30);
@@ -6897,7 +6901,7 @@ function revealLast(c) {
   document.getElementById('packName').textContent = c.n + (c.rev ? ' · reverse ✨' : '');
   document.getElementById('packBtns').style.display = '';
   document.getElementById('packKeep').textContent = pack.kept.has(pack.i) ? '✓ Kept' : '⭐ Keep';
-  document.getElementById('packHint').textContent = 'Tap the card for the summary';
+  document.getElementById('packHint').textContent = pack.i === pack.cards.length - 1 ? 'Tap the card for the summary' : 'Tap for the next card';
   fillPackMeta(c);
   celebrateCard(c);
 }
@@ -6906,6 +6910,12 @@ function cardOdds(i) { // grov chance for netop dette kort i en pakke — til fl
   const P = pack.pools;
   if (pack.golden) return 0;
   let p = 0;
+  if (P.pika && P.pika.length) { // 30th: 3 commons, hit-slot, fast Pikachu
+    if (i < 3) p = P.commons.length ? 3 / P.commons.length : 0;
+    else if (i === 3) p = pack.cards[3].hit ? (1 / 8) / Math.max(1, P.secrets.length) : (7 / 8) / Math.max(1, P.rares.length);
+    else p = 1 / P.pika.length;
+    return p > 0 ? Math.round(1 / p) : 0;
+  }
   if (i < 4) p = P.commons.length ? 4 / P.commons.length : 0;
   else if (i < 7) p = P.uncommons.length ? 3 / P.uncommons.length : 0;
   else if (i === 7) p = 1 / Math.max(1, P.commons.length + P.uncommons.length + P.rares.length);
@@ -6962,7 +6972,7 @@ function loadShareImg(src) {
 }
 document.getElementById('sharePullBtn').addEventListener('click', async () => {
   if (!pack) return;
-  const c = pack.cards.find(x => x.hit) || pack.cards[pack.cards.length - 1];
+  const c = pack.cards.find(x => x.hit) || pack.cards[packHitIdx()];
   if (!c.img) { packToast('No image to share'); return; }
   try {
     const img = await loadShareImg(imgUrl(c.img, 'high'));
