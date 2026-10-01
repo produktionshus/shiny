@@ -596,6 +596,47 @@ app.get('/api/scan-debug/latest.json', (req, res) => {
   res.send(fsMod.readFileSync(f));
 });
 
+// anonym besoegstaeller: tilfaeldigt browser-id, ingen IP og ingen cookies.
+// Unikke pr. dag ligger i DB; "aktive nu" kun i hukommelsen (nulstilles ved deploy).
+db.exec(`CREATE TABLE IF NOT EXISTS visits (day TEXT NOT NULL, vid TEXT NOT NULL, PRIMARY KEY (day, vid))`);
+const liveVisitors = new Map(); // vid -> sidst set (ms)
+const dkDay = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Copenhagen' }); // YYYY-MM-DD dansk tid
+app.post('/api/ping', (req, res) => {
+  const vid = String((req.body && req.body.v) || '');
+  if (!/^[a-f0-9]{20}$/.test(vid)) return res.status(400).end();
+  // ponytail: id'et er klientens eget ord — tallene kan pustes op med falske id'er. Rate-limit pr. IP hvis det sker.
+  db.prepare('INSERT OR IGNORE INTO visits (day, vid) VALUES (?, ?)').run(dkDay(), vid);
+  const now = Date.now();
+  liveVisitors.set(vid, now);
+  if (liveVisitors.size > 5000) for (const [k, t] of liveVisitors) if (now - t > 150000) liveVisitors.delete(k);
+  res.status(204).end();
+});
+app.get('/api/admin/stats', (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'admin_only' });
+  const now = Date.now();
+  let active = 0;
+  for (const t of liveVisitors.values()) if (now - t < 150000) active++; // ping hvert minut: 2,5 min = stadig paa siden
+  const uniq = days => db.prepare("SELECT COUNT(DISTINCT vid) AS n FROM visits WHERE day > date('now', ?)").get('-' + days + ' days').n;
+  const list = db.prepare(`SELECT u.username, u.created, t.updated AS binder
+    FROM users u LEFT JOIN tcg_binders t ON t.user_id = u.id ORDER BY u.id DESC`).all();
+  res.set('Cache-Control', 'no-store');
+  res.json({
+    accounts: {
+      total: list.length,
+      new7: db.prepare("SELECT COUNT(*) AS n FROM users WHERE created > datetime('now', '-7 days')").get().n,
+      withBinder: list.filter(u => u.binder).length,
+      list,
+    },
+    visitors: {
+      active,
+      today: db.prepare('SELECT COUNT(*) AS n FROM visits WHERE day = ?').get(dkDay()).n,
+      d7: uniq(7),
+      d30: uniq(30),
+      days: db.prepare('SELECT day, COUNT(*) AS n FROM visits GROUP BY day ORDER BY day DESC LIMIT 14').all(),
+    },
+  });
+});
+
 // pokemons.dk lager-tjek: on-demand pr. produkt-slug, 6t cache, aerlig User-Agent.
 // Skaansomt link-preview-niveau — formaliseres som feed naar partner-aftalen lander.
 const dkStockCache = new Map(); // slug -> {t, state}

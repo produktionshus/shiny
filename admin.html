@@ -22,12 +22,28 @@
   #status.err { color: #ff9b9b; }
   .thumb { height: 56px; border-radius: 4px; }
   a { color: #8fc3ff; }
+  .tiles { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+  .tile { flex: 1 1 110px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); }
+  .tile b { display: block; font-size: 1.5rem; color: #ffd76a; font-variant-numeric: tabular-nums; }
+  .tile span { font-size: .78rem; opacity: .75; }
+  details { margin: 8px 0; }
+  summary { cursor: pointer; color: #8fc3ff; font-size: .85rem; margin-bottom: 6px; }
 </style>
 </head>
 <body>
 <h1>🛠 PokéBinder Admin</h1>
 <div class="sub">Billed-fallbacks: uploads bruges når hverken TCGdex eller pokemontcg.io har et billede. Kræver admin-login (log ind på <a href="/tcg">/tcg</a> først).</div>
 <div id="status"></div>
+
+<h2>Besøgende</h2>
+<div class="tiles" id="visTiles"></div>
+<details><summary>Unikke besøgende pr. dag (seneste 14)</summary>
+<table id="dayTable"><thead><tr><th>Dag</th><th>Unikke</th></tr></thead><tbody></tbody></table></details>
+
+<h2>Konti</h2>
+<div class="tiles" id="accTiles"></div>
+<details><summary>Alle konti</summary>
+<table id="accTable"><thead><tr><th>Bruger</th><th>Oprettet</th><th>Binder sidst gemt</th></tr></thead><tbody></tbody></table></details>
 
 <h2>Upload fallback til kort-id</h2>
 <div class="row">
@@ -61,6 +77,42 @@ async function upload(id, file) {
 document.getElementById('manualUp').addEventListener('click', () => {
   upload(document.getElementById('manualId').value.trim(), document.getElementById('manualFile').files[0]);
 });
+
+function tiles(id, items) { // [[tal, tekst], ...]
+  const el = document.getElementById(id);
+  el.innerHTML = '';
+  for (const [n, label] of items) {
+    const d = document.createElement('div');
+    d.className = 'tile';
+    const b = document.createElement('b');
+    b.textContent = n;
+    const s = document.createElement('span');
+    s.textContent = label;
+    d.append(b, s);
+    el.appendChild(d);
+  }
+}
+function rows(id, list, empty) {
+  const tb = document.querySelector('#' + id + ' tbody');
+  tb.innerHTML = '';
+  for (const cells of list) {
+    const tr = document.createElement('tr');
+    for (const c of cells) { const td = document.createElement('td'); td.textContent = c; tr.appendChild(td); } // textContent: brugernavne er fremmed input
+    tb.appendChild(tr);
+  }
+  if (!list.length) tb.innerHTML = '<tr><td colspan="3" style="opacity:.6">' + empty + '</td></tr>';
+}
+async function loadStats() {
+  const r = await fetch('/api/admin/stats');
+  if (!r.ok) return; // load() melder allerede manglende admin-login
+  const st = await r.json();
+  tiles('visTiles', [[st.visitors.active, 'aktive nu'], [st.visitors.today, 'unikke i dag'], [st.visitors.d7, 'unikke 7 dage'], [st.visitors.d30, 'unikke 30 dage']]);
+  rows('dayTable', st.visitors.days.map(d => [d.day, d.n]), 'Ingen besøg registreret endnu');
+  tiles('accTiles', [[st.accounts.total, 'konti i alt'], [st.accounts.new7, 'nye seneste 7 dage'], [st.accounts.withBinder, 'har gemt en binder']]);
+  rows('accTable', st.accounts.list.map(u => [u.username, (u.created || '').slice(0, 16), (u.binder || '—').slice(0, 16)]), 'Ingen konti');
+}
+loadStats();
+setInterval(loadStats, 60000); // "aktive nu" holder sig frisk
 
 async function load() {
   const mr = await fetch('/api/img-missing');

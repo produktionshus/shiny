@@ -9437,6 +9437,20 @@ if ('serviceWorker' in navigator && location.hostname !== 'localhost') {
 const friendParam = location.search.match(/[?&]friend=([\w-]+)/);
 if (friendParam) openFriend(friendParam[1]);
 setTimeout(maybeOnboard, 1200); // konto-synk faar en chance foerst
+{ // anonym besoegstaeller til /admin: tilfaeldigt id, ingen cookies/IP — unikke pr. dag + "aktive nu"
+  const mkVid = () => Array.from(crypto.getRandomValues(new Uint8Array(10)), b => b.toString(16).padStart(2, '0')).join('');
+  let vid = null;
+  try {
+    vid = localStorage.getItem('pbVid');
+    if (!vid) { vid = mkVid(); localStorage.setItem('pbVid', vid); }
+  } catch (e) { vid = mkVid(); } // privat vindue: nyt id pr. besoeg
+  const ping = () => {
+    if (document.visibilityState !== 'visible') return;
+    fetch('/api/ping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ v: vid }) }).catch(() => {});
+  };
+  ping();
+  setInterval(ping, 60000);
+}
 let rszT;
 window.addEventListener('resize', () => { clearTimeout(rszT); rszT = setTimeout(renderBinder, 150); });
 window.matchMedia('(max-width: 640px)').addEventListener('change', () => renderBinder());
