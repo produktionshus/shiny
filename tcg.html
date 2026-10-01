@@ -3066,14 +3066,20 @@ let imgOverrides = new Set(); // kort-id'er med admin-uploadede fallback-billede
 function sweepOverrides() { // gemte billedloese kort faar override eller ptcgio-gaet (kort tilfoejet foer fallbacken fandtes)
   let hit = false;
   const fix = c => {
-    if (!c || c.img || !c.id) return;
-    if (imgOverrides.has(c.id)) { c.img = 'ovr:' + c.id; hit = true; return; }
+    if (!c || !c.id) return;
+    if (imgOverrides.has(c.id)) { // admin-upload vinder altid: kort gemt med et doedt gaet/gammel sti skal ikke laegges i igen
+      if (c.img !== 'ovr:' + c.id) { c.img = 'ovr:' + c.id; hit = true; }
+      return;
+    }
+    if (c.img) return;
     if (c.custom || c.id.startsWith('custom-')) return; // egne kort: kun admin-override, aldrig gaet
     const pt = ptcgPath(c.id);
     if (pt) { c.img = 'ptcg:' + pt; hit = true; } // 404'er gaettet, falder renderen tilbage til pladsholderen
   };
   for (const b of store.binders) for (const pg of b.pages) pg.forEach(fix);
   (store.tray || []).forEach(fix);
+  for (const b of (viewStore && viewStore.binders) || []) for (const pg of b.pages) pg.forEach(fix); // vens bindere
+  if (viewBinder) for (const pg of viewBinder.pages) pg.forEach(fix); // delelink/snapshot
   if (hit) { renderBinder(); renderTray(); }
 }
 fetch('/api/img-overrides').then(r => r.json()).then(j => {
@@ -3108,9 +3114,9 @@ function placeholderImg(name) { // billedloese kort (Ancient Mew, egne kort): pa
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 function briefImg(c) { // billedsti fra API-kort; huller udfyldes med admin-override, saa pokemontcg.io
+  if (c.id && imgOverrides.has(c.id)) return 'ovr:' + c.id; // admin-upload vinder ogsaa over TCGdex' eget billede
   if (c.image) return c.image.replace(ASSETS, '');
   if (!c.id) return null;
-  if (imgOverrides.has(c.id)) return 'ovr:' + c.id;
   const pt = ptcgPath(c.id);
   return pt ? 'ptcg:' + pt : null;
 }
@@ -4039,12 +4045,12 @@ function checkHash() {
     jumpSpread(-1);
   };
   if (m) {
-    try { viewBinder = decodeBinder(m[1]); show(); } catch (e) { toast('Invalid share link'); }
+    try { viewBinder = decodeBinder(m[1]); show(); sweepOverrides(); } catch (e) { toast('Invalid share link'); }
     return;
   }
   fetch('/api/tcg/snap/' + ms[1]) // kort link: hent snapshottet
     .then(r => { if (!r.ok) throw new Error('gone'); return r.json(); })
-    .then(d => { viewBinder = fromShare(d); show(); renderBinderSelect(); renderBinder(); })
+    .then(d => { viewBinder = fromShare(d); show(); renderBinderSelect(); renderBinder(); sweepOverrides(); })
     .catch(() => toast('Invalid share link'));
 }
 document.getElementById('importBtn').addEventListener('click', () => {
@@ -5837,6 +5843,7 @@ async function openFriend(token, name) {
     });
     $viewBinderSelect.style.display = viewStore.binders.length > 1 ? '' : 'none';
     viewBinder = viewStore.binders[0];
+    sweepOverrides();
     document.body.classList.add('viewmode');
     document.getElementById('viewTitle').textContent = '👀 ' + j.username + "'s binders";
     currentFriend = { token, name: j.username };
