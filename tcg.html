@@ -4366,7 +4366,8 @@ function getDetail(id, lang) {
           for (const b of priceBlocks(d)) if (b) b.cardmarket = null;
         }
         const needUS = priceSource() === 'hybrid' && d && tpUSD(priceBlocks(d)) == null;
-        if (d && lang === 'en' && (!hasAnyPrice(d) || needUS)) { // TCGdex-prishul (eller manglende US-ben): proev pokemontcg.io
+        const needCM = priceSource() !== 'tcgplayer' && d && cmEUR(d) == null; // TCGdex har kun TCGplayer (np-40): CM-benet mangler
+        if (d && lang === 'en' && (!hasAnyPrice(d) || needUS || needCM)) { // TCGdex-prishul (eller manglende ben): proev pokemontcg.io
           try {
             const pt = ptcgPath(id);
             const pr = await fetch('/api/pxprice/' + encodeURIComponent(pt ? pt.replace('/', '-') : id)); // egen cachede proxy
@@ -4375,7 +4376,7 @@ function getDetail(id, lang) {
               if (gp && !hasAnyPrice(d)) d.pricing = gp;
               else if (gp) {
                 const ours = cmEUR(d), theirs = cmValue(gp.cardmarket);
-                const cm = (ours != null && theirs != null && ours > theirs * 5) ? gp.cardmarket : null; // TCGdex-CM 5x over ptcgio-CM = forkert produkt
+                const cm = (ours == null && theirs != null) || (ours != null && theirs != null && ours > theirs * 5) ? gp.cardmarket : null; // CM mangler, eller TCGdex-CM 5x over ptcgio-CM = forkert produkt
                 d.pricing = { ...(d.pricing || {}), ...(cm ? { cardmarket: cm } : {}), ...(gp.tcgplayer ? { tcgplayer: gp.tcgplayer } : {}) };
                 if (cm) for (const v of d.variants_detailed || []) if (v.pricing) v.pricing.cardmarket = null;
               }
