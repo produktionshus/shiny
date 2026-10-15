@@ -3729,6 +3729,12 @@ function renderPage(grid, pageIdx) {
         im.alt = card.n;
         div.appendChild(im);
         reportMissingImg(card);
+        if (showPricesNow() && store.priceTags && typeof card.mv === 'number') { // eget skoen paa billedloese kort
+          const t = document.createElement('div');
+          t.className = 'ptag';
+          t.textContent = fmtPrice(card.mv);
+          div.appendChild(t);
+        }
       }
       div.title = card.n + (card.o === false ? ' (need)' : '');
       {
