@@ -562,6 +562,10 @@ app.post('/api/img-missing/recheck', async (req, res) => {
       checked++;
       if (fsMod.existsSync(path.join(OVR_DIR, id + '.webp'))) { del.run(id); resolved++; continue; }
       if (id.startsWith('custom-')) continue; // egne kort: kun override kan loese dem
+      try { // pokemontcg.io-fallbacken taeller ogsaa som loest (fx Best of Game)
+        const r = await fetch('https://images.pokemontcg.io/' + ptcgioId(id).replace('-', '/') + '.png', { method: 'HEAD' });
+        if (r.ok) { del.run(id); resolved++; continue; }
+      } catch (e) {}
       for (const lang of ['en', 'ja']) {
         try {
           const r = await fetch('https://api.tcgdex.net/v2/' + lang + '/cards/' + encodeURIComponent(id));
@@ -724,6 +728,7 @@ function saneCM(cm) { // korrupt upstream-data (fx xyp-XY192: low=100000 >> tren
 }
 const PTCG_SET_ALIAS = { // ptcgio's navngivning er inkonsistent — kendte undtagelser mappes eksplicit
   'swsh4.5': 'swsh45', 'swsh4.5sv': 'swsh45sv',
+  'bog': 'bp', // Best of Game: TCGdex har ingen billeder, pokemontcg.io har dem under 'bp'
   'swsh9.5tg': 'swsh9tg', 'swsh10.5tg': 'swsh10tg', 'swsh11.5tg': 'swsh11tg', 'swsh12.5tg': 'swsh12tg',
 };
 function ptcgioId(id) { // tcgdex-id -> pokemontcg.io-id: sm3.5-40 -> sm35-40, swsh12.5gg-GG10 -> swsh12pt5gg-GG10
