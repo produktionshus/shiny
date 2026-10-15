@@ -3108,8 +3108,12 @@ async function refreshStaleImgs() { // kort gemt mens TCGdex manglede billedet (
       if (d && d.image) found.set(id, d.image.replace(ASSETS, ''));
     }
   }));
-  if (!found.size) return;
-  const apply = c => { if (c && found.has(c.id)) c.img = found.get(c.id); };
+  const apply = c => { // TCGdex-sti vinder; ellers genberegnes ptcgio-gaettet (alias-rettelser som bog->bp skal naa gemte kort)
+    if (!c || !c.id || !stale.includes(c.id)) return;
+    if (found.has(c.id)) { c.img = found.get(c.id); return; }
+    const pt = ptcgPath(c.id);
+    if (pt && c.img !== 'ptcg:' + pt) c.img = 'ptcg:' + pt;
+  };
   for (const b of store.binders) for (const pg of b.pages) pg.forEach(apply);
   (store.tray || []).forEach(apply);
   for (const b of (viewStore && viewStore.binders) || []) for (const pg of b.pages) pg.forEach(apply);
