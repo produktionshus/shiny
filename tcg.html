@@ -2760,6 +2760,11 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
     <span id="ppCur">€</span>
     <input id="pdInput" type="date">
     <span id="ppGain"></span>
+    <span id="mvWrap" style="display:none; align-items:center; gap:6px">
+      <span data-l="Value">Value</span>
+      <input id="mvInput" type="number" step="0.01" min="0" placeholder="0.00" title="Your own estimate — used when no market price exists">
+      <span id="mvCur">€</span>
+    </span>
   </div>
   <div id="zoomActions">
     <button class="btn primary" id="zoomPlace" data-l="Add to binder">Add to binder</button>
@@ -2857,6 +2862,7 @@ const STR_DA = {
   'Added ': 'Tilføjede ',
   'Price on cards': 'Pris på kort',
   'Buy': 'Køb',
+  'Value': 'Værdi',
   'in stock': 'på lager',
   'sold out': 'udsolgt',
   '✓ Have': '✓ Har',
@@ -3708,7 +3714,7 @@ function renderPage(grid, pageIdx) {
             div.appendChild(sh);
           }
           if (showPricesNow() && store.priceTags && div.isConnected && !div.querySelector('.ptag')) {
-            const pr = cardPrice(d, card.v);
+            const pr = priceOf(card, d);
             if (pr != null) {
               const t = document.createElement('div');
               t.className = 'ptag';
@@ -4484,6 +4490,11 @@ function cardPriceEx(d, variant) { // { v, src } — src kun sat i hybrid ('CM'/
   return eu != null ? { v: eu, src: null } : null;
 }
 function cardPrice(d, variant) { const r = cardPriceEx(d, variant); return r ? r.v : null; }
+function priceOf(card, d) { // kortets vaerdi: marked foerst, ellers ejerens eget skoen (card.mv, EUR) — egne kort/JP-promoer har intet feed
+  const v = cardPrice(d, card && card.v);
+  if (v != null) return v;
+  return card && typeof card.mv === 'number' ? card.mv : null;
+}
 function histVal(r) { // kurve-snapshot ({eur, usd}) gennem samme hybrid-regel som cardPriceEx
   if (priceSource() !== 'hybrid') return r.eur;
   const usEur = r.usd != null ? r.usd * USD_EUR : null;
@@ -4541,6 +4552,14 @@ async function fillInfo(panelId, card, stillCurrent) {
     lv.appendChild(buyChip('cm', cmUrl(null, card.n), 'Cardmarket'));
     const dkU = dkShopUrl(card.n);
     if (dkU) lv.appendChild(buyChip('dk', dkU, 'Søg hos pokemons.dk'));
+    if (showPricesNow() && typeof card.mv === 'number') { // eget skoen — eneste tal der findes for kortet
+      const prow = document.createElement('div');
+      prow.className = 'zi-row';
+      const pl = document.createElement('span'); pl.className = 'zi-l'; pl.textContent = T('Price');
+      const pv = document.createElement('span'); pv.textContent = fmtMoneyEUR(card.mv) + ' ✎';
+      prow.append(pl, pv);
+      panel.appendChild(prow);
+    }
     lrow.append(ll, lv);
     panel.appendChild(lrow);
     return;
@@ -4588,6 +4607,7 @@ async function fillInfo(panelId, card, stillCurrent) {
         if (eu != null) ptxt += ' · CM: ' + fmtMoneyEUR(eu);
       }
     }
+    if (!px && typeof card.mv === 'number') ptxt = fmtMoneyEUR(card.mv) + ' ✎';
     rows.push(['Price', ptxt]);
   }
   if (card.pp != null) {
@@ -4688,7 +4708,7 @@ document.getElementById('valueBtn').addEventListener('click', async () => {
   }));
   let have = 0, need = 0, unpriced = 0;
   for (const c of cards) {
-    const pr = cardPrice(details.get(c.id), c.v); // pr. instans: samme kort kan ligge som normal og reverse
+    const pr = priceOf(c, details.get(c.id)); // pr. instans: samme kort kan ligge som normal og reverse
     if (pr == null) { unpriced++; continue; }
     if (c.o === false) need += pr; else have += pr;
   }
@@ -4753,6 +4773,14 @@ function openZoom(card, from) {
       ? (store.dispCurrency === 'dkk' ? (card.pp * DKK_RATE).toFixed(2) : card.pp.toFixed(2)) : '';
     document.getElementById('pdInput').value = card.pd || new Date().toISOString().slice(0, 10);
     updateGain();
+    const mvWrap = document.getElementById('mvWrap');
+    mvWrap.style.display = 'none';
+    document.getElementById('mvCur').textContent = store.dispCurrency === 'dkk' ? 'kr' : '€';
+    document.getElementById('mvInput').value = typeof card.mv === 'number'
+      ? (store.dispCurrency === 'dkk' ? (card.mv * DKK_RATE).toFixed(2) : card.mv.toFixed(2)) : '';
+    getDetail(card.id, cardLang(card)).then(d => { // intet markedstal: tilbyd eget skoen
+      if (zoomedCard === card && cardPrice(d, card.v) == null) mvWrap.style.display = 'flex';
+    });
   }
   $overlay.classList.add('open');
   $zoomCard.style.transform = '';
@@ -4805,6 +4833,14 @@ document.getElementById('ppInput').addEventListener('change', () => {
   }
   save();
   updateGain();
+});
+document.getElementById('mvInput').addEventListener('change', () => {
+  if (!purchaseCard) return;
+  const v = parseFloat(document.getElementById('mvInput').value);
+  if (isNaN(v) || v <= 0) delete purchaseCard.mv;
+  else purchaseCard.mv = store.dispCurrency === 'dkk' ? +(v / DKK_RATE).toFixed(4) : v; // kanonisk EUR
+  save(); renderBinder();
+  fillZoomInfo(purchaseCard);
 });
 document.getElementById('pdInput').addEventListener('change', () => {
   if (purchaseCard && purchaseCard.pp != null) {
@@ -5180,7 +5216,7 @@ document.getElementById('valueSort').addEventListener('click', async () => {
     }
   }));
   snapshot();
-  const pv = c => { const v = cardPrice(detailById.get(c.id), c.v); return v == null ? -1 : v; };
+  const pv = c => { const v = priceOf(c, detailById.get(c.id)); return v == null ? -1 : v; };
   cards.sort((x, y) => pv(y) - pv(x));
   const per = slotsOf(b);
   const pages = [];
