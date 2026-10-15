@@ -721,7 +721,7 @@ function cmValue(cm) { // foerste brugbare vaerdi, spike-daempet: lav-volumen pr
   for (const k of ['trend', 'avg30', 'avg', 'trend-holo', 'avg30-holo', 'avg-holo', 'low']) {
     if (typeof cm[k] === 'number' && cm[k] > 0) { v = cm[k]; break; }
   }
-  if (v != null && typeof cm.avg7 === 'number' && cm.avg7 > 0 && v > cm.avg7 * 3) v = cm.avg7;
+  if (v != null && typeof cm.avg7 === 'number' && cm.avg7 > 0 && (v > cm.avg7 * 3 || v < cm.avg7 / 3)) v = cm.avg7; // junk-trend begge veje (nye kort: trend 13, avg7 49)
   return v;
 }
 function saneCM(cm) { // korrupt upstream-data (fx xyp-XY192: low=100000 >> trend) filtreres fra
@@ -796,7 +796,7 @@ async function snapshotPrices() {
               const cmp = p.cardmarket && p.cardmarket.prices;
               if (cmp && typeof cmp.trendPrice === 'number' && cmp.trendPrice > 0) {
                 eur = cmp.trendPrice;
-                if (typeof cmp.avg7 === 'number' && cmp.avg7 > 0 && eur > cmp.avg7 * 3) eur = cmp.avg7;
+                if (typeof cmp.avg7 === 'number' && cmp.avg7 > 0 && (eur > cmp.avg7 * 3 || eur < cmp.avg7 / 3)) eur = cmp.avg7;
               }
               const tpp = p.tcgplayer && p.tcgplayer.prices;
               if (tpp) for (const k of Object.keys(tpp)) {

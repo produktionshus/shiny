@@ -4412,7 +4412,8 @@ function cmValue(cm, variant) { // foerste brugbare vaerdi, spike-daempet: lav-v
   for (const k of keys) {
     if (typeof cm[k] === 'number' && cm[k] > 0) { v = cm[k]; break; }
   }
-  if (v != null && typeof cm.avg7 === 'number' && cm.avg7 > 0 && v > cm.avg7 * 3) v = cm.avg7;
+  // trend ude af trit med ugens salg (over 3x ELLER under 1/3): nye kort faar ofte junk-trend (30th-158: trend 13, avg7 49)
+  if (v != null && typeof cm.avg7 === 'number' && cm.avg7 > 0 && (v > cm.avg7 * 3 || v < cm.avg7 / 3)) v = cm.avg7;
   return v;
 }
 function saneCM(cm) { // korrupt upstream-data (fx xyp-XY192: low=100000 >> trend) filtreres fra
