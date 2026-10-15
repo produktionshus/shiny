@@ -3090,7 +3090,7 @@ async function refreshStaleImgs() { // kort gemt mens TCGdex manglede billedet (
   const stale = [];
   const scan = c => {
     if (!c || !c.id || imgRefreshed.has(c.id)) return;
-    if (c.img && !c.img.startsWith('ptcg:')) return; // rigtig sti eller admin-override: lad vaere
+    if (c.img && !c.img.startsWith('ptcg:') && !/\/swsh(9|10|11|12)\.5tg\//.test(c.img)) return; // rigtig sti eller admin-override: lad vaere (omdoebte TG-stier er doede)
     if (c.custom || c.id.startsWith('custom-')) return;
     imgRefreshed.add(c.id);
     stale.push(c.id);
@@ -4349,11 +4349,17 @@ function ptcgioPricing(p) { // pokemontcg.io-priser omformet til TCGdex-form, sa
   }
   return ((cm && (cm.trend || cm.avg30 || cm.avg || cm.low)) || tp) ? { cardmarket: cm, tcgplayer: tp } : null;
 }
+const TCGDEX_RENAMED = { 'swsh9.5tg': 'swsh9tg', 'swsh10.5tg': 'swsh10tg', 'swsh11.5tg': 'swsh11tg', 'swsh12.5tg': 'swsh12tg' }; // TCGdex omdoebte Trainer Gallery-saettene — gemte kort baerer de gamle id'er
+function canonId(id) {
+  const i = id.lastIndexOf('-');
+  const set = i > 0 ? id.slice(0, i) : id;
+  return TCGDEX_RENAMED[set] ? TCGDEX_RENAMED[set] + id.slice(i) : id;
+}
 function getDetail(id, lang) {
   lang = lang || 'en';
   const key = lang + ':' + id;
   if (!detailCache.has(key)) {
-    detailCache.set(key, fetch(API_ROOT + '/' + lang + '/cards/' + id)
+    detailCache.set(key, fetch(API_ROOT + '/' + lang + '/cards/' + canonId(id))
       .then(r => r.ok ? r.json() : null)
       .then(async d => {
         if (d && CM_JUNK.has(id)) { // TCGdex peger paa forkert CM-produkt: smid deres CM, fallback tager over
@@ -4531,22 +4537,9 @@ async function fillInfo(panelId, card, stillCurrent) {
     ll.className = 'zi-l';
     ll.textContent = T('Buy');
     const lv = document.createElement('span');
-    const a = document.createElement('a');
-    a.href = cmUrl(null, card.n);
-    a.target = '_blank';
-    a.rel = 'noopener';
-    a.textContent = 'CM ↗';
-    a.style.marginRight = '10px';
-    lv.appendChild(a);
+    lv.appendChild(buyChip('cm', cmUrl(null, card.n), 'Cardmarket'));
     const dkU = dkShopUrl(card.n);
-    if (dkU) {
-      const a2 = document.createElement('a');
-      a2.href = dkU;
-      a2.target = '_blank';
-      a2.rel = 'noopener';
-      a2.textContent = '🇩🇰 ↗';
-      lv.appendChild(a2);
-    }
+    if (dkU) lv.appendChild(buyChip('dk', dkU, 'Søg hos pokemons.dk'));
     lrow.append(ll, lv);
     panel.appendChild(lrow);
     return;
