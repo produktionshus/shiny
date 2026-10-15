@@ -549,6 +549,31 @@ app.get('/api/img-missing', (req, res) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'admin_only' });
   res.json({ missing: db.prepare('SELECT card_id, name, count, last FROM img_missing ORDER BY count DESC LIMIT 500').all() });
 });
+// gentjek: rapporter hvis kort TCGdex (en/ja) nu har billede til, eller som har faaet override, slettes
+app.post('/api/img-missing/recheck', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'admin_only' });
+  const rows = db.prepare('SELECT card_id FROM img_missing').all();
+  const del = db.prepare('DELETE FROM img_missing WHERE card_id = ?');
+  let resolved = 0, checked = 0;
+  const queue = rows.map(r => r.card_id);
+  await Promise.all(Array.from({ length: 4 }, async () => {
+    while (queue.length) {
+      const id = queue.shift();
+      checked++;
+      if (fsMod.existsSync(path.join(OVR_DIR, id + '.webp'))) { del.run(id); resolved++; continue; }
+      if (id.startsWith('custom-')) continue; // egne kort: kun override kan loese dem
+      for (const lang of ['en', 'ja']) {
+        try {
+          const r = await fetch('https://api.tcgdex.net/v2/' + lang + '/cards/' + encodeURIComponent(id));
+          if (!r.ok) continue;
+          const d = await r.json();
+          if (d && d.image) { del.run(id); resolved++; break; }
+        } catch (e) { /* netvaerk: lad raekken staa */ }
+      }
+    }
+  }));
+  res.json({ checked, resolved, left: rows.length - resolved });
+});
 
 // scanner-tuning: telefonen sender en debug-frame, vi henter den og analyserer (midlertidigt vaerktoej)
 const SCANDBG_DIR = path.join(path.dirname(DB_PATH), 'scan-debug');

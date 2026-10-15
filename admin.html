@@ -52,7 +52,7 @@
   <button id="manualUp">Upload</button>
 </div>
 
-<h2>Manglende billeder rapporteret af brugere</h2>
+<h2>Manglende billeder rapporteret af brugere <button id="recheck" style="font-size:.8rem;margin-left:8px">🔄 Gentjek mod TCGdex</button></h2>
 <table id="missTable"><thead><tr><th>Kort</th><th>Id</th><th>Antal</th><th>Senest</th><th>Upload</th></tr></thead><tbody></tbody></table>
 
 <h2>Eksisterende overrides</h2>
@@ -74,6 +74,17 @@ async function upload(id, file) {
   else say('Fejl ved ' + id + ': ' + r.status + ' ' + (await r.text()).slice(0, 120), true);
 }
 
+document.getElementById('recheck').addEventListener('click', async () => {
+  const b = document.getElementById('recheck');
+  b.disabled = true; say('Gentjekker mod TCGdex…');
+  try {
+    const r = await fetch('/api/img-missing/recheck', { method: 'POST' });
+    const j = await r.json();
+    say(r.ok ? 'Gentjekket ' + j.checked + ' · ' + j.resolved + ' løst · ' + j.left + ' mangler stadig' : 'Fejl: ' + r.status, !r.ok);
+    load();
+  } catch (e) { say('Gentjek fejlede', true); }
+  b.disabled = false;
+});
 document.getElementById('manualUp').addEventListener('click', () => {
   upload(document.getElementById('manualId').value.trim(), document.getElementById('manualFile').files[0]);
 });
