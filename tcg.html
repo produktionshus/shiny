@@ -3081,6 +3081,39 @@ function sweepOverrides() { // gemte billedloese kort faar override eller ptcgio
   for (const b of (viewStore && viewStore.binders) || []) for (const pg of b.pages) pg.forEach(fix); // vens bindere
   if (viewBinder) for (const pg of viewBinder.pages) pg.forEach(fix); // delelink/snapshot
   if (hit) { renderBinder(); renderTray(); }
+  refreshStaleImgs();
+}
+const imgRefreshed = new Set(); // kort-id'er allerede slaaet op i denne session
+async function refreshStaleImgs() { // kort gemt mens TCGdex manglede billedet (nye saet, fx 30th) baerer et doedt gaet — spoerg TCGdex igen
+  const stale = [];
+  const scan = c => {
+    if (!c || !c.id || imgRefreshed.has(c.id)) return;
+    if (c.img && !c.img.startsWith('ptcg:')) return; // rigtig sti eller admin-override: lad vaere
+    if (c.custom || c.id.startsWith('custom-')) return;
+    imgRefreshed.add(c.id);
+    stale.push(c.id);
+  };
+  for (const b of store.binders) for (const pg of b.pages) pg.forEach(scan);
+  (store.tray || []).forEach(scan);
+  for (const b of (viewStore && viewStore.binders) || []) for (const pg of b.pages) pg.forEach(scan);
+  if (viewBinder) for (const pg of viewBinder.pages) pg.forEach(scan);
+  if (!stale.length) return;
+  const found = new Map();
+  const queue = stale.slice();
+  await Promise.all(Array.from({ length: 4 }, async () => {
+    while (queue.length) {
+      const id = queue.shift();
+      const d = await getDetail(id, 'en').catch(() => null);
+      if (d && d.image) found.set(id, d.image.replace(ASSETS, ''));
+    }
+  }));
+  if (!found.size) return;
+  const apply = c => { if (c && found.has(c.id)) c.img = found.get(c.id); };
+  for (const b of store.binders) for (const pg of b.pages) pg.forEach(apply);
+  (store.tray || []).forEach(apply);
+  for (const b of (viewStore && viewStore.binders) || []) for (const pg of b.pages) pg.forEach(apply);
+  if (viewBinder) for (const pg of viewBinder.pages) pg.forEach(apply);
+  save(); renderBinder(); renderTray();
 }
 fetch('/api/img-overrides').then(r => r.json()).then(j => {
   imgOverrides = new Set(j.ids || []);
