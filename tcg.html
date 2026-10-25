@@ -3818,6 +3818,10 @@ function renderPage(grid, pageIdx) {
       div.appendChild(hint);
     }
     div.dataset.page = pageIdx;
+    if (card && !viewBinder) { // hover + tast H/R/N tagger varianten uden at aabne kortet
+      div.addEventListener('pointerenter', () => { hoverPocket = { page: pageIdx, slot }; });
+      div.addEventListener('pointerleave', () => { if (hoverPocket && hoverPocket.page === pageIdx && hoverPocket.slot === slot) hoverPocket = null; });
+    }
     div.dataset.slot = slot;
     if (!viewBinder) {
       div.addEventListener('click', () => { if (!wasDrag) pocketClick(pageIdx, slot); });
@@ -5563,6 +5567,24 @@ $pileCard.addEventListener('pointerdown', e => {
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
   window.addEventListener('pointercancel', onUp);
+});
+
+// hover-tagging: musen over et kort + H/R/N saetter holo / reverse / normal (igen = tilbage til normal)
+let hoverPocket = null;
+document.addEventListener('keydown', e => {
+  if (!hoverPocket || viewBinder || pile || $overlay.classList.contains('open')) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+  const k = e.key.toLowerCase();
+  if (k !== 'h' && k !== 'r' && k !== 'n') return;
+  const card = binder().pages[hoverPocket.page] && binder().pages[hoverPocket.page][hoverPocket.slot];
+  if (!card) return;
+  const want = k === 'h' ? 'holo' : k === 'r' ? 'reverse' : 'normal';
+  if (want === 'normal' || card.v === want) delete card.v; else card.v = want;
+  e.preventDefault();
+  save(); renderBinder();
+  toast(card.n + ' · ' + (card.v === 'holo' ? 'Holo' : card.v === 'reverse' ? 'Reverse holo' : 'Normal'), true);
 });
 
 // tastatur
