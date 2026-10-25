@@ -4589,7 +4589,7 @@ async function fillInfo(panelId, card, stillCurrent) {
     if (avail.length && inOwnBinder) { // ejeren vaelger hvilken variant der ligger i lommen — styrer pris og shop-link
       const wrap = document.createElement('span');
       wrap.className = 'varchips';
-      const cur = card.v || (avail.includes('normal') ? 'normal' : avail[0]);
+      const cur = card.v || (avail.includes('normal') ? 'normal' : (avail.find(k => d.variants[k]) || avail[0])); // standard = TCGdex' egen variant, aldrig det altid-tilbudte reverse
       for (const k of avail) {
         const b = document.createElement('button');
         b.type = 'button';
