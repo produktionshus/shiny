@@ -1956,6 +1956,13 @@ body.viewmode .viewbar { display: flex; }
   opacity: .45;
 }
 body.presenting #legal, body.viewmode #legal { display: none; }
+.vtag { /* variant-maerke lige over pristag: H = holo, spejlvendt R = reverse holo */
+  position: absolute; bottom: 30px; left: 4px; z-index: 4; pointer-events: none;
+  font: 800 .72rem 'Fredoka', sans-serif; line-height: 1; color: #1a1a1a;
+  background: #ffd76a; padding: 3px 5px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.5);
+}
+.vtag.reverse { transform: scaleX(-1); background: #9fd3ff; }
+.pocket:not(:has(.ptag)) .vtag { bottom: 4px; }
 .ptag { /* nederste venstre — de tre andre hjoerner har ptool-knapper */
   position: absolute; bottom: 4px; left: 4px; z-index: 4; pointer-events: none;
   font: 600 .85rem 'Fredoka', sans-serif; color: #ffd76a;
@@ -3714,6 +3721,16 @@ function renderPage(grid, pageIdx) {
             const sh = document.createElement('div');
             sh.className = 'holo-sheen';
             div.appendChild(sh);
+          }
+          if (div.isConnected && !viewBinder && !div.querySelector('.vtag')) { // H / spejlvendt R: holo / reverse — normal faar intet maerke
+            const ev = card.v || (d.variants && !d.variants.normal && d.variants.holo ? 'holo' : 'normal');
+            if (ev === 'holo' || ev === 'reverse') {
+              const vt = document.createElement('div');
+              vt.className = 'vtag ' + ev;
+              vt.textContent = ev === 'holo' ? 'H' : 'R';
+              vt.title = ev === 'holo' ? 'Holo' : 'Reverse holo';
+              div.appendChild(vt);
+            }
           }
           if (showPricesNow() && store.priceTags && div.isConnected && !div.querySelector('.ptag')) {
             const pr = priceOf(card, d);
