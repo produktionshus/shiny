@@ -2598,10 +2598,11 @@ body.packmode .binder-switch { position: fixed; top: calc(12px + env(safe-area-i
   <div id="pileBtns">
     <button class="navbtn" id="pilePrev" title="Previous (←)">◀</button>
     <button class="btn primary" id="pileAdd" title="Add to binder (↑)" data-l="▲ Add to binder">▲ Add to binder</button>
+    <button class="btn" id="pileTray" title="Add to tray (↓)" data-l="▼ Tray">▼ Tray</button>
     <button class="navbtn" id="pileNext" title="Next (→)">▶</button>
   </div>
   <div id="pileStrip"></div>
-  <div id="pileHint" data-l="Swipe ←/→ to browse · swipe ↑ to add to the first empty pocket · Esc closes">Swipe ←/→ to browse · swipe ↑ to add to the first empty pocket · Esc closes</div>
+  <div id="pileHint" data-l="Swipe ←/→ to browse · ↑ adds to the first empty pocket · ↓ parks in the tray · Esc closes">Swipe ←/→ to browse · ↑ adds to the first empty pocket · ↓ parks in the tray · Esc closes</div>
   <div id="pileToast"></div>
 </div>
 
@@ -2815,8 +2816,9 @@ const STR_DA = {
   '🔍 Drop the card here to take a closer look': '🔍 Slip kortet her for at se det tæt på',
   'Click to open': 'Klik for at åbne',
   '▲ Add to binder': '▲ Læg i binder',
-  'Swipe ←/→ to browse · swipe ↑ to add to the first empty pocket · Esc closes':
-    'Swipe ←/→ for at bladre · swipe ↑ for at lægge i første ledige lomme · Esc lukker',
+  'Swipe ←/→ to browse · ↑ adds to the first empty pocket · ↓ parks in the tray · Esc closes':
+    'Swipe ←/→ for at bladre · ↑ lægger i første ledige lomme · ↓ parkerer i bakken · Esc lukker',
+  '▼ Tray': '▼ Bakke',
   'Search order': 'Søge-rækkefølge',
   'Set & number': 'Sæt & nummer',
   'Add to binder': 'Læg i binder',
@@ -5498,6 +5500,18 @@ function pileAddCard() {
     renderPile();
   });
 }
+function pileTrayCard() { // ↓: parkér i bakken i stedet for binderen
+  const c = pile.cards[pile.i];
+  if (!store.tray) store.tray = [];
+  store.tray.push({ ...c, o: placeMode === 'owned' });
+  snick();
+  save(); renderTray();
+  pileToast(c.n + ' → ' + T('🧺 Tray') + ' ✔');
+  flyOut(0, 150, -3, () => {
+    if (pile.i < pile.cards.length - 1) pile.i++;
+    renderPile();
+  });
+}
 function springBack() {
   $pileCard.className = 'anim';
   $pileCard.style.transform = '';
@@ -5506,6 +5520,7 @@ function springBack() {
 document.getElementById('pileNext').addEventListener('click', pileNext);
 document.getElementById('pilePrev').addEventListener('click', pilePrev);
 document.getElementById('pileAdd').addEventListener('click', pileAddCard);
+document.getElementById('pileTray').addEventListener('click', pileTrayCard);
 
 // swipe paa kortet
 $pileCard.addEventListener('pointerdown', e => {
@@ -5523,6 +5538,7 @@ $pileCard.addEventListener('pointerdown', e => {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     if (dy < -90 && Math.abs(dx) < 120) pileAddCard();
+    else if (dy > 90 && Math.abs(dx) < 120) pileTrayCard();
     else if (dx < -90) pileNext();
     else if (dx > 90) pilePrev();
     else springBack();
@@ -5538,6 +5554,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight') { e.preventDefault(); pileNext(); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); pilePrev(); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); pileAddCard(); }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); pileTrayCard(); }
   else if (e.key === 'Escape') closePile();
 });
 
