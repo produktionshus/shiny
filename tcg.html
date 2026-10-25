@@ -1956,13 +1956,19 @@ body.viewmode .viewbar { display: flex; }
   opacity: .45;
 }
 body.presenting #legal, body.viewmode #legal { display: none; }
-.vtag { /* variant-maerke lige over pristag: H = holo, spejlvendt R = reverse holo */
-  position: absolute; bottom: 30px; left: 4px; z-index: 4; pointer-events: none;
-  font: 800 .72rem 'Fredoka', sans-serif; line-height: 1; color: #1a1a1a;
+.vtags { /* variant-maerker lige over pristag: H = holo, spejlvendt R = reverse holo */
+  position: absolute; bottom: 30px; left: 4px; z-index: 5; display: flex; gap: 3px;
+}
+.pocket:not(:has(.ptag)) .vtags { bottom: 4px; }
+.vtag {
+  font: 800 .72rem 'Fredoka', sans-serif; line-height: 1; color: #1a1a1a; border: 0; cursor: pointer;
   background: #ffd76a; padding: 3px 5px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.5);
+  opacity: 0; transition: opacity .15s; /* inaktive: usynlige indtil hover */
 }
 .vtag.reverse { transform: scaleX(-1); background: #9fd3ff; }
-.pocket:not(:has(.ptag)) .vtag { bottom: 4px; }
+.vtag.on { opacity: 1; }
+.pocket:hover .vtag:not(.on) { opacity: .4; }
+.pocket:hover .vtag:not(.on):hover { opacity: .85; }
 .ptag { /* nederste venstre — de tre andre hjoerner har ptool-knapper */
   position: absolute; bottom: 4px; left: 4px; z-index: 4; pointer-events: none;
   font: 600 .85rem 'Fredoka', sans-serif; color: #ffd76a;
@@ -3722,15 +3728,25 @@ function renderPage(grid, pageIdx) {
             sh.className = 'holo-sheen';
             div.appendChild(sh);
           }
-          if (div.isConnected && !viewBinder && !div.querySelector('.vtag')) { // H / spejlvendt R: holo / reverse — normal faar intet maerke
+          if (div.isConnected && !viewBinder && !div.querySelector('.vtags')) { // H / spejlvendt R: aktiv = fuld farve, inaktive toner frem ved hover og kan klikkes
             const ev = card.v || (d.variants && !d.variants.normal && d.variants.holo ? 'holo' : 'normal');
-            if (ev === 'holo' || ev === 'reverse') {
-              const vt = document.createElement('div');
-              vt.className = 'vtag ' + ev;
-              vt.textContent = ev === 'holo' ? 'H' : 'R';
-              vt.title = ev === 'holo' ? 'Holo' : 'Reverse holo';
-              div.appendChild(vt);
+            const wrap = document.createElement('div');
+            wrap.className = 'vtags';
+            for (const [k, txt, title] of [['holo', 'H', 'Holo'], ['reverse', 'R', 'Reverse holo']]) {
+              const b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'vtag ' + k + (ev === k ? ' on' : '');
+              b.textContent = txt;
+              b.title = title + (ev === k ? ' — click to clear' : ' — click to tag');
+              b.addEventListener('click', e => {
+                e.stopPropagation();
+                if (card.v === k) delete card.v; else card.v = k;
+                save(); renderBinder();
+              });
+              b.addEventListener('pointerdown', e => e.stopPropagation()); // ikke start drag/pick
+              wrap.appendChild(b);
             }
+            div.appendChild(wrap);
           }
           if (showPricesNow() && store.priceTags && div.isConnected && !div.querySelector('.ptag')) {
             const pr = priceOf(card, d);
